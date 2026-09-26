@@ -1,0 +1,192 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import { loadCore, html } from './lib/core.mjs';
+
+const CS = loadCore();
+
+// w*h RGBA filled by fn(x, y) -> [r, g, b]
+function img(w, h, fn) {
+  const d = new Uint8ClampedArray(w * h * 4);
+  for (let y = 0; y < h; y++) for (let x = 0; x < w; x++) {
+    const [r, g, b] = fn(x, y), p = (y * w + x) * 4;
+    d[p] = r; d[p + 1] = g; d[p + 2] = b; d[p + 3] = 255;
+  }
+  return d;
+}
+const measure = (w, h, fn) => CS.measurePixels(img(w, h, fn), w, h);
+const close = (a, b, eps, msg) => assert.ok(Math.abs(a - b) <= eps, `${msg ?? ''} ${a} !≈ ${b}`);
+
+test('rules: max 20 slides', () => {
+  assert.equal(CS.MAX_SLIDES, 20);
+});
+
+test('saturation is the per-pixel HSV median', () => {
+  const grey = measure(40, 40, () => [128, 128, 128]);
+  assert.equal(grey.sat, 0);
+  // 60% of pixels at S=0.5 (200,100,100), 40% at S=0 -> median 0.5
+  const m = measure(50, 10, (x) => (x < 30 ? [200, 100, 100] : [90, 90, 90]));
+  close(m.sat, 0.5, 0.001);
+});
+
+test('highlight clip and crushed shadows are pixel percentages', () => {
+  const m = measure(100, 10, (x) => (x < 7 ? [255, 255, 255] : x < 10 ? [2, 3, 1] : [120, 120, 120]));
+  close(m.clipPct, 7, 1e-9);
+  close(m.crushPct, 3, 1e-9);
+  // one clipped channel counts as clipped (blown sky often clips blue alone)
+  close(measure(10, 10, () => [180, 220, 252]).clipPct, 100, 1e-9);
+});
+
+test('luminance spread is p95 - p5 of Rec.709 luma', () => {
+  const m = measure(256, 1, (x) => [x, x, x]);
+  close(m.lumSpread, 0.9, 0.01);
+  close(m.lumMedian, 0.5, 0.01);
+});
+
+test('tint and red-blue balance come from near-neutral pixels', () => {
+  const magenta = measure(20, 20, () => [140, 124, 140]);
+  assert.equal(magenta.castSource, 'neutral');
+  close(magenta.tint, -16 / 255, 1e-6);
+  close(magenta.rb, 0, 1e-9);
+  const warm = measure(20, 20, () => [150, 140, 125]);
+  close(warm.rb, 25 / 255, 1e-6);
+  // a saturated red subject does not register as a cast when neutrals exist
+  const redSubject = measure(20, 20, (x) => (x < 10 ? [220, 30, 30] : [128, 128, 128]));
+  close(redSubject.tint, 0, 1e-9);
+  close(redSubject.rb, 0, 1e-9);
+  // no neutrals at all -> falls back to all unclipped pixels
+  assert.equal(measure(10, 10, () => [200, 40, 40]).castSource, 'all');
+});
+
+test('dominant hue', () => {
+  const blue = measure(10, 10, () => [30, 60, 200]);
+  close(blue.hueDeg, 229.4, 1);
+  assert.ok(blue.hueStrength > 0.99);
+  assert.equal(measure(10, 10, () => [100, 100, 100]).hueDeg, null);
+  assert.equal(CS.hueDistance(350, 10), 20);
+});
+
+test('baseline is the per-metric median, flags judge one frame against it', () => {
+  const set = [0.26, 0.27, 0.273, 0.28, 0.30].map((sat, i) => ({
+    sat, lumSpread: 0.7, clipPct: [1.5, 2, 2.2, 1.8, 7][i], crushPct: 0.5, rb: 0.01, tint: 0
+  }));
+  const b = CS.baseline(set);
+  assert.equal(b.n, 5);
+  close(b.sat, 0.273, 1e-12);
+  close(b.clipPct, 2, 1e-12);
+  const clipped = CS.frameFlags(set[4], b);
+  assert.deepEqual(clipped.map((f) => f.key), ['clipPct']);
+  assert.equal(clipped[0].text, 'highlight clipping');
+  // 3% vs 2% is within tolerance
+  assert.deepEqual(CS.frameFlags({ ...set[0], clipPct: 3 }, b), []);
+  const mag = CS.frameFlags({ ...set[1], tint: -0.03 }, b);
+  assert.deepEqual(mag.map((f) => f.text), ['magenta-shifted']);
+  assert.deepEqual(CS.frameFlags({ ...set[1], tint: 0.03 }, b).map((f) => f.text), ['green-shifted']);
+  assert.deepEqual(CS.frameFlags({ ...set[1], sat: 0.34 }, b).map((f) => f.text), ['more saturated']);
+});
+
+test('near-duplicate grouping survives a tonal edit but not a different frame', () => {
+  const scene = (x, y) => { const v = Math.round(255 * ((Math.sin(x / 7) + Math.cos(y / 5)) / 4 + 0.5)); return [v, v, v]; };
+  const a = CS.dhash(img(90, 80, scene), 90, 80);
+  const brighter = CS.dhash(img(90, 80, (x, y) => scene(x, y).map((v) => Math.min(255, v * 1.15 + 10))), 90, 80);
+  const other = CS.dhash(img(90, 80, (x, y) => { const v = Math.round(255 * ((Math.cos(x / 11 + 1) * Math.sin(y / 3)) / 2 + 0.5)); return [v, v, v]; }), 90, 80);
+  assert.ok(CS.hamming(a, brighter) <= CS.DUP_MAX_DIST, 'tonal variant should group');
+  assert.ok(CS.hamming(a, other) > CS.DUP_MAX_DIST, 'different frame should not group');
+  const g = CS.groupDuplicates([
+    { id: 'a', metrics: { dhash: a } }, { id: 'b', metrics: { dhash: brighter } }, { id: 'c', metrics: { dhash: other } }
+  ]);
+  assert.equal(g.groupOf.a, 'A');
+  assert.equal(g.groupOf.b, 'A');
+  assert.equal(g.groupOf.c, undefined);
+});
+
+test('seams: tonal jump, hue shift, device change', () => {
+  const cam = { key: 'fujifilm|x-t5', label: 'X-T5', phone: false };
+  const phone = { key: 'apple|iphone 15 pro', label: 'iPhone 15 Pro', phone: true };
+  const a = { metrics: { lumMedian: 0.3, hueDeg: 30, hueStrength: 0.5 }, device: cam };
+  const b = { metrics: { lumMedian: 0.5, hueDeg: 200, hueStrength: 0.5 }, device: phone };
+  const s = CS.seam(a, b);
+  close(s.tonal, 0.2, 1e-12);
+  assert.equal(s.hue, 170);
+  assert.deepEqual(s.flags, ['tonal', 'hue', 'device']);
+  assert.ok(s.phoneCamera);
+  const weak = CS.seam(a, { metrics: { lumMedian: 0.32, hueDeg: 200, hueStrength: 0.05 }, device: cam });
+  assert.equal(weak.hue, null);
+  assert.deepEqual(weak.flags, []);
+});
+
+test('sequence warnings state facts about the arrangement', () => {
+  const cam = { key: 'cam', phone: false }, phone = { key: 'phone', phone: true };
+  const s = (scale, presence, extra = {}) => ({ scale, presence, device: cam, ...extra });
+  const w = CS.sequenceWarnings([
+    s('close', 'out', { dup: 'A' }), s('face', 'shown'), s('close', 'out', { dup: 'A' }),
+    s('wide', 'out'), s('wide', 'out'), s('wide', 'out', { device: phone }),
+    s('texture', 'hidden'), s('close', 'shown'), s('face', 'shown'), s('close', 'out')
+  ]).map((x) => x.text);
+  assert.ok(w.includes('three wides in a row (slides 4–6)'), w.join('\n'));
+  assert.ok(w.includes('near-duplicates (group A) both in slides 1–3: 1 and 3'), w.join('\n'));
+  assert.ok(w.includes('phone frame next to camera frame at slides 5–6'), w.join('\n'));
+  assert.ok(w.includes('phone frame next to camera frame at slides 6–7'), w.join('\n'));
+  assert.ok(w.includes('you are in three slides in a row (slides 7–9)'), w.join('\n'));
+  assert.ok(w.some((t) => /^three of your four in-frame slides fall within slides 7–9$/.test(t)), w.join('\n'));
+  // nothing proposes an order or a cut
+  assert.ok(w.every((t) => !/\b(move|swap|cut|remove|drop|try|should|consider)\b/i.test(t)), w.join('\n'));
+  assert.deepEqual(CS.sequenceWarnings([s(null, null)]).map((x) => x.kind), ['untagged']);
+});
+
+test('EXIF: read make/model/capture time, write capture time only', () => {
+  const app1 = CS.buildDateApp1(Date.UTC(2026, 8, 12, 17, 4, 5));
+  const jpeg = new Uint8Array([0xFF, 0xD8, ...app1, 0xFF, 0xD9]);
+  const ex = CS.parseExif(jpeg.buffer);
+  assert.equal(ex.dateTimeOriginal, '2026:09:12 17:04:05');
+  assert.equal(ex.dateTime, '2026:09:12 17:04:05');
+  assert.equal(ex.make, undefined);
+  assert.equal(CS.captureTime(ex, 0).ms, Date.UTC(2026, 8, 12, 17, 4, 5));
+  assert.equal(CS.captureTime({}, 1234).source, 'file');
+  // inserted after JFIF APP0
+  const jfif = new Uint8Array([0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x04, 0x4A, 0x46, 0xFF, 0xD9]);
+  assert.deepEqual(CS.metadataSegments(jfif), []);
+  const withDates = CS.insertApp1(jfif, app1);
+  assert.deepEqual([...withDates.slice(0, 8)], [0xFF, 0xD8, 0xFF, 0xE0, 0x00, 0x04, 0x4A, 0x46]);
+  assert.equal(withDates[8], 0xFF); assert.equal(withDates[9], 0xE1);
+  assert.deepEqual(CS.metadataSegments(withDates), ['APP1']);
+  assert.equal(CS.parseExif(withDates.buffer).dateTimeOriginal, '2026:09:12 17:04:05');
+  assert.equal(CS.exifTimeMs('2026:09:12 17:04:05', '25'), Date.UTC(2026, 8, 12, 17, 4, 5) + 250);
+});
+
+test('default order is capture time, filename breaks ties', () => {
+  const f = (name, ms) => ({ name, capture: { ms } });
+  const order = CS.captureOrder([f('c.jpg', 20), f('b.jpg', 10), f('a.jpg', 20)]).map((x) => x.name);
+  assert.deepEqual(order, ['b.jpg', 'a.jpg', 'c.jpg']);
+});
+
+test('device badge and phone detection', () => {
+  assert.deepEqual(CS.device({ make: 'Apple', model: 'iPhone 15 Pro' }), { key: 'apple|iphone 15 pro', label: 'iPhone 15 Pro', phone: true });
+  const fuji = CS.device({ make: 'FUJIFILM', model: 'X-T5' });
+  assert.equal(fuji.phone, false); assert.equal(fuji.label, 'FUJIFILM X-T5');
+  assert.equal(CS.device({ make: 'Canon', model: 'Canon EOS R6' }).label, 'Canon EOS R6');
+  assert.equal(CS.device({ make: 'Google', model: 'Pixel 8' }).phone, true);
+  assert.equal(CS.device({}).key, '');
+});
+
+test('crop geometry', () => {
+  // 3:2 landscape into 4:5: full height, centred
+  const r = CS.cropRect(6000, 4000, 0.8, { x: 0.5, y: 0.5, zoom: 1 });
+  assert.deepEqual(r, { x: 1400, y: 0, w: 3200, h: 4000 });
+  assert.equal(CS.cropRect(6000, 4000, 0.8, { x: 0, y: 0.5, zoom: 1 }).x, 0);
+  const z = CS.cropRect(6000, 4000, 0.8, { x: 0.5, y: 0.5, zoom: 2 });
+  assert.deepEqual([z.w, z.h, z.x, z.y], [1600, 2000, 2200, 1000]);
+  // 3:4 grid inside a 4:5 post keeps full height, 15/16 width
+  const g = CS.gridRect(0.8, 0.75);
+  close(g.w, 0.9375, 1e-12); assert.equal(g.h, 1);
+  const sq = CS.gridRect(0.8, 1);
+  assert.equal(sq.w, 1); close(sq.h, 0.8, 1e-12);
+  assert.deepEqual(CS.ASPECTS['4:5'], { w: 1080, h: 1350 });
+});
+
+test('page ships as one self-contained file with no network access', () => {
+  assert.doesNotMatch(html, /\b(src|href)\s*=\s*["']?(https?:)?\/\//i);
+  assert.doesNotMatch(html, /url\(\s*["']?(https?:)?\/\//i);
+  assert.doesNotMatch(html, /@import/);
+  assert.doesNotMatch(html, /\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource/);
+  assert.match(html, /Content-Security-Policy" content="default-src 'none'/);
+});
