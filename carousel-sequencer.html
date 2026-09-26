@@ -2,158 +2,194 @@
 <html lang="en">
 <head>
 <meta charset="utf-8">
-<meta name="viewport" content="width=device-width, initial-scale=1">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Carousel Sequencer</title>
-<!-- Local tool. Nothing here loads from or sends to the network; images stay on this machine. -->
-<meta http-equiv="Content-Security-Policy" content="default-src 'none'; script-src 'unsafe-inline' blob:; worker-src blob:; style-src 'unsafe-inline'; img-src blob: data:; connect-src blob:">
+<!-- Local tool: photos are decoded and measured on this device; nothing is uploaded. -->
 <style>
+  /* Neutral greys with no hue bias, on purpose: the UI must not tint how the photos read. */
   :root {
-    /* neutral greys only: the UI must not tint how the photos read */
-    --bg: #1d1d1d; --panel: #252525; --panel2: #2c2c2c; --line: #3b3b3b;
-    --text: #e4e4e4; --muted: #9b9b9b; --faint: #6d6d6d;
-    --flag: #e2a33d; --bad: #e0685a; --sel: #f2f2f2;
+    --bg: #e6e6e6; --panel: #f3f3f3; --panel2: #ffffff; --line: #c9c9c9; --well: #d4d4d4;
+    --text: #1b1b1b; --muted: #555555; --faint: #7d7d7d;
+    --flag: #8f5200; --bad: #b3261e; --sel: #111111; --on: #1b1b1b; --onText: #ffffff;
+    --presShown: #4a4a4a; --presHidden: #9a9a9a; --toast: #1b1b1b; --toastText: #f2f2f2;
     --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
+    --top: env(safe-area-inset-top, 0px);
+    color-scheme: light;
+  }
+  @media (prefers-color-scheme: dark) {
+    :root:not([data-theme="light"]) {
+      --bg: #1d1d1d; --panel: #252525; --panel2: #2c2c2c; --line: #3b3b3b; --well: #151515;
+      --text: #e4e4e4; --muted: #9b9b9b; --faint: #6f6f6f;
+      --flag: #e2a33d; --bad: #e0685a; --sel: #f2f2f2; --on: #e4e4e4; --onText: #111111;
+      --presShown: #6a6a6a; --presHidden: #3e3e3e; --toast: #0f0f0f; --toastText: #eeeeee;
+      color-scheme: dark;
+    }
+  }
+  :root[data-theme="dark"] {
+    --bg: #1d1d1d; --panel: #252525; --panel2: #2c2c2c; --line: #3b3b3b; --well: #151515;
+    --text: #e4e4e4; --muted: #9b9b9b; --faint: #6f6f6f;
+    --flag: #e2a33d; --bad: #e0685a; --sel: #f2f2f2; --on: #e4e4e4; --onText: #111111;
+    --presShown: #6a6a6a; --presHidden: #3e3e3e; --toast: #0f0f0f; --toastText: #eeeeee;
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
   html, body { margin: 0; background: var(--bg); color: var(--text);
-    font: 13px/1.4 system-ui, -apple-system, "Segoe UI", sans-serif; }
+    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-text-size-adjust: 100%; }
+  body { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
   button, select, input { font: inherit; color: inherit; }
-  button { background: var(--panel2); border: 1px solid var(--line); border-radius: 5px; padding: 5px 10px; cursor: pointer; }
+  button { -webkit-tap-highlight-color: transparent; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 11px; cursor: pointer; min-height: 34px; }
   button:hover:not(:disabled) { border-color: var(--muted); }
-  button:disabled { opacity: .45; cursor: default; }
-  select { background: var(--panel2); border: 1px solid var(--line); border-radius: 5px; padding: 4px 6px; }
+  button:focus-visible, select:focus-visible, .slot:focus-visible, .card:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
+  button:disabled { opacity: .4; cursor: default; }
+  button[aria-pressed="true"] { background: var(--on); color: var(--onText); border-color: var(--on); }
+  button.primary { background: var(--on); color: var(--onText); border-color: var(--on); }
+  select { background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; min-height: 34px; }
   .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
   .muted { color: var(--muted); } .faint { color: var(--faint); }
   .flag { color: var(--flag); } .bad { color: var(--bad); }
+  .filebtn { position: relative; overflow: hidden; display: inline-flex; align-items: center; }
+  .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 100px; }
 
-  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 16px;
-    border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: 0; z-index: 5; }
-  header h1 { font-size: 14px; margin: 0 8px 0 0; font-weight: 600; letter-spacing: .02em; }
+  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 16px;
+    border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: var(--top); z-index: 5; }
+  header h1 { font-size: 15px; margin: 0 6px 0 0; font-weight: 650; letter-spacing: .01em; }
   header .spacer { flex: 1; }
-  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; color: var(--muted); white-space: nowrap; }
-  .progress { width: 120px; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; color: var(--muted); font-size: 12px; }
+  .progress { width: 100px; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
   .progress > i { display: block; height: 100%; width: 0; background: var(--muted); transition: width .2s; }
-
-  #empty { max-width: 640px; margin: 64px auto; padding: 0 16px; color: var(--muted); }
-  #empty h2 { color: var(--text); font-size: 18px; font-weight: 600; }
-  #empty ol { padding-left: 18px; } #empty li { margin: 6px 0; }
+  .notice { margin: 10px 16px 0; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); }
 
   /* ---------- strip ---------- */
   #stripWrap { padding: 12px 16px 8px; border-bottom: 1px solid var(--line); }
-  #strip { display: flex; overflow-x: auto; padding-bottom: 8px; }
-  .col { flex: 0 0 104px; display: flex; flex-direction: column; gap: 4px; }
+  #strip { display: flex; overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
+  .col { flex: 0 0 96px; display: flex; flex-direction: column; gap: 4px; }
   .zone { height: 18px; font-size: 11px; color: var(--muted); border-top: 2px solid var(--line); padding-top: 2px; white-space: nowrap; }
-  .zone.open { border-top-color: #bdbdbd; } .zone.end { border-top-color: #8a8a8a; } .zone.empty { border-top-style: dashed; }
-  .slot { position: relative; height: 104px; background: #161616; border: 1px dashed var(--line); border-radius: 4px; overflow: hidden; }
-  .slot.filled { border-style: solid; cursor: grab; }
+  .zone.open { border-top-color: var(--muted); } .zone.end { border-top-color: var(--faint); } .zone.empty { border-top-style: dashed; }
+  .slot { position: relative; height: 96px; background: var(--well); border: 1px dashed var(--line); border-radius: 4px; overflow: hidden; cursor: pointer; }
+  .slot.filled { border-style: solid; }
   .slot img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
-  .slot .n { position: absolute; left: 4px; top: 2px; font: 11px var(--mono); text-shadow: 0 0 3px #000, 0 0 3px #000; }
+  .slot .n { position: absolute; left: 4px; top: 2px; font: 11px var(--mono); color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; }
   .slot.empty .n { color: var(--faint); text-shadow: none; }
   .slot .badges { position: absolute; left: 3px; right: 3px; bottom: 3px; display: flex; gap: 3px; flex-wrap: wrap; }
   .b { font-size: 10px; line-height: 14px; padding: 0 4px; border-radius: 3px; background: rgba(0,0,0,.72); color: #ddd; white-space: nowrap; }
-  .b.dup { background: #4a4a4a; color: #fff; font-weight: 600; }
-  .b.flagged { color: var(--flag); } .b.isPhone { color: #fff; }
+  .b.dup { font-weight: 700; color: #fff; }
+  .b.flagged { color: #f0b04a; } .b.isPhone { color: #fff; }
   .b.isPhone::before { content: 'PHONE'; font-size: 8px; font-weight: 700; letter-spacing: .04em; margin-right: 4px; opacity: .75; }
+  .b.isRaw::before { content: 'RAW'; font-size: 8px; font-weight: 700; letter-spacing: .04em; margin-right: 4px; opacity: .75; }
   .sel { outline: 2px solid var(--sel); outline-offset: 1px; }
-  .hl { box-shadow: 0 0 0 2px var(--flag); }
+  .hl { box-shadow: 0 0 0 3px var(--flag); }
   .dropTarget { border-color: var(--sel) !important; border-style: solid !important; }
   .trk { height: 18px; text-align: center; font: 12px var(--mono); color: var(--muted); border-radius: 3px; background: var(--panel); }
   .trk.none { color: var(--faint); }
-  .trk.pres-shown { background: #5a5a5a; color: #fff; } .trk.pres-hidden { background: #3e3e3e; color: #ddd; }
-  .seam { flex: 0 0 34px; display: flex; flex-direction: column; justify-content: center; align-items: center;
-    padding-top: 22px; height: 126px; font: 10px/1.35 var(--mono); color: var(--faint); text-align: center; }
-  .seam .on { color: var(--flag); }
-  .trackLabels { flex: 0 0 64px; display: flex; flex-direction: column; gap: 4px; color: var(--faint); font-size: 11px; }
-  .trackLabels div { height: 18px; line-height: 18px; } .trackLabels .sp { height: 104px; }
+  .trk.pres-shown { background: var(--presShown); color: #fff; } .trk.pres-hidden { background: var(--presHidden); color: #fff; }
+  .seam { flex: 0 0 32px; display: flex; flex-direction: column; justify-content: center; align-items: center;
+    padding-top: 22px; height: 118px; font: 10px/1.35 var(--mono); color: var(--faint); text-align: center; }
+  .seam .on { color: var(--flag); font-weight: 600; }
+  .trackLabels { flex: 0 0 40px; display: flex; flex-direction: column; gap: 4px; color: var(--faint); font-size: 11px; }
+  .trackLabels div { height: 18px; line-height: 18px; } .trackLabels .sp { height: 96px; }
   #warnings { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-  #warnings li { border: 1px solid var(--line); border-radius: 4px; padding: 2px 8px; color: var(--flag); cursor: default; }
-  #warnings li.info { color: var(--muted); }
+  #warnings li { border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; color: var(--flag); cursor: pointer; background: var(--panel); }
+  #warnings li.info { color: var(--muted); cursor: default; }
 
   /* ---------- pool + inspector ---------- */
-  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; gap: 0; min-height: 60vh; }
-  #pool { padding: 12px 16px; border-right: 1px solid var(--line); }
-  #pool h2, #inspector h2 { font-size: 12px; font-weight: 600; color: var(--muted); margin: 0 0 10px; text-transform: uppercase; letter-spacing: .06em; }
+  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: 50vh; }
+  #pool { padding: 12px 16px; border-right: 1px solid var(--line); min-width: 0; }
+  #pool h2, #inspector h2 { font-size: 12px; font-weight: 650; color: var(--muted); margin: 0 0 10px; text-transform: uppercase; letter-spacing: .06em; }
   #poolGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 5px; overflow: hidden; cursor: pointer; }
-  .card .ph { position: relative; height: 130px; background: #161616; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; cursor: pointer; min-width: 0; }
+  .card .ph { position: relative; height: 130px; background: var(--well); }
   .card .ph img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
   .card .ph .pos { position: absolute; right: 4px; top: 4px; }
-  .card .meta { padding: 5px 7px 7px; }
+  .card .meta { padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 3px; }
   .card .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card .row { display: flex; gap: 4px; flex-wrap: wrap; margin-top: 3px; }
-  .card .b { background: var(--panel2); }
-  .card.inStrip { opacity: .5; }
-  .card .flags { margin-top: 3px; font-size: 11px; color: var(--flag); }
-  .pending { color: var(--faint); font-size: 11px; }
-  #inspector { padding: 12px 16px; position: sticky; top: 50px; align-self: start; max-height: calc(100vh - 50px); overflow: auto; }
-  #inspector .big { width: 100%; height: 220px; object-fit: contain; background: #161616; border-radius: 4px; display: block; }
+  .card .row { display: flex; gap: 4px; flex-wrap: wrap; }
+  .card .row .b { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
+  .card.inStrip { opacity: .55; }
+  .card .flags { font-size: 12px; color: var(--flag); }
+  .pending { color: var(--faint); font-size: 12px; }
+  #inspector { padding: 12px 16px; position: sticky; top: calc(var(--top) + 56px); align-self: start; max-height: calc(100vh - 56px); overflow: auto; }
+  #inspector .big { width: 100%; height: 220px; object-fit: contain; background: var(--well); border-radius: 4px; display: block; }
   #inspector table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  #inspector th, #inspector td { text-align: right; padding: 3px 4px; border-bottom: 1px solid var(--line); font-weight: normal; }
+  #inspector th, #inspector td { text-align: right; padding: 4px; border-bottom: 1px solid var(--line); font-weight: normal; }
   #inspector th:first-child, #inspector td:first-child { text-align: left; }
   #inspector th { color: var(--faint); font-size: 11px; }
-  #inspector dl { display: grid; grid-template-columns: 90px 1fr; gap: 3px 8px; margin: 10px 0 0; }
+  #inspector dl { display: grid; grid-template-columns: 84px 1fr; gap: 3px 8px; margin: 10px 0 0; }
   #inspector dt { color: var(--faint); } #inspector dd { margin: 0; overflow-wrap: anywhere; }
-  .keys { color: var(--faint); font-size: 11px; margin-top: 12px; line-height: 1.7; }
+  .keys { color: var(--faint); font-size: 11px; margin-top: 12px; line-height: 1.8; }
   kbd { font: 11px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; color: var(--muted); }
   .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; border: 1px solid var(--line); }
 
+  /* ---------- action bar (touch) ---------- */
+  #bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; background: var(--panel); border-top: 1px solid var(--line);
+    padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
+  #bar .who { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 180px; }
+  #bar .who img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; background: var(--well); }
+  #bar .who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  #bar .grp { display: flex; gap: 4px; align-items: center; }
+  #bar .grp > span { color: var(--faint); font-size: 11px; margin-right: 2px; }
+  #bar .grp button { min-width: 38px; padding: 6px 8px; }
+
   /* ---------- preview ---------- */
-  dialog#pv { width: min(1100px, 96vw); max-height: 94vh; background: var(--panel); color: var(--text);
-    border: 1px solid var(--line); border-radius: 8px; padding: 0; }
+  dialog#pv { width: min(1100px, 100vw - 16px); max-width: none; max-height: calc(100dvh - 16px); background: var(--panel); color: var(--text);
+    border: 1px solid var(--line); border-radius: 10px; padding: 0; }
   dialog#pv::backdrop { background: rgba(0,0,0,.7); }
-  .pvBar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 14px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
-  .pvBar label { display: flex; align-items: center; gap: 6px; color: var(--muted); }
-  .pvBody { display: flex; flex-wrap: wrap; gap: 28px; padding: 18px; justify-content: center; overflow: auto; max-height: calc(94vh - 60px); }
-  .phone { width: 384px; flex: 0 0 auto; border: 1px solid var(--line); border-radius: 34px; padding: 44px 12px 26px; background: #000; }
-  .post { background: #000; }
+  .pvBar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
+  .pvBar label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
+  .pvBody { display: flex; flex-wrap: wrap; gap: 24px; padding: 16px; justify-content: center; overflow: auto; max-height: calc(100dvh - 140px); }
+  .phone { flex: 0 0 auto; border: 1px solid #333; border-radius: 34px; padding: 40px 12px 22px; background: #000; color: #fff; }
+  .phone.bare { border: 0; border-radius: 8px; padding: 10px 0; }
   .postHead { display: flex; align-items: center; gap: 8px; padding: 0 4px 8px; font-weight: 600; }
   .postHead i { width: 26px; height: 26px; border-radius: 50%; background: #444; display: inline-block; }
-  .car { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; width: 360px; }
+  .car { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .car::-webkit-scrollbar { display: none; }
-  .slide { position: relative; flex: 0 0 360px; overflow: hidden; scroll-snap-align: start; background: #111; cursor: move; touch-action: none; }
+  .slide { position: relative; flex: 0 0 auto; overflow: hidden; scroll-snap-align: start; background: #111; }
+  .car.cropping .slide { cursor: move; touch-action: none; }
   .slide img, .gcell img { position: absolute; max-width: none; user-select: none; -webkit-user-drag: none; pointer-events: none; }
-  .gridBox { position: absolute; border: 1px dashed rgba(255,255,255,.85); box-shadow: 0 0 0 999px rgba(0,0,0,.38); pointer-events: none; }
+  .gridBox { position: absolute; border: 1px dashed rgba(255,255,255,.9); box-shadow: 0 0 0 999px rgba(0,0,0,.35); pointer-events: none; }
   .dots { display: flex; justify-content: center; gap: 4px; padding: 10px 0 4px; }
   .dots i { width: 6px; height: 6px; border-radius: 50%; background: #555; } .dots i.on { background: #ddd; }
-  .pvNav { display: flex; justify-content: space-between; align-items: center; padding: 4px 4px 0; color: var(--muted); }
-  .gridMock { flex: 0 0 auto; }
-  .gridMock .g { display: grid; grid-template-columns: repeat(3, 120px); gap: 2px; background: #000; padding: 2px; border-radius: 4px; }
+  .pvNav { display: flex; justify-content: space-between; align-items: center; padding: 4px 4px 0; color: #aaa; }
+  .pvNav button { background: #222; border-color: #444; color: #eee; }
+  .side { flex: 0 1 364px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .gridMock .g { display: grid; gap: 2px; background: #000; padding: 2px; border-radius: 4px; width: max-content; max-width: 100%; }
   .gcell { position: relative; overflow: hidden; background: #2a2a2a; }
-  .gridMock p { color: var(--muted); max-width: 364px; }
-  #exportLog { font: 11px var(--mono); color: var(--muted); white-space: pre-wrap; max-width: 364px; }
-  .toast { position: fixed; left: 50%; bottom: 20px; transform: translateX(-50%); background: #111; border: 1px solid var(--line);
-    padding: 8px 14px; border-radius: 6px; z-index: 50; }
-  @media (max-width: 860px) { main { grid-template-columns: 1fr; } #inspector { position: static; max-height: none; } }
+  #exportLog { font: 12px var(--mono); color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
+  #saveRow { display: flex; flex-wrap: wrap; gap: 6px; }
+  .toast { position: fixed; left: 50%; bottom: calc(110px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--toast); color: var(--toastText);
+    padding: 8px 14px; border-radius: 6px; z-index: 50; max-width: calc(100vw - 32px); }
+  @media (max-width: 860px) {
+    header { position: static; }
+    header h1 { flex: 1 0 100%; }
+    main { grid-template-columns: 1fr; }
+    #pool { border-right: 0; }
+    #inspector { position: static; max-height: none; border-top: 1px solid var(--line); }
+    #poolGrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
+    .keys { display: none; }
+  }
+  @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
 </style>
 </head>
 <body>
 <header>
   <h1>Carousel Sequencer</h1>
-  <button id="openBtn">Open folder…</button>
+  <label class="filebtn" id="pickLabel"><button type="button" class="primary" tabindex="-1">Choose photos</button>
+    <input id="photoInput" type="file" multiple aria-label="Choose photos"
+      accept="image/*,.heic,.heif,.dng,.cr2,.cr3,.nef,.nrw,.arw,.raf,.orf,.rw2,.pef,.srw,.json,application/json"></label>
+  <button id="openBtn" hidden>Open folder…</button>
+  <label class="filebtn" id="folderLabel" hidden><button type="button" tabindex="-1">Folder…</button>
+    <input id="dirInput" type="file" webkitdirectory multiple aria-label="Choose a folder"></label>
   <button id="reopenBtn" hidden></button>
-  <input id="dirInput" type="file" webkitdirectory multiple hidden>
   <span id="folderChip" class="chip" hidden></span>
   <span id="measureChip" class="chip" hidden><span id="measureText"></span></span>
   <div class="progress" id="progress" hidden><i></i></div>
   <span class="spacer"></span>
   <span id="baseChip" class="chip" hidden></span>
   <span id="saveChip" class="chip" hidden></span>
-  <button id="downloadSeqBtn" hidden>Download sequence JSON</button>
-  <button id="previewBtn" disabled>Preview &amp; export <kbd>P</kbd></button>
+  <button id="saveSeqBtn" hidden>Save sequence file</button>
+  <button id="previewBtn" disabled>Preview &amp; export</button>
 </header>
-
-<div id="empty">
-  <h2>Open a shoot's Lightroom exports</h2>
-  <ol>
-    <li>Open the export folder. In Chrome the page remembers it and can reopen it next time.</li>
-    <li>Every frame gets measured in the background against the set baseline: the median of the strip, or of the whole import until you place something.</li>
-    <li>Drag frames into the 20-slot strip. Pool order is capture time. The tool never arranges, cuts or captions anything.</li>
-    <li>Tag each frame: scale <kbd>W</kbd> wide, <kbd>C</kbd> close, <kbd>F</kbd> face, <kbd>T</kbd> texture; you in frame <kbd>0</kbd> no, <kbd>1</kbd> face hidden, <kbd>2</kbd> face shown.</li>
-    <li>The sequence saves as <span class="num">carousel-sequence.json</span> next to the photos.</li>
-  </ol>
-  <p class="faint">Nothing leaves this machine. Measuring runs on downscaled copies in a background worker.</p>
-</div>
+<div id="notice" class="notice" hidden></div>
 
 <div id="app" hidden>
   <section id="stripWrap">
@@ -162,7 +198,7 @@
   </section>
   <main>
     <section id="pool">
-      <h2 id="poolTitle">Import</h2>
+      <h2 id="poolTitle">Photos</h2>
       <div id="poolGrid"></div>
     </section>
     <aside id="inspector">
@@ -171,47 +207,59 @@
       <div class="keys">
         <kbd>W</kbd><kbd>C</kbd><kbd>F</kbd><kbd>T</kbd> scale &nbsp; <kbd>0</kbd><kbd>1</kbd><kbd>2</kbd> you: out / face hidden / face shown<br>
         <kbd>←</kbd><kbd>→</kbd> select &nbsp; <kbd>Enter</kbd> add to strip &nbsp; <kbd>Del</kbd> remove<br>
-        <kbd>Alt</kbd>+<kbd>←</kbd><kbd>→</kbd> move in strip &nbsp; <kbd>Tab</kbd> strip ⇄ pool &nbsp; <kbd>P</kbd> preview
+        <kbd>Alt</kbd>+<kbd>←</kbd><kbd>→</kbd> move in strip &nbsp; <kbd>Tab</kbd> strip ⇄ photos &nbsp; <kbd>P</kbd> preview
       </div>
     </aside>
   </main>
 </div>
 
+<div id="bar" hidden>
+  <div class="who"><img id="barImg" alt=""><span id="barName" class="muted">Tap a photo</span></div>
+  <div class="grp"><button id="addBtn">Add</button><button id="leftBtn" aria-label="Move earlier">◀</button><button id="rightBtn" aria-label="Move later">▶</button></div>
+  <div class="grp" id="scaleBtns"><span>scale</span>
+    <button data-scale="wide" title="wide (W)">W</button><button data-scale="close" title="close (C)">C</button>
+    <button data-scale="face" title="face (F)">F</button><button data-scale="texture" title="texture (T)">T</button></div>
+  <div class="grp" id="presBtns"><span>you</span>
+    <button data-pres="out" title="not in frame (0)">out</button><button data-pres="hidden" title="in frame, face hidden (1)">hid</button>
+    <button data-pres="shown" title="in frame, face shown (2)">face</button></div>
+</div>
+
 <dialog id="pv">
   <div class="pvBar">
-    <label>Carousel ratio
+    <label>Ratio
       <select id="aspectSel">
         <option value="4:5">4:5 · 1080×1350</option>
         <option value="1:1">1:1 · 1080×1080</option>
         <option value="3:4">3:4 · 1080×1440</option>
         <option value="1.91:1">1.91:1 · 1080×566</option>
       </select></label>
-    <label>Profile grid
+    <label>Grid
       <select id="gridSel"><option value="3:4">3:4</option><option value="1:1">1:1</option></select></label>
-    <label>Zoom <input id="zoomIn" type="range" min="1" max="3" step="0.01" value="1"></label>
-    <button id="resetCropBtn">Reset crop</button>
-    <span class="spacer" style="flex:1"></span>
-    <label>Capture times
-      <select id="dateSel">
-        <option value="none">none (strip all metadata)</option>
-        <option value="now">sequential from now</option>
-        <option value="capture">sequential from slide 1's capture</option>
-      </select></label>
-    <button id="exportBtn">Export JPEGs</button>
-    <button id="pvClose">Close <kbd>Esc</kbd></button>
+    <button id="cropBtn" aria-pressed="false">Adjust crop</button>
+    <label id="zoomLabel" hidden>Zoom <input id="zoomIn" type="range" min="1" max="3" step="0.01" value="1"></label>
+    <button id="resetCropBtn" hidden>Reset</button>
+    <span style="flex:1"></span>
+    <button id="pvClose" autofocus>Close</button>
   </div>
   <div class="pvBody">
-    <div class="phone">
-      <div class="post">
-        <div class="postHead"><i></i><span>you</span></div>
-        <div class="car" id="car"></div>
-        <div class="dots" id="dots"></div>
-        <div class="pvNav"><button id="prevBtn">‹</button><span id="pvCount" class="num"></span><button id="nextBtn">›</button></div>
-      </div>
+    <div class="phone" id="phone">
+      <div class="postHead"><i></i><span>you</span></div>
+      <div class="car" id="car"></div>
+      <div class="dots" id="dots"></div>
+      <div class="pvNav"><button id="prevBtn" aria-label="Previous slide">‹</button><span id="pvCount" class="num"></span><button id="nextBtn" aria-label="Next slide">›</button></div>
     </div>
-    <div class="gridMock">
-      <div class="g" id="gridMockG"></div>
-      <p>Slide 1 at the profile-grid crop (centred). The dashed box on slide 1 marks it. Drag any slide to move its crop; the zoom slider applies to the slide on screen.</p>
+    <div class="side">
+      <div class="gridMock"><div class="g" id="gridMockG"></div></div>
+      <p class="muted" style="margin:0">Slide 1 at the profile-grid crop (centred), also marked by the dashed box. Swipe to page through. Turn on <b>Adjust crop</b> to drag a slide's framing.</p>
+      <label class="muted">Capture times in exported files
+        <select id="dateSel">
+          <option value="none">none: no metadata at all</option>
+          <option value="now">sequential from now</option>
+          <option value="capture">sequential from slide 1's capture</option>
+        </select></label>
+      <p class="faint" style="margin:0">Photos sorts by capture time. With "sequential", the slides land in order in your camera roll.</p>
+      <div><button id="exportBtn" class="primary">Export JPEGs</button></div>
+      <div id="saveRow"></div>
       <div id="exportLog"></div>
     </div>
   </div>
@@ -521,12 +569,47 @@ var CS = (function () {
     return w;
   }
 
-  /* ---------- EXIF (read) ---------- */
+  /* ---------- EXIF (read) ----------
+     Handles JPEG (APP1), TIFF-based RAW (DNG, CR2, NEF, ARW, ORF, RW2, PEF...), Canon CR3
+     (CMT1/CMT2 boxes) and Fuji RAF (EXIF of the embedded JPEG). */
   function parseExif(buf) {
     var out = {};
     var v = new DataView(buf);
-    if (v.byteLength < 4 || v.getUint16(0) !== 0xFFD8) return out;
-    var off = 2;
+    if (v.byteLength < 16) return out;
+    var b0 = v.getUint16(0);
+    if (b0 === 0xFFD8) { readJpegExif(v, 0, out); return out; }
+    if (b0 === 0x4949 || b0 === 0x4D4D) {           // TIFF header (ORF/RW2 use odd magic numbers)
+      try { readTiff(v, 0, v.byteLength, out); } catch (e) { /* truncated */ }
+      return out;
+    }
+    if (ascii4(v, 4) === 'ftyp') {                  // ISO-BMFF: CR3
+      ['CMT1', 'CMT2'].forEach(function (box) {
+        var at = findAscii(v, box, 0, Math.min(v.byteLength, 1 << 20));
+        if (at > 0) try { readTiff(v, at + 4, v.byteLength, out); } catch (e) {}
+      });
+      return out;
+    }
+    if (ascii4(v, 0) === 'FUJI' && v.byteLength > 92) {  // RAF: JPEG offset at 84
+      var off = v.getUint32(84);
+      if (off + 4 < v.byteLength && v.getUint16(off) === 0xFFD8) readJpegExif(v, off, out);
+    }
+    return out;
+  }
+  function ascii4(v, o) {
+    return o + 4 <= v.byteLength ? String.fromCharCode(v.getUint8(o), v.getUint8(o + 1), v.getUint8(o + 2), v.getUint8(o + 3)) : '';
+  }
+  function findAscii(v, str, from, to) {
+    var c0 = str.charCodeAt(0);
+    for (var i = from; i + str.length <= to; i++) {
+      if (v.getUint8(i) !== c0) continue;
+      var k = 1;
+      while (k < str.length && v.getUint8(i + k) === str.charCodeAt(k)) k++;
+      if (k === str.length) return i;
+    }
+    return -1;
+  }
+  function readJpegExif(v, start, out) {
+    var off = start + 2;
     while (off + 4 <= v.byteLength) {
       if (v.getUint8(off) !== 0xFF) break;
       var marker = v.getUint8(off + 1);
@@ -535,12 +618,15 @@ var CS = (function () {
       if (marker === 0xE1 && off + 10 <= v.byteLength &&
           v.getUint32(off + 4) === 0x45786966 && v.getUint16(off + 8) === 0) {
         try { readTiff(v, off + 10, Math.min(v.byteLength, off + 2 + len), out); } catch (e) { /* truncated */ }
-        break;
+        return;
       }
       off += 2 + len;
     }
-    return out;
   }
+  var TAGS = {
+    0x010F: 'make', 0x0110: 'model', 0x0112: 'orientation', 0x0132: 'dateTime', 0x8769: 'exifPtr',
+    0x9003: 'dateTimeOriginal', 0x9291: 'subSecOriginal', 0x9011: 'offsetOriginal', 0xA434: 'lens'
+  };
   function readTiff(v, t, end, out) {
     var le = v.getUint16(t) === 0x4949;
     function u16(o) { return v.getUint16(t + o, le); }
@@ -548,30 +634,84 @@ var CS = (function () {
     function ascii(entry) {
       var count = u32(entry + 4);
       var at = count <= 4 ? entry + 8 : u32(entry + 8);
-      var s = '';
+      var str = '';
       for (var i = 0; i < count && t + at + i < end; i++) {
         var c = v.getUint8(t + at + i);
         if (c === 0) break;
-        s += String.fromCharCode(c);
+        str += String.fromCharCode(c);
       }
-      return s.trim();
+      return str.trim();
     }
-    function ifd(o, tags) {
+    function ifd(o) {
       var cnt = u16(o), res = {};
       for (var i = 0; i < cnt; i++) {
         var e = o + 2 + i * 12;
-        var tag = u16(e), type = u16(e + 2);
-        if (!tags[tag]) continue;
-        res[tags[tag]] = type === 2 ? ascii(e) : (type === 3 ? u16(e + 8) : u32(e + 8));
+        var name = TAGS[u16(e)], type = u16(e + 2);
+        if (!name) continue;
+        res[name] = type === 2 ? ascii(e) : (type === 3 ? u16(e + 8) : u32(e + 8));
       }
       return res;
     }
-    var ifd0 = ifd(u32(4), { 0x010F: 'make', 0x0110: 'model', 0x0132: 'dateTime', 0x8769: 'exifPtr' });
-    var exif = ifd0.exifPtr ? ifd(ifd0.exifPtr, {
-      0x9003: 'dateTimeOriginal', 0x9291: 'subSecOriginal', 0x9011: 'offsetOriginal', 0xA434: 'lens'
-    }) : {};
-    ['make', 'model', 'dateTime'].forEach(function (k) { if (ifd0[k]) out[k] = ifd0[k]; });
-    Object.keys(exif).forEach(function (k) { if (exif[k] !== '' && exif[k] != null) out[k] = exif[k]; });
+    var ifd0 = ifd(u32(4));
+    var exif = ifd0.exifPtr ? ifd(ifd0.exifPtr) : {};
+    [ifd0, exif].forEach(function (src) {
+      Object.keys(src).forEach(function (k) {
+        if (k !== 'exifPtr' && src[k] !== '' && src[k] != null && out[k] == null) out[k] = src[k];
+      });
+    });
+  }
+
+  /* ---------- RAW: the camera's embedded preview JPEG ----------
+     Browsers can't decode RAW, but nearly every RAW carries a JPEG rendered by the camera.
+     We take the largest baseline/progressive JPEG in the file (lossless-JPEG raw data is
+     skipped). Measurements then describe the camera's rendering, not your RAW edit. */
+  var RAW_RE = /\.(dng|cr2|cr3|crw|nef|nrw|arw|srf|sr2|raf|orf|rw2|rwl|pef|srw|3fr|iiq|erf|kdc|mrw|raw)$/i;
+  var HEIC_RE = /\.(heic|heif|avif)$/i;
+  function isRaw(name) { return RAW_RE.test(name || ''); }
+
+  function extractEmbeddedJpeg(u8) {
+    var best = null, n = u8.length, i = 0;
+    while (i + 4 < n) {
+      if (u8[i] !== 0xFF || u8[i + 1] !== 0xD8 || u8[i + 2] !== 0xFF) { i++; continue; }
+      var c = scanJpeg(u8, i);
+      if (c && (!best || c.w * c.h > best.w * best.h)) best = c;
+      i = c ? c.end : i + 2;
+    }
+    return best ? { jpeg: u8.subarray(best.start, best.end), width: best.w, height: best.h } : null;
+  }
+  function scanJpeg(u8, start) {
+    var n = u8.length, p = start + 2, w = 0, h = 0, sawSOS = false;
+    while (p + 4 <= n) {
+      if (u8[p] !== 0xFF) return null;
+      var m = u8[p + 1];
+      if (m === 0xFF) { p++; continue; }
+      if (m === 0xD9) return w && h && sawSOS ? { start: start, end: p + 2, w: w, h: h } : null;
+      var len = (u8[p + 2] << 8) | u8[p + 3];
+      if (len < 2) return null;
+      if (m === 0xC0 || m === 0xC1 || m === 0xC2) { h = (u8[p + 5] << 8) | u8[p + 6]; w = (u8[p + 7] << 8) | u8[p + 8]; }
+      else if (m >= 0xC3 && m <= 0xCF && m !== 0xC4 && m !== 0xC8 && m !== 0xCC) return null;  // lossless/arithmetic
+      p += 2 + len;
+      if (m === 0xDA) {                              // entropy-coded data until the next real marker
+        sawSOS = true;
+        while (p + 1 < n && !(u8[p] === 0xFF && u8[p + 1] !== 0 && (u8[p + 1] < 0xD0 || u8[p + 1] > 0xD7))) p++;
+      }
+    }
+    return null;
+  }
+  /* RAW file bytes -> { jpeg: Uint8Array ready to decode upright, exif } or null.
+     When the embedded JPEG has no orientation of its own, the RAW's orientation is written
+     into it so browsers rotate portrait frames. */
+  function rawToJpeg(u8) {
+    var found = extractEmbeddedJpeg(u8);
+    if (!found) return null;
+    var rawExif = parseExif(u8.buffer.slice(u8.byteOffset, u8.byteOffset + Math.min(u8.length, 1 << 20)));
+    var jpeg = found.jpeg.slice();
+    var embExif = parseExif(jpeg.buffer.slice(0, Math.min(jpeg.length, 262144)));
+    var exif = {};
+    [rawExif, embExif].forEach(function (src) { Object.keys(src).forEach(function (k) { if (exif[k] == null) exif[k] = src[k]; }); });
+    if (!embExif.orientation && rawExif.orientation > 1 && rawExif.orientation <= 8)
+      jpeg = insertApp1(jpeg, buildExifApp1({ orientation: rawExif.orientation }));
+    return { jpeg: jpeg, exif: exif, width: found.width, height: found.height };
   }
 
   /* EXIF "YYYY:MM:DD HH:MM:SS" -> ms. Wall clock treated as UTC so phone and camera frames
@@ -583,17 +723,31 @@ var CS = (function () {
     if (subsec && /^\d+$/.test(subsec)) ms += Math.round(parseFloat('0.' + subsec) * 1000);
     return ms;
   }
-  function captureTime(exif, lastModified) {
+  /* Capture time: EXIF original, then EXIF modify date, then the file date, but only if that
+     date is clearly older than the moment of opening (a phone photo picker stamps files with
+     "now"). Otherwise null: the frame keeps the order it was picked in. */
+  function captureTime(exif, lastModified, openedAt) {
     var t = exifTimeMs(exif.dateTimeOriginal, exif.subSecOriginal);
     if (t != null) return { ms: t, source: 'exif' };
     t = exifTimeMs(exif.dateTime);
     if (t != null) return { ms: t, source: 'exif-modified' };
-    return { ms: lastModified || 0, source: 'file' };
+    if (lastModified && (!openedAt || openedAt - lastModified > 10 * 60 * 1000)) {
+      // file dates are real UTC; shift to local wall clock to match EXIF
+      return { ms: lastModified - new Date(lastModified).getTimezoneOffset() * 60000, source: 'file' };
+    }
+    return { ms: null, source: 'pick' };
   }
-  /* Capture-time order: the only default order. Ties broken by filename. */
+  /* Capture-time order: the only default order. Ties broken by filename. Frames without a
+     capture time follow, in the order they were picked (frame.pick). */
   function captureOrder(frames) {
     return frames.slice().sort(function (a, b) {
-      return (a.capture.ms - b.capture.ms) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
+      var ta = a.capture.ms, tb = b.capture.ms;
+      if (ta == null || tb == null) {
+        if (ta != null) return -1;
+        if (tb != null) return 1;
+        return (a.pick || 0) - (b.pick || 0);
+      }
+      return (ta - tb) || (a.name < b.name ? -1 : a.name > b.name ? 1 : 0);
     });
   }
 
@@ -616,33 +770,48 @@ var CS = (function () {
     return d.getUTCFullYear() + ':' + p(d.getUTCMonth() + 1) + ':' + p(d.getUTCDate()) + ' ' +
            p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()) + ':' + p(d.getUTCSeconds());
   }
-  /* APP1 segment holding only DateTime, DateTimeOriginal, DateTimeDigitized. */
-  function buildDateApp1(ms) {
-    var str = exifDateString(ms);             // 19 chars + NUL = 20
-    var tiff = new Uint8Array(128), v = new DataView(tiff.buffer);
-    tiff.set([0x49, 0x49, 0x2A, 0x00]); v.setUint32(4, 8, true);
-    function entry(o, tag, type, count, value) {
-      v.setUint16(o, tag, true); v.setUint16(o + 2, type, true);
-      v.setUint32(o + 4, count, true); v.setUint32(o + 8, value, true);
+  /* APP1 segment with only the given fields: {date (ms), make, model, orientation}.
+     Export uses date only; make/model exist for generating the example shoot. */
+  function buildExifApp1(f) {
+    var ifd0 = [], exif = [], strs = [];
+    function str(v) { strs.push(v + '\0'); return strs.length - 1; }
+    if (f.make) ifd0.push([0x010F, 2, str(f.make)]);
+    if (f.model) ifd0.push([0x0110, 2, str(f.model)]);
+    if (f.orientation) ifd0.push([0x0112, 3, f.orientation]);
+    if (f.date != null) {
+      var d = exifDateString(f.date);
+      ifd0.push([0x0132, 2, str(d)]);
+      exif.push([0x9003, 2, str(d)], [0x9004, 2, str(d)]);
     }
-    v.setUint16(8, 2, true);
-    entry(10, 0x0132, 2, 20, 38);
-    entry(22, 0x8769, 4, 1, 58);
-    v.setUint32(34, 0, true);
-    v.setUint16(58, 2, true);
-    entry(60, 0x9003, 2, 20, 88);
-    entry(72, 0x9004, 2, 20, 108);
-    v.setUint32(84, 0, true);
-    [38, 88, 108].forEach(function (o) {
-      for (var i = 0; i < 19; i++) tiff[o + i] = str.charCodeAt(i);
-    });
-    var seg = new Uint8Array(4 + 6 + tiff.length);
+    if (exif.length) ifd0.push([0x8769, 4, 'exif']);
+    var ifd0At = 8, exifAt = ifd0At + 2 + ifd0.length * 12 + 4;
+    var dataAt = exifAt + (exif.length ? 2 + exif.length * 12 + 4 : 0);
+    var strAt = [];
+    strs.forEach(function (x) { strAt.push(dataAt); dataAt += x.length; });
+    var tiff = new Uint8Array(dataAt), v = new DataView(tiff.buffer);
+    tiff.set([0x49, 0x49, 0x2A, 0x00]); v.setUint32(4, ifd0At, true);
+    function write(at, entries) {
+      v.setUint16(at, entries.length, true);
+      entries.forEach(function (e, i) {
+        var o = at + 2 + i * 12, count = e[1] === 2 ? strs[e[2]].length : 1;
+        v.setUint16(o, e[0], true); v.setUint16(o + 2, e[1], true); v.setUint32(o + 4, count, true);
+        if (e[1] === 2) { if (count <= 4) { for (var k = 0; k < count; k++) tiff[o + 8 + k] = strs[e[2]].charCodeAt(k); } else v.setUint32(o + 8, strAt[e[2]], true); }
+        else if (e[1] === 3) v.setUint16(o + 8, e[2], true);
+        else v.setUint32(o + 8, e[2] === 'exif' ? exifAt : e[2], true);
+      });
+      v.setUint32(at + 2 + entries.length * 12, 0, true);
+    }
+    write(ifd0At, ifd0);
+    if (exif.length) write(exifAt, exif);
+    strs.forEach(function (x, i) { for (var k = 0; k < x.length; k++) tiff[strAt[i] + k] = x.charCodeAt(k); });
+    var seg = new Uint8Array(10 + tiff.length);
     seg[0] = 0xFF; seg[1] = 0xE1;
     seg[2] = ((seg.length - 2) >> 8) & 0xFF; seg[3] = (seg.length - 2) & 0xFF;
     seg.set([0x45, 0x78, 0x69, 0x66, 0, 0], 4);
     seg.set(tiff, 10);
     return seg;
   }
+  function buildDateApp1(ms) { return buildExifApp1({ date: ms }); }
   /* Insert an APP1 after SOI (and after a JFIF APP0 if present). */
   function insertApp1(jpeg, app1) {
     var at = 2;
@@ -693,29 +862,57 @@ var CS = (function () {
   }
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
 
-  /* ---------- browser-only: measure one image file (worker + calibration) ---------- */
-  async function measureBlob(blob, wantThumb) {
-    var full = await createImageBitmap(blob);
-    var iw = full.width, ih = full.height;
-    var sc = Math.min(1, MEASURE_EDGE / Math.max(iw, ih));
-    var mw = Math.max(1, Math.round(iw * sc)), mh = Math.max(1, Math.round(ih * sc));
-    var small = sc < 1 ? await createImageBitmap(full, { resizeWidth: mw, resizeHeight: mh, resizeQuality: 'high' }) : full;
-    var cv = new OffscreenCanvas(mw, mh), ctx = cv.getContext('2d', { willReadFrequently: true });
-    ctx.drawImage(small, 0, 0);
-    var metrics = measurePixels(ctx.getImageData(0, 0, mw, mh).data, mw, mh);
-    var thumb = null;
-    if (wantThumb) {
-      var ts = Math.min(1, THUMB_EDGE / Math.max(mw, mh));
-      var tc = new OffscreenCanvas(Math.round(mw * ts), Math.round(mh * ts));
-      var tctx = tc.getContext('2d');
-      tctx.imageSmoothingQuality = 'high';
-      tctx.drawImage(small, 0, 0, tc.width, tc.height);
-      thumb = await tc.convertToBlob({ type: 'image/jpeg', quality: 0.82 });
+  /* ---------- browser-only: measure one image (worker, main-thread fallback, calibration) ---------- */
+  var PREVIEW_EDGE = 1440;
+  function makeCanvas(w, h) {
+    if (typeof OffscreenCanvas !== 'undefined') {
+      var oc = new OffscreenCanvas(w, h);
+      return { ctx: oc.getContext('2d', { willReadFrequently: true }),
+               toBlob: function (type, q) { return oc.convertToBlob({ type: type, quality: q }); } };
     }
-    if (small !== full) small.close();
-    full.close();
+    var c = document.createElement('canvas'); c.width = w; c.height = h;
+    return { ctx: c.getContext('2d', { willReadFrequently: true }),
+             toBlob: function (type, q) { return new Promise(function (res) { c.toBlob(res, type, q); }); } };
+  }
+  async function scaled(bmp, edge, type) {
+    var sc = Math.min(1, edge / Math.max(bmp.width, bmp.height));
+    var w = Math.max(1, Math.round(bmp.width * sc)), h = Math.max(1, Math.round(bmp.height * sc));
+    var c = makeCanvas(w, h);
+    c.ctx.imageSmoothingEnabled = true; c.ctx.imageSmoothingQuality = 'high';
+    c.ctx.drawImage(bmp, 0, 0, w, h);
+    return { c: c, w: w, h: h };
+  }
+  async function measureBlob(blob, wantImages) {
+    var full = await createImageBitmap(blob, { imageOrientation: 'from-image' });
+    var iw = full.width, ih = full.height;
+    var m = await scaled(full, MEASURE_EDGE);
+    var metrics = measurePixels(m.c.ctx.getImageData(0, 0, m.w, m.h).data, m.w, m.h);
+    var thumb = null, preview = null;
+    if (wantImages) {
+      thumb = await (await scaled(full, THUMB_EDGE)).c.toBlob('image/jpeg', 0.82);
+      preview = await (await scaled(full, PREVIEW_EDGE)).c.toBlob('image/jpeg', 0.86);
+    }
+    if (full.close) full.close();
     var exif = parseExif(await blob.slice(0, 262144).arrayBuffer());
-    return { metrics: metrics, exif: exif, width: iw, height: ih, thumb: thumb };
+    return { metrics: metrics, exif: exif, width: iw, height: ih, thumb: thumb, preview: preview };
+  }
+  /* A picked file -> its decodable image: RAW gives up its embedded JPEG. */
+  async function decodableBlob(file) {
+    if (!isRaw(file.name)) return { blob: file, raw: false };
+    var r = rawToJpeg(new Uint8Array(await file.arrayBuffer()));
+    if (!r) throw new Error('no embedded preview JPEG in this RAW file');
+    return { blob: new Blob([r.jpeg], { type: 'image/jpeg' }), raw: true, exif: r.exif };
+  }
+  async function measureFile(file, wantImages) {
+    var d = await decodableBlob(file);
+    var r;
+    try { r = await measureBlob(d.blob, wantImages); }
+    catch (e) {
+      if (HEIC_RE.test(file.name)) throw new Error('this browser cannot decode HEIC (Safari can)');
+      throw e;
+    }
+    if (d.raw) { r.exif = d.exif; r.fromRawPreview = true; }
+    return r;
   }
 
   return {
@@ -727,7 +924,9 @@ var CS = (function () {
     parseExif: parseExif, exifTimeMs: exifTimeMs, captureTime: captureTime, captureOrder: captureOrder,
     device: device, exifDateString: exifDateString, buildDateApp1: buildDateApp1,
     insertApp1: insertApp1, metadataSegments: metadataSegments,
-    cropRect: cropRect, gridRect: gridRect, measureBlob: measureBlob
+    cropRect: cropRect, gridRect: gridRect, measureBlob: measureBlob, measureFile: measureFile,
+    decodableBlob: decodableBlob, buildExifApp1: buildExifApp1, extractEmbeddedJpeg: extractEmbeddedJpeg,
+    rawToJpeg: rawToJpeg, isRaw: isRaw, RAW_RE: RAW_RE, HEIC_RE: HEIC_RE
   };
 })();
 if (typeof module !== 'undefined') module.exports = CS;
@@ -736,8 +935,9 @@ if (typeof module !== 'undefined') module.exports = CS;
 self.onmessage = async function (e) {
   var job = e.data;
   try {
-    var r = await CS.measureBlob(job.file, true);
-    self.postMessage({ id: job.id, ok: true, metrics: r.metrics, width: r.width, height: r.height, thumb: r.thumb });
+    var r = await CS.measureFile(job.file, true);
+    self.postMessage({ id: job.id, ok: true, metrics: r.metrics, width: r.width, height: r.height,
+      thumb: r.thumb, preview: r.preview, exif: r.exif, fromRawPreview: !!r.fromRawPreview });
   } catch (err) {
     self.postMessage({ id: job.id, ok: false, error: String(err && err.message || err) });
   }
@@ -748,15 +948,23 @@ self.onmessage = async function (e) {
   'use strict';
   var SEQ_FILE = 'carousel-sequence.json';
   var EXPORT_DIR = 'carousel-export';
-  var IMG_RE = /\.(jpe?g|png|webp)$/i;
+  var IMG_RE = /\.(jpe?g|png|webp|gif|heic|heif|avif)$/i;
   var SCALE_KEYS = { w: 'wide', c: 'close', f: 'face', t: 'texture' };
   var SCALE_LETTER = { wide: 'W', close: 'C', face: 'F', texture: 'T' };
   var PRES_KEYS = { '0': 'out', '1': 'hidden', '2': 'shown' };
   var PRES_GLYPH = { out: '○', hidden: '◐', shown: '●' };
   var PRES_TEXT = { out: 'not in frame', hidden: 'in frame, face hidden', shown: 'in frame, face shown' };
+  var CAPTURE_TEXT = { exif: 'EXIF original', 'exif-modified': 'EXIF modify date', file: 'file date, no EXIF', pick: 'no capture time: pick order' };
+
+  var inFrame = (function () { try { return window.top !== window.self; } catch (e) { return true; } })();
+  var canPickFolder = !!window.showDirectoryPicker && !inFrame;
+  var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
+  // claude.ai viewer: files are offered through the downloads capability (plain downloads are blocked there)
+  var dlP = (window.claude && typeof window.claude.use === 'function')
+    ? window.claude.use('downloads').catch(function () { return null; }) : Promise.resolve(null);
 
   var S = {
-    dir: null, dirName: '', writable: false,
+    dir: null, dirName: '', writable: false, example: false, setKey: '',
     frames: [], byId: new Map(), strip: [],
     sel: null,                     // { where: 'strip'|'pool', id }
     aspect: '4:5', gridAspect: '3:4',
@@ -781,60 +989,72 @@ self.onmessage = async function (e) {
     return e;
   }
   function toast(msg) {
-    var t = h('div', { class: 'toast', text: msg });
+    var t = h('div', { class: 'toast', text: msg, role: 'status' });
     document.body.appendChild(t);
-    setTimeout(function () { t.remove(); }, 2600);
+    setTimeout(function () { t.remove(); }, 3000);
   }
   function fmt(v, d) { return v == null ? '–' : Number(v).toFixed(d); }
   function signed(v, d) { return v == null ? '–' : (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(d); }
   function fmtTime(ms) {
-    if (!ms) return '–';
+    if (ms == null) return '–';
     var d = new Date(ms);
     function p(n) { return (n < 10 ? '0' : '') + n; }
     return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) + ' ' +
       p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()) + ':' + p(d.getUTCSeconds());
   }
+  function hash(str) {
+    var x = 2166136261;
+    for (var i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 16777619); }
+    return (x >>> 0).toString(36);
+  }
 
-  /* ---------- IndexedDB: remembered folder + measurement cache ---------- */
+  /* ---------- IndexedDB: remembered folder, per-set sequence, measurement cache ---------- */
   var dbp = null;
   function db() {
     if (!dbp) dbp = new Promise(function (res, rej) {
-      var r = indexedDB.open('carousel-sequencer', 1);
-      r.onupgradeneeded = function () { r.result.createObjectStore('kv'); r.result.createObjectStore('metrics'); };
+      var r = indexedDB.open('carousel-sequencer', 2);
+      r.onupgradeneeded = function () {
+        ['kv', 'metrics', 'seq'].forEach(function (n) { if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n); });
+      };
       r.onsuccess = function () { res(r.result); };
       r.onerror = function () { rej(r.error); };
     });
     return dbp;
   }
   function idb(store, mode, fn) {
-    return db().then(function (d) {
-      return new Promise(function (res, rej) {
-        var tx = d.transaction(store, mode), req = fn(tx.objectStore(store));
-        tx.oncomplete = function () { res(req && req.result); };
-        tx.onerror = function () { rej(tx.error); };
-      });
-    }).catch(function () { return undefined; });
+    try {
+      return db().then(function (d) {
+        return new Promise(function (res, rej) {
+          var tx = d.transaction(store, mode), req = fn(tx.objectStore(store));
+          tx.oncomplete = function () { res(req && req.result); };
+          tx.onerror = function () { rej(tx.error); };
+        });
+      }).catch(function () { return undefined; });
+    } catch (e) { return Promise.resolve(undefined); }
   }
   function cacheKey(f) { return f.name + '|' + f.file.size + '|' + f.file.lastModified + '|v' + CS.METRIC_VERSION; }
 
   /* ---------- opening ---------- */
+  $('#openBtn').hidden = !canPickFolder;
+  $('#folderLabel').hidden = canPickFolder || isIOS || !('webkitdirectory' in document.createElement('input'));
   $('#openBtn').onclick = async function () {
-    if (window.showDirectoryPicker) {
-      var handle;
-      try { handle = await showDirectoryPicker({ id: 'carousel-sequencer', mode: 'readwrite' }); }
-      catch (e) { return; }
-      idb('kv', 'readwrite', function (s) { return s.put(handle, 'lastDir'); });
-      openDir(handle);
-    } else {
-      $('#dirInput').click();
-    }
+    var handle;
+    try { handle = await showDirectoryPicker({ id: 'carousel-sequencer', mode: 'readwrite' }); }
+    catch (e) { return; }
+    idb('kv', 'readwrite', function (s) { return s.put(handle, 'lastDir'); });
+    openDir(handle);
+  };
+  $('#photoInput').onchange = function (e) {
+    var files = Array.prototype.slice.call(e.target.files);
+    e.target.value = '';
+    if (files.length) loadFiles(files, { name: files.length + ' picked' });
   };
   $('#dirInput').onchange = function (e) {
     var all = Array.prototype.slice.call(e.target.files);
+    e.target.value = '';
     var top = all.filter(function (f) { return (f.webkitRelativePath || f.name).split('/').length <= 2; });
     var name = all.length ? (all[0].webkitRelativePath || '').split('/')[0] : '';
-    e.target.value = '';
-    loadFiles(top, null, name, false);
+    if (top.length) loadFiles(top, { name: name });
   };
   $('#reopenBtn').onclick = async function () {
     var handle = await idb('kv', 'readonly', function (s) { return s.get('lastDir'); });
@@ -842,12 +1062,12 @@ self.onmessage = async function (e) {
     try {
       var p = await handle.requestPermission({ mode: 'readwrite' });
       if (p !== 'granted') p = await handle.requestPermission({ mode: 'read' });
-      if (p !== 'granted') return toast('Permission not granted');
+      if (p !== 'granted') return toast('Folder access was not granted');
     } catch (e) { return toast('Could not reopen ' + handle.name); }
     openDir(handle);
   };
   (async function offerReopen() {
-    if (!window.showDirectoryPicker) return;
+    if (!canPickFolder) return;
     var handle = await idb('kv', 'readonly', function (s) { return s.get('lastDir'); });
     if (handle) { var b = $('#reopenBtn'); b.textContent = 'Reopen ' + handle.name; b.hidden = false; }
   })();
@@ -859,42 +1079,68 @@ self.onmessage = async function (e) {
     }
     var writable = false;
     try { writable = (await handle.queryPermission({ mode: 'readwrite' })) === 'granted'; } catch (e) {}
-    loadFiles(files, handle, handle.name, writable);
+    loadFiles(files, { handle: handle, name: handle.name, writable: writable });
   }
 
-  async function loadFiles(files, handle, name, writable) {
-    S.frames.forEach(function (f) { if (f.thumbUrl) URL.revokeObjectURL(f.thumbUrl); if (f.fullUrl) URL.revokeObjectURL(f.fullUrl); });
+  async function loadFiles(files, opt) {
+    S.frames.forEach(function (f) { ['thumbUrl', 'previewUrl'].forEach(function (k) { if (f[k]) URL.revokeObjectURL(f[k]); }); });
     stopWorkers();
-    S.dir = handle; S.dirName = name; S.writable = writable;
+    S.dir = opt.handle || null; S.dirName = opt.name || ''; S.writable = !!opt.writable; S.example = !!opt.example;
     S.frames = []; S.byId = new Map(); S.strip = []; S.sel = null; S.measured = 0; S.dupsAt = -1;
-    var seqFile = null, images = [];
+    S.aspect = '4:5'; S.gridAspect = '3:4';
+    var seqFile = null, images = [], skipped = [];
     files.forEach(function (f) {
-      if (f.name === SEQ_FILE) seqFile = f;
-      else if (IMG_RE.test(f.name) && f.name[0] !== '.') images.push(f);
+      if (f.name === SEQ_FILE || /\.json$/i.test(f.name)) seqFile = f;
+      else if (f.name[0] === '.') return;
+      else if (IMG_RE.test(f.name) || CS.isRaw(f.name) || /^image\//.test(f.type)) images.push(f);
+      else skipped.push(f.name);
     });
-    var frames = await Promise.all(images.map(async function (file) {
+    var openedAt = Date.now(), seen = {};
+    var frames = await Promise.all(images.map(async function (file, i) {
       var exif = {};
-      try { exif = CS.parseExif(await file.slice(0, 262144).arrayBuffer()); } catch (e) {}
+      try { exif = CS.parseExif(await file.slice(0, CS.isRaw(file.name) ? 1 << 20 : 262144).arrayBuffer()); } catch (e) {}
+      return { file: file, exif: exif, pick: i };
+    }));
+    frames = frames.map(function (x) {
+      var name = x.file.name, id = name;
+      seen[name] = (seen[name] || 0) + 1;
+      if (seen[name] > 1) id = name + ' #' + seen[name];     // phone pickers can repeat names
       return {
-        id: file.name, name: file.name, file: file, exif: exif,
-        capture: CS.captureTime(exif, file.lastModified), device: CS.device(exif),
-        metrics: null, width: 0, height: 0, thumbUrl: null, fullUrl: null, status: 'queued',
+        id: id, name: name, file: x.file, exif: x.exif, pick: x.pick, raw: CS.isRaw(name),
+        capture: CS.captureTime(x.exif, x.file.lastModified, opt.example ? null : openedAt), device: CS.device(x.exif),
+        metrics: null, width: 0, height: 0, thumbUrl: null, previewUrl: null, status: 'queued',
         tags: { scale: null, presence: null }, crop: { x: 0.5, y: 0.5, zoom: 1 }
       };
-    }));
+    });
     S.frames = CS.captureOrder(frames);
     S.frames.forEach(function (f) { S.byId.set(f.id, f); });
+    S.setKey = 'set:' + hash(S.frames.map(function (f) { return f.id + '|' + f.file.size; }).sort().join('\n'));
+    var restored = null;
     if (seqFile) {
-      try { applySequence(JSON.parse(await seqFile.text())); }
-      catch (e) { toast(SEQ_FILE + ' could not be read; starting fresh'); }
+      try { applySequence(JSON.parse(await seqFile.text())); restored = 'loaded ' + seqFile.name; }
+      catch (e) { toast(seqFile.name + ' could not be read; starting fresh'); }
     }
-    $('#empty').hidden = true; $('#app').hidden = false;
-    $('#folderChip').hidden = false; $('#folderChip').textContent = name + ' · ' + S.frames.length + ' frames';
-    $('#downloadSeqBtn').hidden = S.writable;
+    if (!restored) {
+      var saved = await idb('seq', 'readonly', function (s) { return s.get(S.setKey); });
+      if (saved) { try { applySequence(JSON.parse(saved)); restored = 'restored from this device'; } catch (e) {} }
+    }
+    $('#app').hidden = false; $('#bar').hidden = false;
+    $('#folderChip').hidden = false;
+    $('#folderChip').textContent = (S.example ? 'example shoot' : S.dirName) + ' · ' + S.frames.length + ' frames';
+    $('#saveSeqBtn').hidden = S.writable;
     $('#previewBtn').disabled = false;
+    var notes = [];
+    if (S.example) notes.push('These are generated example frames so you can see how it works. Choose photos to measure your own; they stay on this device.');
+    var noTime = S.frames.filter(function (f) { return f.capture.source === 'pick'; }).length;
+    if (noTime && !S.example) notes.push(noTime + ' of ' + S.frames.length + ' photos carry no capture time, so they follow in the order you picked them.');
+    var raws = S.frames.filter(function (f) { return f.raw; }).length;
+    if (raws) notes.push(raws + ' RAW file' + (raws > 1 ? 's are' : ' is') + ' measured and exported from the camera\'s embedded preview JPEG, not from your RAW edit.');
+    if (skipped.length) notes.push('Skipped ' + skipped.length + ' non-image file' + (skipped.length > 1 ? 's' : '') + '.');
+    $('#notice').hidden = !notes.length;
+    $('#notice').textContent = notes.join(' ');
     if (S.frames.length) S.sel = { where: 'pool', id: S.frames[0].id };
     render();
-    updateSaveChip(seqFile ? 'loaded ' + SEQ_FILE : null);
+    updateSaveChip(restored);
     measureAll();
   }
 
@@ -915,9 +1161,8 @@ self.onmessage = async function (e) {
       if (S.strip.length >= CS.MAX_SLIDES || S.strip.indexOf(id) >= 0) return;
       if (S.byId.has(id)) S.strip.push(id); else missing.push(id);
     });
-    if (missing.length) toast(missing.length + ' saved slide(s) not in this folder: ' + missing.join(', '));
+    if (missing.length) toast(missing.length + ' saved slide(s) are not among these photos: ' + missing.join(', '));
   }
-
   function num01(v) { v = Number(v); return isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.5; }
 
   function sequenceJSON() {
@@ -936,44 +1181,77 @@ self.onmessage = async function (e) {
     }, null, 2) + '\n';
   }
 
+  /* Saving: always to this device (IndexedDB, keyed by the photo set); also next to the
+     photos when a writable folder is open. */
   var saveTimer = null;
-  function changed() {
-    render();
-    if (!S.writable) { updateSaveChip('unsaved changes'); return; }
+  function changed() { render(); changedQuiet(); }
+  function changedQuiet() {
     updateSaveChip('saving…');
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(save, 500);
+    saveTimer = setTimeout(save, 400);
   }
   async function save() {
-    try {
-      var fh = await S.dir.getFileHandle(SEQ_FILE, { create: true });
-      var w = await fh.createWritable();
-      await w.write(sequenceJSON());
-      await w.close();
-      updateSaveChip('saved ' + SEQ_FILE);
-    } catch (e) {
-      S.writable = false; $('#downloadSeqBtn').hidden = false;
-      updateSaveChip('save failed: ' + e.message);
+    var json = sequenceJSON();
+    await idb('seq', 'readwrite', function (s) { return s.put(json, S.setKey); });
+    if (S.writable && S.dir) {
+      try {
+        var fh = await S.dir.getFileHandle(SEQ_FILE, { create: true });
+        var w = await fh.createWritable();
+        await w.write(json);
+        await w.close();
+        updateSaveChip('saved to folder');
+        return;
+      } catch (e) {
+        S.writable = false; $('#saveSeqBtn').hidden = false;
+      }
     }
+    updateSaveChip('saved on this device');
   }
   function updateSaveChip(text) {
     var c = $('#saveChip');
-    c.hidden = !text && !S.writable;
-    c.textContent = text || (S.writable ? 'autosaves to ' + SEQ_FILE : '');
+    c.hidden = !text;
+    c.textContent = text || '';
   }
-  $('#downloadSeqBtn').onclick = function () {
-    download(new Blob([sequenceJSON()], { type: 'application/json' }), SEQ_FILE);
-    updateSaveChip('downloaded; put it next to the photos');
+  $('#saveSeqBtn').onclick = function () {
+    deliver([{ name: SEQ_FILE, blob: new Blob([sequenceJSON()], { type: 'application/json' }) }], 'sequence file');
   };
-  function download(blob, name) {
-    var a = h('a', { href: URL.createObjectURL(blob), download: name });
-    document.body.appendChild(a); a.click(); a.remove();
-    setTimeout(function () { URL.revokeObjectURL(a.href); }, 4000);
+
+  /* Hand files to the person: claude.ai downloads capability, else share sheet, else download links. */
+  async function deliver(files, what) {
+    var dl = await dlP;
+    if (dl) {
+      for (var i = 0; i < files.length; i++) {
+        try { await dl.save({ filename: files[i].name, data: files[i].blob }); }
+        catch (e) {
+          if (e && e.code === 'rate_limited') { i--; await new Promise(function (r) { setTimeout(r, 1200); }); continue; }
+          if (e && e.code === 'declined') { toast('Stopped at ' + files[i].name); return false; }
+          toast('Could not save ' + files[i].name + (e && e.message ? ': ' + e.message : '')); return false;
+        }
+      }
+      return true;
+    }
+    var shareFiles = null;
+    try {
+      shareFiles = files.map(function (f) { return new File([f.blob], f.name, { type: f.blob.type }); });
+      if (navigator.canShare && navigator.canShare({ files: shareFiles })) {
+        await navigator.share({ files: shareFiles });
+        return true;
+      }
+    } catch (e) { if (e && e.name === 'AbortError') return false; }
+    for (var j = 0; j < files.length; j++) {
+      var a = h('a', { href: URL.createObjectURL(files[j].blob), download: files[j].name });
+      document.body.appendChild(a); a.click(); a.remove();
+      (function (u) { setTimeout(function () { URL.revokeObjectURL(u); }, 5000); })(a.href);
+      if (files.length > 1) await new Promise(function (r) { setTimeout(r, 200); });
+    }
+    return true;
   }
 
-  /* ---------- measuring (background workers) ---------- */
+  /* ---------- measuring (background workers, main thread as fallback) ---------- */
   var workers = [], queue = [], workerSrc = null;
-  function stopWorkers() { workers.forEach(function (w) { w.terminate(); }); workers = []; queue = []; }
+  var workerOK = typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' &&
+    typeof OffscreenCanvas.prototype.convertToBlob === 'function';
+  function stopWorkers() { workers.forEach(function (w) { w.terminate(); }); workers = []; queue = []; S.gen = {}; }
   async function measureAll() {
     var gen = {};
     S.gen = gen;
@@ -982,21 +1260,38 @@ self.onmessage = async function (e) {
       var f = S.frames[i];
       var hit = await idb('metrics', 'readonly', function (s) { return s.get(cacheKey(f)); });
       if (S.gen !== gen) return;
-      if (hit && hit.metrics) finish(f, hit.metrics, hit.width, hit.height, hit.thumb);
+      if (hit && hit.metrics) finish(f, hit);
       else todo.push(f);
     }
     progress();
     if (!todo.length) return;
-    if (!workerSrc) workerSrc = URL.createObjectURL(new Blob(
-      [document.getElementById('core').textContent, '\n', document.getElementById('worker').textContent],
-      { type: 'text/javascript' }));
     queue = todo.slice();
-    var n = Math.max(1, Math.min(4, (navigator.hardwareConcurrency || 4) - 1, todo.length));
-    for (var k = 0; k < n; k++) {
-      var w = new Worker(workerSrc);
-      w.onmessage = onResult;
-      workers.push(w);
-      next(w);
+    if (workerOK) {
+      try {
+        if (!workerSrc) workerSrc = URL.createObjectURL(new Blob(
+          [document.getElementById('core').textContent, '\n', document.getElementById('worker').textContent],
+          { type: 'text/javascript' }));
+        // phones: one or two decodes at a time keeps memory in check with 24-48 MP files
+        var n = Math.max(1, Math.min(isIOS ? 2 : 4, (navigator.hardwareConcurrency || 4) - 1, todo.length));
+        for (var k = 0; k < n; k++) {
+          var w = new Worker(workerSrc);
+          w.onmessage = onResult;
+          w.onerror = function (ev) { ev.preventDefault(); workerOK = false; stopWorkers(); S.gen = gen; mainThreadLoop(gen); };
+          workers.push(w);
+          next(w);
+        }
+        return;
+      } catch (e) { workerOK = false; }
+    }
+    mainThreadLoop(gen);
+  }
+  async function mainThreadLoop(gen) {
+    while (queue.length && S.gen === gen) {
+      var f = queue.shift();
+      if (f.status === 'done') continue;
+      try { var r = await CS.measureFile(f.file, true); if (S.gen !== gen) return; store(f, r); }
+      catch (e) { f.status = 'error'; f.error = String(e && e.message || e); S.measured++; }
+      progress();
     }
   }
   function next(w) {
@@ -1008,19 +1303,24 @@ self.onmessage = async function (e) {
   function onResult(e) {
     var r = e.data, f = S.byId.get(r.id);
     if (f) {
-      if (r.ok) {
-        finish(f, r.metrics, r.width, r.height, r.thumb);
-        var key = cacheKey(f), val = { metrics: r.metrics, width: r.width, height: r.height, thumb: r.thumb };
-        idb('metrics', 'readwrite', function (s) { return s.put(val, key); });
-      } else { f.status = 'error'; f.error = r.error; S.measured++; }
+      if (r.ok) store(f, r);
+      else { f.status = 'error'; f.error = r.error; S.measured++; }
     }
     progress();
     next(e.target);
     if (!queue.length && S.measured >= S.frames.length) stopWorkers();
   }
-  function finish(f, metrics, w, hgt, thumb) {
-    f.metrics = metrics; f.width = w; f.height = hgt; f.status = 'done';
-    if (thumb) f.thumbUrl = URL.createObjectURL(thumb);
+  function store(f, r) {
+    var val = { metrics: r.metrics, width: r.width, height: r.height, thumb: r.thumb, preview: r.preview, exif: r.exif, fromRawPreview: !!r.fromRawPreview };
+    finish(f, val);
+    var key = cacheKey(f);
+    idb('metrics', 'readwrite', function (s) { return s.put(val, key); });
+  }
+  function finish(f, v) {
+    f.metrics = v.metrics; f.width = v.width; f.height = v.height; f.status = 'done';
+    if (v.thumb) f.thumbUrl = URL.createObjectURL(v.thumb);
+    if (v.preview) f.previewUrl = URL.createObjectURL(v.preview);
+    if (!f.device.key && v.exif) f.device = CS.device(v.exif);
     S.measured++;
     scheduleRender();
   }
@@ -1063,11 +1363,12 @@ self.onmessage = async function (e) {
     S.base = base;
     var bc = $('#baseChip');
     bc.hidden = !base.n;
-    bc.textContent = 'baseline: median of ' + (base.source === 'strip' ? 'strip (' + base.n + ')' : 'whole import (' + base.n + ')') +
+    bc.textContent = 'baseline: ' + (base.source === 'strip' ? 'strip (' + base.n + ')' : 'all photos (' + base.n + ')') +
       ' · sat ' + fmt(base.sat, 3) + ' · clip ' + fmt(base.clipPct, 1) + '%';
     renderStrip(base);
     renderPool(base);
     renderInspector(base);
+    renderBar();
   }
 
   function zoneOf(i, n) {
@@ -1079,7 +1380,7 @@ self.onmessage = async function (e) {
   var ZONE_TEXT = { open: 'slides 1–3', middle: 'middle', end: 'end', empty: '' };
 
   function renderStrip(base) {
-    var wrap = $('#strip');
+    var wrap = $('#strip'), keep = wrap.scrollLeft;
     wrap.textContent = '';
     wrap.appendChild(h('div', { class: 'trackLabels' },
       h('div', { text: '' }), h('div', { class: 'sp' }), h('div', { text: 'scale' }), h('div', { text: 'you' })));
@@ -1091,19 +1392,21 @@ self.onmessage = async function (e) {
       var col = h('div', { class: 'col' });
       col.appendChild(h('div', { class: 'zone ' + zone, text: zone !== prevZone ? ZONE_TEXT[zone] : '' }));
       prevZone = zone;
-      var slot = h('div', { class: 'slot ' + (f ? 'filled' : 'empty'), 'data-idx': i });
+      var slot = h('div', { class: 'slot ' + (f ? 'filled' : 'empty'), 'data-idx': i, tabindex: f ? '0' : null,
+        role: 'button', 'aria-label': f ? 'slide ' + (i + 1) + ': ' + f.name : 'empty slot ' + (i + 1) });
       slot.appendChild(h('span', { class: 'n', text: String(i + 1) }));
       if (f) {
-        if (f.thumbUrl) slot.appendChild(h('img', { src: f.thumbUrl, alt: f.name }));
+        if (f.thumbUrl) slot.appendChild(h('img', { src: f.thumbUrl, alt: '' }));
         slot.appendChild(badges(f, base, true));
         slot.draggable = true;
-        slot.title = f.name;
-        (function (f, i) {
+        (function (f) {
           slot.addEventListener('click', function () { select('strip', f.id); });
           slot.addEventListener('dragstart', function (e) { dragStart(e, 'strip', f.id); });
-        })(f, i);
+        })(f);
         if (S.sel && S.sel.where === 'strip' && S.sel.id === f.id) slot.classList.add('sel');
         if (S.hl.indexOf(i) >= 0) slot.classList.add('hl');
+      } else {
+        slot.addEventListener('click', tapEmptySlot);
       }
       dropZone(slot, i);
       col.appendChild(slot);
@@ -1114,16 +1417,26 @@ self.onmessage = async function (e) {
         text: f ? (pr ? PRES_GLYPH[pr] : '·') : '' }));
       wrap.appendChild(col);
     }
+    wrap.scrollLeft = keep;
     var ul = $('#warnings');
     ul.textContent = '';
     var slides = S.strip.map(function (id) { return slideInfo(S.byId.get(id)); });
     CS.sequenceWarnings(slides).forEach(function (w) {
       var idx = w.slides.length === 2 && w.kind !== 'dup-open' ? rangeIdx(w.slides[0], w.slides[1]) : w.slides;
-      ul.appendChild(h('li', { class: w.kind === 'untagged' ? 'info' : '', text: w.text,
-        onmouseenter: function () { S.hl = idx; renderStripHl(); },
-        onmouseleave: function () { S.hl = []; renderStripHl(); } }));
+      var li = h('li', { class: w.kind === 'untagged' ? 'info' : '', text: w.text });
+      if (w.kind !== 'untagged') {
+        li.addEventListener('mouseenter', function () { S.hl = idx; renderStripHl(); });
+        li.addEventListener('mouseleave', function () { S.hl = []; renderStripHl(); });
+        li.addEventListener('click', function () { S.hl = S.hl === idx ? [] : idx; renderStripHl(); });
+      }
+      ul.appendChild(li);
     });
-    if (!S.strip.length) ul.appendChild(h('li', { class: 'info', text: 'strip empty: drag frames up, or select one and press Enter' }));
+    if (!S.strip.length) ul.appendChild(h('li', { class: 'info', text: 'Strip is empty. Tap a photo, then Add (or drag it up).' }));
+  }
+  function tapEmptySlot() {
+    if (!S.sel) return;
+    var inStrip = S.strip.indexOf(S.sel.id) >= 0;
+    if (!inStrip || S.sel.where === 'strip') { if (addToStrip(S.sel.id)) S.sel = { where: 'strip', id: S.sel.id }; render(); }
   }
   function rangeIdx(a, b) { var r = []; for (var i = a; i <= b; i++) r.push(i); return r; }
   function renderStripHl() {
@@ -1141,15 +1454,17 @@ self.onmessage = async function (e) {
       text: s.tonal == null ? '·' : signed(s.tonal, 2).replace('0.', '.') }));
     d.appendChild(h('div', { class: hueOn ? 'on' : '', title: 'hue shift between dominant hues',
       text: s.hue == null ? '·' : Math.round(s.hue) + '°' }));
-    if (s.deviceChange) d.appendChild(h('div', { class: 'on' + (s.phoneCamera ? ' phoneCam' : ''), title: (a.device.label || '?') + ' → ' + (b.device.label || '?'),
-      text: s.phoneCamera ? 'ph⇄' : 'dev⇄' }));
+    if (s.deviceChange) d.appendChild(h('div', { class: 'on' + (s.phoneCamera ? ' phoneCam' : ''),
+      title: (a.device.label || '?') + ' → ' + (b.device.label || '?'), text: s.phoneCamera ? 'ph⇄' : 'dev⇄' }));
     return d;
   }
 
   function badges(f, base, compact) {
     var row = h('div', { class: compact ? 'badges' : 'row' });
-    if (f.device && f.device.label) row.appendChild(h('span', { class: 'b' + (f.device.phone ? ' isPhone' : ''),
-      title: f.device.label + (f.device.phone ? ' (phone)' : ''), text: compact ? shortDevice(f.device.label) : f.device.label }));
+    if (f.device && f.device.label) row.appendChild(h('span', {
+      class: 'b' + (f.device.phone ? ' isPhone' : '') + (f.raw ? ' isRaw' : ''),
+      title: f.device.label + (f.device.phone ? ' (phone)' : '') + (f.raw ? ' · RAW, measured on embedded preview' : ''),
+      text: compact ? shortDevice(f.device.label) : f.device.label }));
     var g = S.dups.groupOf[f.id];
     if (g) row.appendChild(h('span', { class: 'b dup', title: 'near-duplicate group ' + g, text: '≈' + g }));
     var flags = f.metrics ? CS.frameFlags(f.metrics, base) : [];
@@ -1167,22 +1482,23 @@ self.onmessage = async function (e) {
   function renderPool(base) {
     var grid = $('#poolGrid');
     grid.textContent = '';
-    $('#poolTitle').textContent = 'Import · capture-time order · ' + S.frames.length + ' frames';
+    var noTime = S.frames.some(function (f) { return f.capture.source === 'pick'; });
+    $('#poolTitle').textContent = 'Photos · capture-time order' + (noTime ? ', then pick order' : '') + ' · ' + S.frames.length;
     S.frames.forEach(function (f) {
       var pos = S.strip.indexOf(f.id);
-      var card = h('div', { class: 'card' + (pos >= 0 ? ' inStrip' : ''), draggable: 'true', title: f.name });
+      var card = h('div', { class: 'card' + (pos >= 0 ? ' inStrip' : ''), draggable: 'true', tabindex: '0', role: 'button', 'aria-label': f.name });
       var ph = h('div', { class: 'ph' });
-      if (f.thumbUrl) ph.appendChild(h('img', { src: f.thumbUrl, alt: f.name }));
+      if (f.thumbUrl) ph.appendChild(h('img', { src: f.thumbUrl, alt: '' }));
       if (pos >= 0) ph.appendChild(h('span', { class: 'b pos', text: 'slide ' + (pos + 1) }));
       card.appendChild(ph);
       var meta = h('div', { class: 'meta' });
       meta.appendChild(h('div', { class: 'name', text: f.name }));
-      meta.appendChild(h('div', { class: 'faint num', text: fmtTime(f.capture.ms) + (f.capture.source === 'file' ? ' (file date)' : '') }));
+      meta.appendChild(h('div', { class: 'faint num', text: f.capture.ms == null ? 'picked #' + (f.pick + 1) : fmtTime(f.capture.ms) + (f.capture.source === 'file' ? ' (file date)' : '') }));
       meta.appendChild(badges(f, base, false));
       if (f.status === 'done') {
         var flags = CS.frameFlags(f.metrics, base);
         if (flags.length) meta.appendChild(h('div', { class: 'flags', text: flags.map(flagLine).join(' · ') }));
-      } else meta.appendChild(h('div', { class: 'pending', text: f.status === 'error' ? 'could not decode: ' + f.error : f.status + '…' }));
+      } else meta.appendChild(h('div', { class: 'pending', text: f.status === 'error' ? 'could not open: ' + f.error : f.status + '…' }));
       if (f.tags.scale || f.tags.presence) meta.appendChild(h('div', { class: 'faint',
         text: [f.tags.scale, f.tags.presence && PRES_TEXT[f.tags.presence]].filter(Boolean).join(' · ') }));
       card.appendChild(meta);
@@ -1201,25 +1517,25 @@ self.onmessage = async function (e) {
     if (!f) { body.className = 'muted'; body.textContent = 'Select a frame.'; return; }
     body.className = '';
     body.textContent = '';
-    if (f.thumbUrl) body.appendChild(h('img', { class: 'big', src: f.thumbUrl, alt: f.name }));
+    if (f.thumbUrl) body.appendChild(h('img', { class: 'big', src: f.previewUrl || f.thumbUrl, alt: f.name }));
     var pos = S.strip.indexOf(f.id);
     var dl = h('dl');
-    function row(k, v) { dl.appendChild(h('dt', { text: k })); dl.appendChild(typeof v === 'string' ? h('dd', { text: v }) : h('dd', null, v)); }
-    row('file', f.name);
+    function row(k, v) { dl.appendChild(h('dt', { text: k })); dl.appendChild(h('dd', { text: v })); }
+    row('file', f.name + (f.raw ? ' (RAW: embedded preview)' : ''));
     row('position', pos >= 0 ? 'slide ' + (pos + 1) + ' of ' + S.strip.length : 'not in strip');
-    row('captured', fmtTime(f.capture.ms) + ' (' + ({ exif: 'EXIF original', 'exif-modified': 'EXIF modify date', file: 'file date: no EXIF' })[f.capture.source] + ')');
+    row('captured', (f.capture.ms == null ? '' : fmtTime(f.capture.ms) + ' ') + '(' + CAPTURE_TEXT[f.capture.source] + ')');
     row('device', f.device.label + (f.device.phone ? ' · phone' : ''));
     if (f.width) row('size', f.width + ' × ' + f.height);
     var g = S.dups.groupOf[f.id];
     if (g) row('near-dups', '≈' + g + ': ' + S.dups.groups[g].filter(function (x) { return x !== f.id; }).join(', '));
-    row('scale', f.tags.scale || 'untagged (W C F T)');
-    row('you', f.tags.presence ? PRES_TEXT[f.tags.presence] : 'untagged (0 1 2)');
+    row('scale', f.tags.scale || 'untagged');
+    row('you', f.tags.presence ? PRES_TEXT[f.tags.presence] : 'untagged');
     body.appendChild(dl);
-    if (!f.metrics) { body.appendChild(h('p', { class: 'pending', text: f.status + '…' })); return; }
+    if (!f.metrics) { body.appendChild(h('p', { class: 'pending', text: f.status === 'error' ? 'could not open: ' + f.error : f.status + '…' })); return; }
     var flags = CS.frameFlags(f.metrics, base), flagged = {};
     flags.forEach(function (x) { flagged[x.key] = x; });
     var t = h('table', null, h('tr', null, h('th', { text: 'metric' }), h('th', { text: 'frame' }),
-      h('th', { text: base.source === 'strip' ? 'strip med' : 'import med' }), h('th', { text: 'Δ' })));
+      h('th', { text: base.source === 'strip' ? 'strip med' : 'all med' }), h('th', { text: 'Δ' })));
     CS.METRICS.forEach(function (m) {
       var v = f.metrics[m.key], b = base[m.key], fl = flagged[m.key];
       t.appendChild(h('tr', { class: fl ? 'flag' : '', title: fl ? fl.text : '' },
@@ -1235,6 +1551,34 @@ self.onmessage = async function (e) {
       ' · cast measured on ' + (mm.castSource === 'neutral' ? 'near-neutral pixels (' + fmt(mm.neutralPct, 0) + '%)' : 'all pixels: too few neutrals')));
   }
 
+  function renderBar() {
+    var f = S.sel && S.byId.get(S.sel.id);
+    var pos = f ? S.strip.indexOf(f.id) : -1;
+    $('#barImg').src = f && f.thumbUrl ? f.thumbUrl : '';
+    $('#barImg').hidden = !(f && f.thumbUrl);
+    $('#barName').textContent = f ? (pos >= 0 ? 'slide ' + (pos + 1) + ' · ' : '') + f.name : 'Tap a photo';
+    var add = $('#addBtn');
+    add.disabled = !f;
+    add.textContent = pos >= 0 ? 'Remove' : 'Add';
+    $('#leftBtn').disabled = pos <= 0;
+    $('#rightBtn').disabled = pos < 0 || pos >= S.strip.length - 1;
+    document.querySelectorAll('#scaleBtns button').forEach(function (b) {
+      b.disabled = !f; b.setAttribute('aria-pressed', String(!!f && f.tags.scale === b.dataset.scale));
+    });
+    document.querySelectorAll('#presBtns button').forEach(function (b) {
+      b.disabled = !f; b.setAttribute('aria-pressed', String(!!f && f.tags.presence === b.dataset.pres));
+    });
+  }
+  $('#addBtn').onclick = function () {
+    if (!S.sel) return;
+    if (S.strip.indexOf(S.sel.id) >= 0) removeFromStrip(S.sel.id);
+    else if (addToStrip(S.sel.id)) { S.sel = { where: 'strip', id: S.sel.id }; render(); scrollSelIntoView(); }
+  };
+  $('#leftBtn').onclick = function () { moveSel(-1); };
+  $('#rightBtn').onclick = function () { moveSel(1); };
+  document.querySelectorAll('#scaleBtns button').forEach(function (b) { b.onclick = function () { setTag('scale', b.dataset.scale); }; });
+  document.querySelectorAll('#presBtns button').forEach(function (b) { b.onclick = function () { setTag('presence', b.dataset.pres); }; });
+
   /* ---------- editing ---------- */
   function select(where, id) { S.sel = { where: where, id: id }; render(); scrollSelIntoView(); }
   function scrollSelIntoView() {
@@ -1243,7 +1587,7 @@ self.onmessage = async function (e) {
   }
   function addToStrip(id, at) {
     var cur = S.strip.indexOf(id);
-    if (cur < 0 && S.strip.length >= CS.MAX_SLIDES) { toast('Strip is full: ' + CS.MAX_SLIDES + ' slides max'); return false; }
+    if (cur < 0 && S.strip.length >= CS.MAX_SLIDES) { toast('The strip holds ' + CS.MAX_SLIDES + ' slides'); return false; }
     if (cur >= 0) S.strip.splice(cur, 1);
     at = at == null ? S.strip.length : Math.min(at, S.strip.length);
     S.strip.splice(at, 0, id);
@@ -1254,8 +1598,16 @@ self.onmessage = async function (e) {
     var i = S.strip.indexOf(id);
     if (i < 0) return;
     S.strip.splice(i, 1);
-    if (S.sel && S.sel.where === 'strip') S.sel = S.strip.length ? { where: 'strip', id: S.strip[Math.min(i, S.strip.length - 1)] } : { where: 'pool', id: id };
+    S.sel = { where: 'pool', id: id };
     changed();
+  }
+  function moveSel(dir) {
+    if (!S.sel) return;
+    var i = S.strip.indexOf(S.sel.id), j = i + dir;
+    if (i < 0 || j < 0 || j >= S.strip.length) return;
+    S.strip.splice(i, 1); S.strip.splice(j, 0, S.sel.id);
+    S.sel = { where: 'strip', id: S.sel.id };
+    changed(); scrollSelIntoView();
   }
   function setTag(kind, value) {
     var f = S.sel && S.byId.get(S.sel.id);
@@ -1264,7 +1616,7 @@ self.onmessage = async function (e) {
     changed();
   }
 
-  /* drag and drop */
+  /* drag and drop (desktop) */
   var drag = null;
   function dragStart(e, from, id) {
     drag = { from: from, id: id };
@@ -1291,7 +1643,7 @@ self.onmessage = async function (e) {
   });
   document.addEventListener('dragend', function () { drag = null; });
 
-  /* keyboard */
+  /* keyboard (desktop) */
   document.addEventListener('keydown', function (e) {
     var tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
@@ -1307,12 +1659,8 @@ self.onmessage = async function (e) {
     var i = list.indexOf(sel.id);
     if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
       var dir = e.key === 'ArrowLeft' ? -1 : 1;
-      if (e.altKey && sel.where === 'strip' && i >= 0) {
-        var j = i + dir;
-        if (j >= 0 && j < S.strip.length) { S.strip.splice(i, 1); S.strip.splice(j, 0, sel.id); changed(); scrollSelIntoView(); }
-      } else if (!e.altKey && list.length) {
-        select(sel.where, list[Math.max(0, Math.min(list.length - 1, (i < 0 ? 0 : i + dir)))]);
-      }
+      if (e.altKey && sel.where === 'strip' && i >= 0) moveSel(dir);
+      else if (!e.altKey && list.length) select(sel.where, list[Math.max(0, Math.min(list.length - 1, (i < 0 ? 0 : i + dir)))]);
       e.preventDefault();
     } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && sel.where === 'pool') {
       var cols = Math.max(1, getComputedStyle($('#poolGrid')).gridTemplateColumns.split(' ').length);
@@ -1322,19 +1670,21 @@ self.onmessage = async function (e) {
       if (S.strip.indexOf(sel.id) < 0) addToStrip(sel.id);
       e.preventDefault();
     } else if ((e.key === 'Delete' || e.key === 'Backspace') && S.strip.indexOf(sel.id) >= 0) {
-      removeFromStrip(sel.id); e.preventDefault();
+      var at = S.strip.indexOf(sel.id);
+      removeFromStrip(sel.id);
+      if (sel.where === 'strip' && S.strip.length) S.sel = { where: 'strip', id: S.strip[Math.min(at, S.strip.length - 1)] };
+      render(); e.preventDefault();
     } else if (e.key === 'Tab') {
       if (sel.where === 'pool' && S.strip.length) {
-        var at = S.strip.indexOf(sel.id);
-        select('strip', at >= 0 ? sel.id : S.strip[0]);
+        var si = S.strip.indexOf(sel.id);
+        select('strip', si >= 0 ? sel.id : S.strip[0]);
       } else select('pool', sel.id);
       e.preventDefault();
     }
   });
 
   /* ---------- preview + crop ---------- */
-  var PHONE_W = 360, GRID_W = 120;
-  var pv = { idx: 0, slides: [] };
+  var pv = { idx: 0, slides: [], W: 360, gridW: 120, cropping: false };
   function aspectNum(a) { var s = CS.ASPECTS[a]; return s.w / s.h; }
   function gridNum(a) { return a === '1:1' ? 1 : 3 / 4; }
 
@@ -1343,27 +1693,40 @@ self.onmessage = async function (e) {
   $('#pv').addEventListener('close', function () { render(); });
 
   function openPreview() {
-    if (!S.strip.length) { toast('Put some frames in the strip first'); return; }
-    if (S.strip.some(function (id) { return !S.byId.get(id).width; })) { toast('Strip frames are still being measured'); return; }
+    if (!S.strip.length) { toast('Add some photos to the strip first'); return; }
+    if (S.strip.some(function (id) { return !S.byId.get(id).width; })) { toast('Strip photos are still being measured'); return; }
+    var narrow = window.innerWidth < 520;
+    pv.W = Math.min(360, window.innerWidth - (narrow ? 56 : 80));
+    pv.gridW = Math.floor(Math.min(120, (Math.min(364, window.innerWidth - 56) - 8) / 3));
+    $('#phone').classList.toggle('bare', narrow);
     $('#aspectSel').value = S.aspect;
     $('#gridSel').value = S.gridAspect;
     $('#exportLog').textContent = '';
+    $('#saveRow').textContent = '';
+    setCropping(false);
     pv.idx = 0;
     buildCarousel();
     $('#pv').showModal();
     $('#car').scrollLeft = 0;
   }
-  function fullUrl(f) { if (!f.fullUrl) f.fullUrl = URL.createObjectURL(f.file); return f.fullUrl; }
+  function setCropping(on) {
+    pv.cropping = on;
+    $('#cropBtn').setAttribute('aria-pressed', String(on));
+    $('#car').classList.toggle('cropping', on);
+    $('#zoomLabel').hidden = !on; $('#resetCropBtn').hidden = !on;
+  }
+  $('#cropBtn').onclick = function () { setCropping(!pv.cropping); };
+  function imgUrl(f) { return f.previewUrl || f.thumbUrl; }
 
   function buildCarousel() {
-    var car = $('#car'), A = aspectNum(S.aspect), H = Math.round(PHONE_W / A);
+    var car = $('#car'), H = Math.round(pv.W / aspectNum(S.aspect));
     car.textContent = '';
-    car.style.height = H + 'px';
+    car.style.width = pv.W + 'px'; car.style.height = H + 'px';
     pv.slides = S.strip.map(function (id, i) {
       var f = S.byId.get(id);
       var box = h('div', { class: 'slide' });
-      box.style.height = H + 'px';
-      var img = h('img', { src: fullUrl(f), alt: f.name });
+      box.style.width = pv.W + 'px'; box.style.height = H + 'px';
+      var img = h('img', { src: imgUrl(f), alt: 'slide ' + (i + 1) });
       box.appendChild(img);
       var gb = null;
       if (i === 0) { gb = h('div', { class: 'gridBox' }); box.appendChild(gb); }
@@ -1386,20 +1749,21 @@ self.onmessage = async function (e) {
   function slideRect(f) { return CS.cropRect(f.width || 1, f.height || 1, aspectNum(S.aspect), f.crop); }
   function placeSlide(s) {
     var f = s.f;
-    placeImg(s.img, f.width, f.height, slideRect(f), PHONE_W);
+    placeImg(s.img, f.width, f.height, slideRect(f), pv.W);
     if (s.gb) {
-      var g = CS.gridRect(aspectNum(S.aspect), gridNum(S.gridAspect)), H = PHONE_W / aspectNum(S.aspect);
-      s.gb.style.left = g.x * PHONE_W + 'px'; s.gb.style.top = g.y * H + 'px';
-      s.gb.style.width = g.w * PHONE_W + 'px'; s.gb.style.height = g.h * H + 'px';
+      var g = CS.gridRect(aspectNum(S.aspect), gridNum(S.gridAspect)), H = pv.W / aspectNum(S.aspect);
+      s.gb.style.left = g.x * pv.W + 'px'; s.gb.style.top = g.y * H + 'px';
+      s.gb.style.width = g.w * pv.W + 'px'; s.gb.style.height = g.h * H + 'px';
     }
   }
   function buildGridMock() {
-    var G = $('#gridMockG'), gh = Math.round(GRID_W / gridNum(S.gridAspect));
+    var G = $('#gridMockG'), gh = Math.round(pv.gridW / gridNum(S.gridAspect));
     G.textContent = '';
+    G.style.gridTemplateColumns = 'repeat(3, ' + pv.gridW + 'px)';
     for (var i = 0; i < 9; i++) {
       var c = h('div', { class: 'gcell' });
-      c.style.width = GRID_W + 'px'; c.style.height = gh + 'px';
-      if (i === 0 && pv.slides[0]) { c.appendChild(h('img', { src: fullUrl(pv.slides[0].f), alt: '' })); }
+      c.style.width = pv.gridW + 'px'; c.style.height = gh + 'px';
+      if (i === 0 && pv.slides[0]) c.appendChild(h('img', { src: imgUrl(pv.slides[0].f), alt: 'slide 1 in the profile grid' }));
       G.appendChild(c);
     }
     placeGridCell();
@@ -1408,17 +1772,19 @@ self.onmessage = async function (e) {
     var img = document.querySelector('#gridMockG .gcell img');
     if (!img || !pv.slides[0]) return;
     var f = pv.slides[0].f, r = slideRect(f), g = CS.gridRect(aspectNum(S.aspect), gridNum(S.gridAspect));
-    placeImg(img, f.width, f.height, { x: r.x + g.x * r.w, y: r.y + g.y * r.h, w: g.w * r.w, h: g.h * r.h }, GRID_W);
+    placeImg(img, f.width, f.height, { x: r.x + g.x * r.w, y: r.y + g.y * r.h, w: g.w * r.w, h: g.h * r.h }, pv.gridW);
   }
   function attachCropDrag(s) {
     var start = null;
     s.box.addEventListener('pointerdown', function (e) {
+      if (!pv.cropping) return;
       start = { x: e.clientX, y: e.clientY, cx: s.f.crop.x, cy: s.f.crop.y };
       s.box.setPointerCapture(e.pointerId);
+      e.preventDefault();
     });
     s.box.addEventListener('pointermove', function (e) {
       if (!start) return;
-      var f = s.f, r = slideRect(f), sc = PHONE_W / r.w;
+      var f = s.f, r = slideRect(f), sc = pv.W / r.w;
       var freeX = f.width - r.w, freeY = f.height - r.h;
       if (freeX > 0.5) f.crop.x = clamp01(start.cx - (e.clientX - start.x) / sc / freeX);
       if (freeY > 0.5) f.crop.y = clamp01(start.cy - (e.clientY - start.y) / sc / freeY);
@@ -1430,12 +1796,8 @@ self.onmessage = async function (e) {
     s.box.addEventListener('pointercancel', end);
   }
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
-  function changedQuiet() {
-    if (!S.writable) { updateSaveChip('unsaved changes'); return; }
-    clearTimeout(saveTimer); saveTimer = setTimeout(save, 500);
-  }
   function syncIdx() {
-    var i = Math.round($('#car').scrollLeft / PHONE_W);
+    var i = Math.round($('#car').scrollLeft / pv.W);
     pv.idx = Math.max(0, Math.min(pv.slides.length - 1, i));
     $('#pvCount').textContent = (pv.idx + 1) + ' / ' + pv.slides.length;
     Array.prototype.forEach.call($('#dots').children, function (d, j) { d.className = j === pv.idx ? 'on' : ''; });
@@ -1443,7 +1805,7 @@ self.onmessage = async function (e) {
     if (s) $('#zoomIn').value = s.f.crop.zoom;
   }
   $('#car').addEventListener('scroll', syncIdx);
-  function go(d) { $('#car').scrollTo({ left: Math.max(0, pv.idx + d) * PHONE_W, behavior: 'smooth' }); }
+  function go(d) { $('#car').scrollTo({ left: Math.max(0, pv.idx + d) * pv.W, behavior: 'smooth' }); }
   $('#prevBtn').onclick = function () { go(-1); };
   $('#nextBtn').onclick = function () { go(1); };
   function previewKey(e) {
@@ -1463,38 +1825,42 @@ self.onmessage = async function (e) {
     changedQuiet();
   };
   $('#aspectSel').onchange = function () { S.aspect = this.value; buildCarousel(); $('#car').scrollLeft = 0; changedQuiet(); };
-  $('#gridSel').onchange = function () { S.gridAspect = this.value; buildGridMock(); pv.slides[0] && placeSlide(pv.slides[0]); changedQuiet(); };
+  $('#gridSel').onchange = function () { S.gridAspect = this.value; buildGridMock(); if (pv.slides[0]) placeSlide(pv.slides[0]); changedQuiet(); };
 
   /* ---------- export ---------- */
   $('#exportBtn').onclick = exportSlides;
   async function exportSlides() {
-    var btn = $('#exportBtn'), log = $('#exportLog');
+    var btn = $('#exportBtn'), log = $('#exportLog'), row = $('#saveRow');
     var size = CS.ASPECTS[S.aspect], A = size.w / size.h, mode = $('#dateSel').value;
     var slides = S.strip.map(function (id) { return S.byId.get(id); });
     var base = null;
     if (mode === 'now') base = Date.now() - new Date().getTimezoneOffset() * 60000;
-    if (mode === 'capture') base = slides[0].capture.ms;
-    btn.disabled = true;
-    log.textContent = 'exporting ' + slides.length + ' slides at ' + size.w + '×' + size.h + '…\n';
+    if (mode === 'capture') base = slides[0].capture.ms != null ? slides[0].capture.ms : Date.now() - new Date().getTimezoneOffset() * 60000;
+    btn.disabled = true; row.textContent = '';
+    log.textContent = 'rendering ' + slides.length + ' slides at ' + size.w + '×' + size.h + '…\n';
+    var out = [];
     try {
-      var out = [];
       for (var i = 0; i < slides.length; i++) {
         var f = slides[i];
-        var bmp = await createImageBitmap(f.file);
+        var src = await CS.decodableBlob(f.file);
+        var bmp = await createImageBitmap(src.blob, { imageOrientation: 'from-image' });
         var r = CS.cropRect(bmp.width, bmp.height, A, f.crop);
         var cv = document.createElement('canvas');
         cv.width = size.w; cv.height = size.h;
         var ctx = cv.getContext('2d');
         ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(bmp, r.x, r.y, r.w, r.h, 0, 0, size.w, size.h);
-        bmp.close();
+        if (bmp.close) bmp.close();
         var blob = await new Promise(function (res) { cv.toBlob(res, 'image/jpeg', 0.92); });
+        cv.width = cv.height = 1;   // release canvas memory early (iOS)
         var bytes = new Uint8Array(await blob.arrayBuffer());
         if (base != null) bytes = CS.insertApp1(bytes, CS.buildDateApp1(base + i * 1000));
         var name = 'carousel-' + (i < 9 ? '0' : '') + (i + 1) + '.jpg';
         out.push({ name: name, blob: new Blob([bytes], { type: 'image/jpeg' }) });
-        log.textContent += name + '  ← ' + f.name + (r.w < f.width * 0.999 || r.h < f.height * 0.999 ? '  (cropped)' : '') + '\n';
+        log.textContent += name + '  ← ' + f.name + (r.w < bmp.width * 0.999 || r.h < bmp.height * 0.999 ? '  (cropped)' : '') + '\n';
       }
+      log.textContent += mode === 'none' ? 'No EXIF, GPS, XMP or IPTC in the files.\n'
+        : 'Only capture times written, 1 s apart from ' + CS.exifDateString(base) + '.\n';
       if (S.dir && S.writable) {
         var dir = await S.dir.getDirectoryHandle(EXPORT_DIR, { create: true });
         var stale = [];
@@ -1507,18 +1873,71 @@ self.onmessage = async function (e) {
           var fh = await dir.getFileHandle(out[k].name, { create: true });
           var w = await fh.createWritable(); await w.write(out[k].blob); await w.close();
         }
-        log.textContent += 'written to ' + S.dirName + '/' + EXPORT_DIR + '/' +
+        log.textContent += 'Written to ' + S.dirName + '/' + EXPORT_DIR + '/' +
           (stale.length ? ' (removed ' + stale.length + ' older file' + (stale.length > 1 ? 's' : '') + ')' : '') + '\n';
       } else {
-        for (var j = 0; j < out.length; j++) { download(out[j].blob, out[j].name); await new Promise(function (r) { setTimeout(r, 150); }); }
-        log.textContent += 'downloaded (folder not writable)\n';
+        // saving needs a fresh tap (share sheets and save prompts require one)
+        row.appendChild(h('button', { class: 'primary', text: 'Save all ' + out.length, onclick: async function () {
+          if (await deliver(out, 'slides')) log.textContent += 'Handed ' + out.length + ' files to the save sheet.\n';
+        } }));
+        out.forEach(function (o) {
+          row.appendChild(h('button', { text: o.name.replace('carousel-', '').replace('.jpg', ''), title: 'Save ' + o.name,
+            onclick: function () { deliver([o], o.name); } }));
+        });
       }
-      log.textContent += mode === 'none' ? 'no EXIF, GPS, XMP or IPTC in the files (canvas re-encode; only an sRGB colour profile)\n'
-        : 'metadata: only DateTimeOriginal, 1 s apart from ' + CS.exifDateString(base) + '\n';
     } catch (err) {
-      log.textContent += 'export failed: ' + (err && err.message || err) + '\n';
+      log.textContent += 'Export stopped: ' + (err && err.message || err) + '\n';
     } finally { btn.disabled = false; }
   }
+
+  /* ---------- example shoot (generated) ---------- */
+  async function exampleFiles() {
+    var specs = [
+      ['DSCF2201.jpg', 0, 'cam', { seed: 3, warm: 0.30 }],
+      ['DSCF2202.jpg', 25, 'cam', { seed: 3, warm: 0.30, bright: 14 }],   // near-duplicate
+      ['DSCF2204.jpg', 70, 'cam', { seed: 8, warm: 0.25 }],
+      ['IMG_7731.jpg', 95, 'phone', { seed: 11, warm: 0.45, sky: 0.26 }],
+      ['DSCF2207.jpg', 140, 'cam', { seed: 5, warm: 0.28 }],
+      ['DSCF2209.jpg', 190, 'cam', { seed: 21, warm: 0.3, cast: [10, -9, 12] }],  // magenta cast
+      ['DSCF2213.jpg', 260, 'cam', { seed: 13, warm: 0.22 }],
+      ['DSCF2218.jpg', 330, 'cam', { seed: 17, warm: 0.32 }],
+      ['IMG_7740.jpg', 400, 'phone', { seed: 29, warm: 0.40 }],
+      ['DSCF2224.jpg', 460, 'cam', { seed: 31, warm: 0.27 }]
+    ];
+    var files = [];
+    for (var i = 0; i < specs.length; i++) {
+      var sp = specs[i], r = sp[3];
+      var c = document.createElement('canvas'); c.width = 1200; c.height = 900;
+      var g = c.getContext('2d'), seed = r.seed * 9301;
+      var rnd = function () { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+      var sky = g.createLinearGradient(0, 0, 0, 900);
+      sky.addColorStop(0, 'rgb(150,166,178)'); sky.addColorStop(1, 'rgb(96,92,84)');
+      g.fillStyle = sky; g.fillRect(0, 0, 1200, 900);
+      for (var k = 0; k < 26; k++) {
+        var v = 45 + rnd() * 160, s = rnd() * r.warm;
+        g.fillStyle = 'rgb(' + Math.round(v * (1 + s)) + ',' + Math.round(v) + ',' + Math.round(v * (1 - s)) + ')';
+        g.fillRect(rnd() * 1200, 200 + rnd() * 700, 60 + rnd() * 380, 40 + rnd() * 260);
+      }
+      if (r.sky) { g.fillStyle = '#fff'; g.fillRect(0, 0, 1200, 900 * r.sky); }
+      if (r.bright || r.cast) {
+        var d = g.getImageData(0, 0, 1200, 900), px = d.data, add = r.cast || [r.bright, r.bright, r.bright];
+        for (var p = 0; p < px.length; p += 4) { px[p] += add[0]; px[p + 1] += add[1]; px[p + 2] += add[2]; }
+        g.putImageData(d, 0, 0);
+      }
+      var blob = await new Promise(function (res) { c.toBlob(res, 'image/jpeg', 0.88); });
+      var bytes = new Uint8Array(await blob.arrayBuffer());
+      var when = Date.UTC(2026, 8, 12, 17, 0, 0) + sp[1] * 1000;
+      bytes = CS.insertApp1(bytes, CS.buildExifApp1(sp[2] === 'cam'
+        ? { make: 'FUJIFILM', model: 'X-T5', date: when } : { make: 'Apple', model: 'iPhone 15 Pro', date: when }));
+      files.push(new File([bytes], sp[0], { type: 'image/jpeg', lastModified: when }));
+    }
+    return files;
+  }
+  async function loadExample() {
+    try { loadFiles(await exampleFiles(), { name: 'example', example: true }); }
+    catch (e) { $('#notice').hidden = false; $('#notice').textContent = 'Choose photos to begin.'; }
+  }
+  loadExample();
 
   window.__cs = { state: S, render: render };  // for tests / console poking
 })();

@@ -153,6 +153,35 @@ test('EXIF: read make/model/capture time, write capture time only', () => {
   assert.equal(CS.exifTimeMs('2026:09:12 17:04:05', '25'), Date.UTC(2026, 8, 12, 17, 4, 5) + 250);
 });
 
+test('RAW: largest embedded JPEG, EXIF from the TIFF header, orientation carried over', () => {
+  const tiff = CS.buildExifApp1({ make: 'NIKON CORPORATION', model: 'NIKON Z 6', orientation: 6, date: Date.UTC(2026, 3, 2, 9, 30, 0) }).slice(10);
+  const jpeg = (w, h, fill) => new Uint8Array([
+    0xFF, 0xD8, 0xFF, 0xC0, 0, 11, 8, h >> 8, h & 255, w >> 8, w & 255, 1, 1, 0x11, 0,
+    0xFF, 0xDA, 0, 8, 1, 1, 0, 0, 63, 0, ...fill, 0xFF, 0xD9]);
+  const lossless = new Uint8Array([0xFF, 0xD8, 0xFF, 0xC3, 0, 11, 8, 0x10, 0, 0x10, 0, 1, 1, 0x11, 0, 0xFF, 0xD9]);
+  const small = jpeg(160, 120, [1, 2, 0xFF, 0x00, 3]), big = jpeg(6048, 4024, [9, 0xFF, 0xD3, 8, 7]);
+  const raw = new Uint8Array([...tiff, 0, 0, ...small, ...lossless, ...big, 5, 5]);
+  const found = CS.extractEmbeddedJpeg(raw);
+  assert.deepEqual([found.width, found.height], [6048, 4024]);
+  assert.deepEqual([...found.jpeg], [...big]);
+  const r = CS.rawToJpeg(raw);
+  assert.equal(r.exif.model, 'NIKON Z 6');
+  assert.equal(r.exif.orientation, 6);
+  assert.equal(r.exif.dateTimeOriginal, '2026:04:02 09:30:00');
+  assert.equal(CS.parseExif(r.jpeg.buffer).orientation, 6, 'orientation written into the extracted JPEG');
+  assert.ok(CS.isRaw('DSC_0001.NEF') && CS.isRaw('x.cr3') && !CS.isRaw('x.jpg'));
+  assert.equal(CS.rawToJpeg(new Uint8Array(tiff)), null);
+});
+
+test('capture time falls back to pick order when files carry no date', () => {
+  const now = Date.UTC(2026, 8, 26, 12, 0, 0);
+  assert.equal(CS.captureTime({}, now - 5000, now).source, 'pick');
+  assert.equal(CS.captureTime({}, now - 86400000, now).source, 'file');
+  const f = (name, ms, pick) => ({ name, pick, capture: { ms } });
+  const order = CS.captureOrder([f('z.jpg', null, 0), f('b.jpg', 50, 3), f('y.jpg', null, 1), f('a.jpg', 10, 2)]).map((x) => x.name);
+  assert.deepEqual(order, ['a.jpg', 'b.jpg', 'z.jpg', 'y.jpg']);
+});
+
 test('default order is capture time, filename breaks ties', () => {
   const f = (name, ms) => ({ name, capture: { ms } });
   const order = CS.captureOrder([f('c.jpg', 20), f('b.jpg', 10), f('a.jpg', 20)]).map((x) => x.name);
@@ -188,5 +217,4 @@ test('page ships as one self-contained file with no network access', () => {
   assert.doesNotMatch(html, /url\(\s*["']?(https?:)?\/\//i);
   assert.doesNotMatch(html, /@import/);
   assert.doesNotMatch(html, /\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource/);
-  assert.match(html, /Content-Security-Policy" content="default-src 'none'/);
 });

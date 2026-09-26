@@ -55,6 +55,10 @@ try {
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
   await page.goto(pathToFileURL(HTML_PATH).href);
+  // opens on a generated example shoot
+  await page.waitForFunction(() => document.querySelector('#measureText')?.textContent === 'measured 10', null, { timeout: 30000 });
+  assert.match(await page.textContent('#folderChip'), /example shoot · 10 frames/);
+  assert.match(await page.textContent('#notice'), /generated example frames/);
 
   // draw the shoot in the page, encode to JPEG
   const jpegs = await page.evaluate(async (shoot) => {
@@ -88,16 +92,23 @@ try {
     writeFileSync(join(dir, name), CS.insertApp1(new Uint8Array(jpegs[i]), app1));
   });
   writeFileSync(join(dir, 'notes.txt'), 'not an image');
+  // a fake portrait RAW: TIFF header (make/model/orientation 6) + camera preview JPEG, shot last
+  const rawTiff = CS.buildExifApp1({ make: 'NIKON CORPORATION', model: 'NIKON Z 6', orientation: 6,
+    date: Date.UTC(2026, 8, 12, 17, 1, 30) }).slice(10);
+  writeFileSync(join(dir, 'DSC_0900.NEF'), new Uint8Array([...rawTiff, 0, 0, ...jpegs[5], 7, 7, 7]));
 
   // open through the folder input (the File System Access picker can't be scripted)
   await page.setInputFiles('#dirInput', dir);
-  await page.waitForFunction(() => document.querySelector('#measureText')?.textContent === 'measured 8', null, { timeout: 30000 });
+  await page.waitForFunction(() => document.querySelector('#measureText')?.textContent === 'measured 9', null, { timeout: 30000 });
 
   const poolNames = await page.$$eval('#poolGrid .card .name', (els) => els.map((e) => e.textContent));
-  assert.deepEqual(poolNames, SHOOT.map((s) => s[0]), 'pool is in capture-time order');
+  assert.deepEqual(poolNames, [...SHOOT.map((s) => s[0]), 'DSC_0900.NEF'], 'pool is in capture-time order');
+  const raw = await page.evaluate(() => { const f = window.__cs.state.byId.get('DSC_0900.NEF'); return { w: f.width, h: f.height, dev: f.device.label, status: f.status }; });
+  assert.deepEqual(raw, { w: 1000, h: 1500, dev: 'NIKON Z 6', status: 'done' }, 'RAW preview decoded and rotated upright');
+  assert.match(await page.textContent('#notice'), /1 RAW file is measured and exported from the camera's embedded preview JPEG/);
   assert.equal(await page.$$eval('#strip .slot', (els) => els.length), 20);
   assert.equal(await page.$$eval('#strip .slot.filled', (els) => els.length), 0, 'strip starts empty');
-  assert.match(await page.textContent('#baseChip'), /whole import \(8\)/);
+  assert.match(await page.textContent('#baseChip'), /all photos \(9\)/);
 
   const flagsOf = (name) => page.$eval(`#poolGrid .card[data-id="${name}"]`, (c) => c.querySelector('.flags')?.textContent ?? '');
   assert.match(await flagsOf('DSCF0106.jpg'), /magenta-shifted/);
@@ -149,6 +160,11 @@ try {
   assert.equal(await page.$$eval('#car .slide', (els) => els.length), 5);
   const box = await page.$eval('#car .slide', (e) => { const r = e.getBoundingClientRect(); return { x: r.x, y: r.y, w: r.width, h: r.height }; });
   assert.equal(Math.round(box.h), 450, '4:5 slide in a 360px phone');
+  // without "Adjust crop" a drag does nothing (so a phone swipe pages through slides)
+  await page.mouse.move(box.x + 180, box.y + 200); await page.mouse.down();
+  await page.mouse.move(box.x + 60, box.y + 200, { steps: 5 }); await page.mouse.up();
+  assert.equal(await page.evaluate(() => window.__cs.state.byId.get(window.__cs.state.strip[0]).crop.x), 0.5);
+  await page.click('#cropBtn');
   await page.mouse.move(box.x + 180, box.y + 200); await page.mouse.down();
   await page.mouse.move(box.x + 60, box.y + 200, { steps: 5 }); await page.mouse.up();
   const cropX = await page.evaluate(() => window.__cs.state.byId.get(window.__cs.state.strip[0]).crop.x);
@@ -161,11 +177,13 @@ try {
     const onDl = (d) => downloads.push(d);
     page.on('download', onDl);
     await page.click('#exportBtn');
-    await page.waitForFunction(() => /downloaded|failed/.test(document.querySelector('#exportLog').textContent), null, { timeout: 30000 });
+    await page.waitForSelector('#saveRow button.primary', { timeout: 30000 });
+    await page.click('#saveRow button.primary');
+    await page.waitForFunction(() => /Handed|stopped/.test(document.querySelector('#exportLog').textContent), null, { timeout: 30000 });
     await page.waitForTimeout(300);
     page.off('download', onDl);
     const log = await page.textContent('#exportLog');
-    assert.doesNotMatch(log, /failed/, log);
+    assert.doesNotMatch(log, /stopped/, log);
     const files = [];
     for (const d of downloads) {
       const p = await d.path();
@@ -186,7 +204,7 @@ try {
   assert.ok(times.every((t) => !t.make && !t.model), 'only capture times are written back');
 
   // the sequence round-trips through carousel-sequence.json next to the photos
-  const [seqDl] = await Promise.all([page.waitForEvent('download'), (async () => { await page.keyboard.press('Escape'); await page.click('#downloadSeqBtn'); })()]);
+  const [seqDl] = await Promise.all([page.waitForEvent('download'), (async () => { await page.keyboard.press('Escape'); await page.click('#saveSeqBtn'); })()]);
   const seq = JSON.parse((await import('node:fs')).readFileSync(await seqDl.path(), 'utf8'));
   assert.equal(seqDl.suggestedFilename(), 'carousel-sequence.json');
   const order = await page.evaluate(() => window.__cs.state.strip.slice());
@@ -195,7 +213,7 @@ try {
   writeFileSync(join(dir, 'carousel-sequence.json'), JSON.stringify(seq));
   await page.evaluate(() => { document.querySelector('#measureText').textContent = ''; });
   await page.setInputFiles('#dirInput', dir);
-  await page.waitForFunction(() => document.querySelector('#measureText')?.textContent === 'measured 8', null, { timeout: 30000 });
+  await page.waitForFunction(() => document.querySelector('#measureText')?.textContent === 'measured 9', null, { timeout: 30000 });
   const restored = await page.evaluate(() => {
     const s = window.__cs.state;
     return { order: s.strip.slice(), tags: s.strip.map((id) => s.byId.get(id).tags), cropX: s.byId.get(s.strip[0]).crop.x };

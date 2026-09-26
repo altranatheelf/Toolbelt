@@ -2,11 +2,18 @@
 
 ## Carousel Sequencer
 
-`carousel-sequencer.html` is a single self-contained page. Open it in Chrome (double-click it; no server needed) and open a folder of Lightroom exports. It measures every frame and gives you a 20-slot strip to arrange them in. It never orders, cuts or writes captions. Rules live in `CLAUDE.md`.
+`carousel-sequencer.html` is a single self-contained page that measures a set of photos and gives you a 20-slot strip to arrange them in. It never orders, cuts or writes captions. Rules live in `CLAUDE.md`.
 
-- **Measure.** A background worker measures a 768 px copy of each frame (results cached in IndexedDB). It also groups near-duplicates (dHash) and badges the camera from EXIF. Chrome remembers the folder, so **Reopen** works next time.
-- **Strip.** The pool is in capture-time order. Drag frames into the strip, or select one and press <kbd>Enter</kbd>. Seams show the tonal jump, the hue shift and any device change. Tag each frame with <kbd>W</kbd>/<kbd>C</kbd>/<kbd>F</kbd>/<kbd>T</kbd> for scale and <kbd>0</kbd>/<kbd>1</kbd>/<kbd>2</kbd> for you out of frame, in with face hidden, or in with face shown. The sequence autosaves to `carousel-sequence.json` next to the photos.
-- **Preview and export** (<kbd>P</kbd>). A phone-sized swipe preview at one carousel ratio, with slide 1 shown at the profile-grid crop and a draggable crop and zoom for each slide. Export writes `carousel-NN.jpg` at 1080 px wide into `carousel-export/`. The canvas re-encode drops EXIF, GPS, XMP and IPTC, keeping only an sRGB profile. Sequential capture times can be written back if you choose.
+Ways to open it:
+
+- **iPhone:** use the published claude.ai link, tap **Choose photos** and select the album's pictures. The sequence autosaves on the phone for that set of photos. Export offers each slide to the share sheet (Save Image puts it in Photos).
+- **Desktop Chrome:** double-click the file and use **Open folder…**. The sequence then saves as `carousel-sequence.json` next to the photos, and export writes into `carousel-export/`.
+
+Photos never leave the device: decoding and measuring happen in the page. Sources can be JPEG, PNG, WebP or HEIC (HEIC in Safari only). RAW files (DNG, CR2, CR3, NEF, ARW, RAF, ORF, RW2 and more) are measured and exported from the full-size preview JPEG the camera embeds, which is the camera's rendering and not your RAW edit. Photos without a capture time (some phone pickers strip it) follow the timed ones in the order you picked them.
+
+- **Measure.** A background worker measures a 768 px copy of each frame (results cached on the device). It also groups near-duplicates (dHash) and badges the camera from EXIF, with PHONE and RAW marked. Desktop Chrome remembers the folder, so **Reopen** works next time.
+- **Strip.** Photos are listed in capture-time order. Tap a photo and use **Add** and the bottom bar, or on desktop drag it up or press <kbd>Enter</kbd>. Seams show the tonal jump, the hue shift and any device change. Tag each frame for scale (W/C/F/T) and for you out of frame, in with face hidden, or in with face shown, using the bar buttons or the keys <kbd>W</kbd>/<kbd>C</kbd>/<kbd>F</kbd>/<kbd>T</kbd> and <kbd>0</kbd>/<kbd>1</kbd>/<kbd>2</kbd>.
+- **Preview and export.** A swipe preview at one carousel ratio, with slide 1 shown at the profile-grid crop. **Adjust crop** lets you drag and zoom each slide. Export renders `carousel-NN.jpg` at 1080 px wide. The re-encode drops EXIF, GPS, XMP and IPTC. Sequential capture times can be written back so the slides sort in order in Photos.
 
 ### Metric definitions
 
