@@ -2,40 +2,43 @@
 
 ## Carousel Sequencer
 
-`carousel-sequencer.html` is a single self-contained page that measures a set of photos and gives you a 20-slot strip to arrange them in. It never orders, cuts or writes captions. Rules live in `CLAUDE.md`.
+`carousel-sequencer.html` is one self-contained page for cutting a pool of photos down to an Instagram carousel of up to 20 slides. It measures and guides; it never places, orders or cuts anything without a tap. Rules live in `CLAUDE.md`.
 
-Ways to open it:
+**Open it:** on iPhone, use the published claude.ai link. On desktop, double-click the file. Photos never leave the device.
 
-- **iPhone:** use the published claude.ai link, tap **Choose photos** and select the album's pictures. The sequence autosaves on the phone for that set of photos. Export offers each slide to the share sheet (Save Image puts it in Photos).
-- **Desktop Chrome:** double-click the file and use **Open folder…**. The sequence then saves as `carousel-sequence.json` next to the photos, and export writes into `carousel-export/`.
+### The three tabs
 
-Photos never leave the device: decoding and measuring happen in the page. Sources can be JPEG, PNG, WebP or HEIC (HEIC in Safari only). RAW files (DNG, CR2, CR3, NEF, ARW, RAF, ORF, RW2 and more) are measured and exported from the full-size preview JPEG the camera embeds, which is the camera's rendering and not your RAW edit. Photos without a capture time (some phone pickers strip it) follow the timed ones in the order you picked them.
+1. **Cut.** Add the whole pool from Photos or Files, dozens to a couple hundred frames, in any number of batches. Frames stay in the order you added them, labelled by file number (`9774`, `103_0216`) and camera. Tap a frame to open it full screen, then **Keep** or **Out**; the next frame comes up by itself. Near-identical frames from the same camera stack as **twins** and come one after another. Similar framing across different cameras is marked as a **rhyme**. Filters: To decide, Kept, Out, All, and one chip per camera.
+2. **Sequence.** The carousel as a storyboard. Each row shows the slide's role (Cover; Second cover, where Instagram re-shows the post to people who didn't swipe; Closer), the file number, the camera, and plain-word tags (Scale: Wide, Close, Face, Texture; You: Not in it, Face hidden, Face shown). Reorder with the handle or ↑ ↓. **Swap** replaces a slide from your kept frames in one tap, with hints such as "smooth seams here", "rhymes with 103_0216" or "twin of slide 3". Add **video slides**: they count toward the 20 and hold the slot, optionally with a frame from the clip. Between rows you see the brightness change, the colour shift and any camera change (a label, never a warning). A lane view shows camera, brightness and average colour across the whole sequence.
+3. **Preview.** Swipe through the carousel at one ratio, with slide 1 at the profile-grid crop, and adjust each slide's crop. Export renders `NN-<file number>.jpg` at 1080 px wide and skips video slots, telling you where each video goes. Only sequential capture times are written, so Photos keeps the order; there is also an option for no metadata at all.
 
-- **Measure.** A background worker measures a 768 px copy of each frame (results cached on the device). It also groups near-duplicates (dHash) and badges the camera from EXIF, with PHONE and RAW marked. Desktop Chrome remembers the folder, so **Reopen** works next time.
-- **Strip.** Photos are listed in capture-time order. Tap a photo and use **Add** and the bottom bar, or on desktop drag it up or press <kbd>Enter</kbd>. Seams show the tonal jump, the hue shift and any device change. Tag each frame for scale (W/C/F/T) and for you out of frame, in with face hidden, or in with face shown, using the bar buttons or the keys <kbd>W</kbd>/<kbd>C</kbd>/<kbd>F</kbd>/<kbd>T</kbd> and <kbd>0</kbd>/<kbd>1</kbd>/<kbd>2</kbd>.
-- **Preview and export.** A swipe preview at one carousel ratio, with slide 1 shown at the profile-grid crop. **Adjust crop** lets you drag and zoom each slide. Export renders `carousel-NN.jpg` at 1080 px wide. The re-encode drops EXIF, GPS, XMP and IPTC. Sequential capture times can be written back so the slides sort in order in Photos.
+The carousel (title, decisions, tags, order, crops) autosaves on the device. **Save backup** writes it as a JSON file; adding that file restores it.
 
-### Metric definitions
+### Colour and tone checks
 
-All metrics are computed on gamma-encoded sRGB. Each frame is compared with the baseline: the median over the strip, or over the whole import when the strip is empty.
+Each frame is compared with **its own camera's** median: the carousel's frames from that camera if there are 3 or more, otherwise that camera's frames not marked Out. A camera with fewer than 3 frames is not judged. Set-wide medians appear in the photo view's Numbers table and are never flagged. RAW files are measured from the camera's embedded preview, which is not your edit, so they get no colour flags and stay out of every baseline.
 
-| metric | definition | flag when |
+| metric | definition | flagged when |
 |---|---|---|
-| median saturation | median of per-pixel HSV S = (max−min)/max | \|Δ\| ≥ 0.05 |
-| luminance spread | p95 − p5 of Rec.709 luma | \|Δ\| ≥ 0.12 |
-| highlight clip % | pixels whose brightest channel ≥ 250 | +3 pts and ≥ 2× baseline |
-| crushed shadows % | pixels whose brightest channel ≤ 5 | +3 pts and ≥ 2× baseline |
-| red-blue balance | mean (R−B)/255 over near-neutral pixels | \|Δ\| ≥ 0.03 |
-| green-magenta tint | mean (G−(R+B)/2)/255 over near-neutral pixels; negative is magenta | \|Δ\| ≥ 0.02 |
+| saturation | median of per-pixel HSV S | ±0.05 |
+| contrast | p95 − p5 of Rec.709 luma | ±0.12 |
+| clipped highlights | % of pixels whose brightest channel ≥ 250 | +3 pts and ≥ 2× |
+| crushed shadows | % of pixels whose brightest channel ≤ 5 | +3 pts and ≥ 2× |
+| warmer / cooler | mean (R−B)/255 over near-neutral pixels | ±0.03 |
+| magenta / green | mean (G−(R+B)/2)/255 over near-neutral pixels | ±0.02 |
+| soft | variance of the Laplacian | below half the camera median |
+
+### iPhone filenames
+
+Safari 17+ renames picked photos to `tempImage….heic` (and converts them) when a page asks for HEIC, so the page never asks for HEIC. If the picker still renames anything, the page names the affected files. Re-add them with the picker's **Options → Format: Current**, or through **Add from Files**.
 
 ### Tests
 
 ```
-npm test            # core metrics, flags, EXIF, crop maths, self-containment (node only)
-npm run smoke       # drives the real page in Chromium with a synthetic shoot
+npm test            # core: metrics, per-camera flags, twins/rhymes, file numbers, EXIF, RAW, crop maths
+npm run smoke       # drives the page in Chromium: cut → sequence (video slot, swap) → export → reload
+npm run scale       # 200 full-size frames on an emulated iPhone: load, measure and tap timings
 npm run calibrate   # radar station set: put the exports in tests/fixtures/radar-station/
 ```
 
-Fixture photos are gitignored so they never leave the machine. `tests/expected.json` holds the calibration targets: image 17 magenta-shifted, the original 9638 export at about 7% clipping against a set median of about 2%, and a set median saturation of about 0.273. If calibration misses, change the metric definitions, not the thresholds.
-
-Not in v1: video slides, and a bridge to the zine site's JSON import.
+Not in v1: exporting or measuring video, and the bridge to the zine site's JSON import.

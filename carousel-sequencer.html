@@ -6,264 +6,316 @@
 <title>Carousel Sequencer</title>
 <!-- Local tool: photos are decoded and measured on this device; nothing is uploaded. -->
 <style>
-  /* Neutral greys with no hue bias, on purpose: the UI must not tint how the photos read. */
+  /* Neutral greys with no hue bias on purpose: the chrome must not tint how photos read.
+     Colour is reserved for state (kept, flagged) and the camera lane. */
   :root {
-    --bg: #e6e6e6; --panel: #f3f3f3; --panel2: #ffffff; --line: #c9c9c9; --well: #d4d4d4;
-    --text: #1b1b1b; --muted: #555555; --faint: #7d7d7d;
-    --flag: #8f5200; --bad: #b3261e; --sel: #111111; --on: #1b1b1b; --onText: #ffffff;
-    --presShown: #4a4a4a; --presHidden: #9a9a9a; --toast: #1b1b1b; --toastText: #f2f2f2;
-    --mono: ui-monospace, SFMono-Regular, Menlo, Consolas, monospace;
-    --top: env(safe-area-inset-top, 0px);
+    --bg: #e8e8e8; --panel: #f4f4f4; --raise: #ffffff; --line: #cdcdcd; --well: #d6d6d6;
+    --text: #181818; --muted: #525252; --faint: #7c7c7c;
+    --flag: #8a4f00; --keep: #1f7a45; --on: #181818; --onText: #ffffff;
+    --cam1: #5f7d9c; --cam2: #a8793f; --cam3: #4f8a62; --cam4: #8f5f95; --cam5: #7a7a7a;
+    --mono: ui-monospace, "SF Mono", SFMono-Regular, Menlo, Consolas, monospace;
+    --sans: system-ui, -apple-system, "Segoe UI", Roboto, sans-serif;
     color-scheme: light;
   }
   @media (prefers-color-scheme: dark) {
     :root:not([data-theme="light"]) {
-      --bg: #1d1d1d; --panel: #252525; --panel2: #2c2c2c; --line: #3b3b3b; --well: #151515;
-      --text: #e4e4e4; --muted: #9b9b9b; --faint: #6f6f6f;
-      --flag: #e2a33d; --bad: #e0685a; --sel: #f2f2f2; --on: #e4e4e4; --onText: #111111;
-      --presShown: #6a6a6a; --presHidden: #3e3e3e; --toast: #0f0f0f; --toastText: #eeeeee;
+      --bg: #1b1b1b; --panel: #232323; --raise: #2b2b2b; --line: #393939; --well: #141414;
+      --text: #e6e6e6; --muted: #a0a0a0; --faint: #707070;
+      --flag: #e8a948; --keep: #62c98b; --on: #e6e6e6; --onText: #111111;
+      --cam1: #87a6c6; --cam2: #d0a067; --cam3: #7fbf93; --cam4: #bf8fc5; --cam5: #9a9a9a;
       color-scheme: dark;
     }
   }
   :root[data-theme="dark"] {
-    --bg: #1d1d1d; --panel: #252525; --panel2: #2c2c2c; --line: #3b3b3b; --well: #151515;
-    --text: #e4e4e4; --muted: #9b9b9b; --faint: #6f6f6f;
-    --flag: #e2a33d; --bad: #e0685a; --sel: #f2f2f2; --on: #e4e4e4; --onText: #111111;
-    --presShown: #6a6a6a; --presHidden: #3e3e3e; --toast: #0f0f0f; --toastText: #eeeeee;
+    --bg: #1b1b1b; --panel: #232323; --raise: #2b2b2b; --line: #393939; --well: #141414;
+    --text: #e6e6e6; --muted: #a0a0a0; --faint: #707070;
+    --flag: #e8a948; --keep: #62c98b; --on: #e6e6e6; --onText: #111111;
+    --cam1: #87a6c6; --cam2: #d0a067; --cam3: #7fbf93; --cam4: #bf8fc5; --cam5: #9a9a9a;
     color-scheme: dark;
   }
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
-  html, body { margin: 0; background: var(--bg); color: var(--text);
-    font: 14px/1.4 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; -webkit-text-size-adjust: 100%; }
-  body { padding-bottom: calc(96px + env(safe-area-inset-bottom, 0px)); }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 var(--sans); -webkit-text-size-adjust: 100%; }
+  body { padding-bottom: env(safe-area-inset-bottom, 0px); }
   button, select, input { font: inherit; color: inherit; }
-  button { -webkit-tap-highlight-color: transparent; background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 6px 11px; cursor: pointer; min-height: 34px; }
+  button { -webkit-tap-highlight-color: transparent; background: var(--raise); border: 1px solid var(--line); border-radius: 8px;
+    padding: 7px 12px; min-height: 38px; cursor: pointer; }
   button:hover:not(:disabled) { border-color: var(--muted); }
-  button:focus-visible, select:focus-visible, .slot:focus-visible, .card:focus-visible { outline: 2px solid var(--sel); outline-offset: 2px; }
   button:disabled { opacity: .4; cursor: default; }
-  button[aria-pressed="true"] { background: var(--on); color: var(--onText); border-color: var(--on); }
-  button.primary { background: var(--on); color: var(--onText); border-color: var(--on); }
-  select { background: var(--panel2); border: 1px solid var(--line); border-radius: 6px; padding: 5px 6px; min-height: 34px; }
+  button.primary, button[aria-pressed="true"] { background: var(--on); color: var(--onText); border-color: var(--on); }
+  button.ghost { background: transparent; }
+  button.small { min-height: 30px; padding: 3px 9px; font-size: 13px; }
+  :focus-visible { outline: 2px solid var(--text); outline-offset: 2px; }
+  input[type=text] { background: var(--raise); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-width: 0; }
+  select { background: var(--raise); border: 1px solid var(--line); border-radius: 8px; padding: 6px 8px; min-height: 38px; }
   .num { font-family: var(--mono); font-variant-numeric: tabular-nums; }
-  .muted { color: var(--muted); } .faint { color: var(--faint); }
-  .flag { color: var(--flag); } .bad { color: var(--bad); }
-  .filebtn { position: relative; overflow: hidden; display: inline-flex; align-items: center; }
+  .muted { color: var(--muted); } .faint { color: var(--faint); } .flag { color: var(--flag); }
+  .wrap { padding-inline: 16px; }
+  .filebtn { position: relative; overflow: hidden; display: inline-flex; }
   .filebtn input { position: absolute; inset: 0; opacity: 0; cursor: pointer; font-size: 100px; }
+  .row { display: flex; flex-wrap: wrap; gap: 8px; align-items: center; }
 
-  header { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 10px; padding: 10px 16px;
-    border-bottom: 1px solid var(--line); background: var(--panel); position: sticky; top: var(--top); z-index: 5; }
-  header h1 { font-size: 15px; margin: 0 6px 0 0; font-weight: 650; letter-spacing: .01em; }
-  header .spacer { flex: 1; }
-  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 2px 9px; color: var(--muted); font-size: 12px; }
-  .progress { width: 100px; height: 4px; background: var(--line); border-radius: 2px; overflow: hidden; }
-  .progress > i { display: block; height: 100%; width: 0; background: var(--muted); transition: width .2s; }
-  .notice { margin: 10px 16px 0; padding: 8px 12px; border: 1px dashed var(--line); border-radius: 6px; color: var(--muted); }
+  /* ---------- header + tabs ---------- */
+  header { padding-block: 12px 8px; display: flex; flex-direction: column; gap: 8px; }
+  .brand { display: flex; align-items: center; gap: 10px; }
+  .brand b { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); font-weight: 650; }
+  .brand .spacer { flex: 1; }
+  #titleIn { font-size: 22px; font-weight: 650; border: 0; border-bottom: 1px dashed var(--line); border-radius: 0; background: transparent; padding: 4px 0; width: 100%; }
+  #titleIn::placeholder { color: var(--faint); font-weight: 500; }
+  #counts { font-size: 13px; }
+  nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); }
+  nav .tabs { display: flex; gap: 4px; padding-block: 6px; }
+  nav .tabs button { flex: 1; border-radius: 999px; border-color: transparent; background: transparent; font-weight: 600; }
+  nav .tabs button[aria-selected="true"] { background: var(--on); color: var(--onText); }
+  nav .tabs small { font-weight: 500; opacity: .75; margin-left: 4px; }
+  .notice { margin-top: 10px; padding: 10px 12px; border: 1px dashed var(--line); border-radius: 8px; color: var(--muted); }
+  .notice.warn { border-style: solid; border-color: var(--flag); color: var(--text); }
+  .notice b { color: var(--text); }
 
-  /* ---------- strip ---------- */
-  #stripWrap { padding: 12px 16px 8px; border-bottom: 1px solid var(--line); }
-  #strip { display: flex; overflow-x: auto; padding-bottom: 8px; -webkit-overflow-scrolling: touch; }
-  .col { flex: 0 0 96px; display: flex; flex-direction: column; gap: 4px; }
-  .zone { height: 18px; font-size: 11px; color: var(--muted); border-top: 2px solid var(--line); padding-top: 2px; white-space: nowrap; }
-  .zone.open { border-top-color: var(--muted); } .zone.end { border-top-color: var(--faint); } .zone.empty { border-top-style: dashed; }
-  .slot { position: relative; height: 96px; background: var(--well); border: 1px dashed var(--line); border-radius: 4px; overflow: hidden; cursor: pointer; }
-  .slot.filled { border-style: solid; }
-  .slot img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
-  .slot .n { position: absolute; left: 4px; top: 2px; font: 11px var(--mono); color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; }
-  .slot.empty .n { color: var(--faint); text-shadow: none; }
-  .slot .badges { position: absolute; left: 3px; right: 3px; bottom: 3px; display: flex; gap: 3px; flex-wrap: wrap; }
-  .b { font-size: 10px; line-height: 14px; padding: 0 4px; border-radius: 3px; background: rgba(0,0,0,.72); color: #ddd; white-space: nowrap; }
-  .b.dup { font-weight: 700; color: #fff; }
-  .b.flagged { color: #f0b04a; } .b.isPhone { color: #fff; }
-  .b.isPhone::before { content: 'PHONE'; font-size: 8px; font-weight: 700; letter-spacing: .04em; margin-right: 4px; opacity: .75; }
-  .b.isRaw::before { content: 'RAW'; font-size: 8px; font-weight: 700; letter-spacing: .04em; margin-right: 4px; opacity: .75; }
-  .sel { outline: 2px solid var(--sel); outline-offset: 1px; }
-  .hl { box-shadow: 0 0 0 3px var(--flag); }
-  .dropTarget { border-color: var(--sel) !important; border-style: solid !important; }
-  .trk { height: 18px; text-align: center; font: 12px var(--mono); color: var(--muted); border-radius: 3px; background: var(--panel); }
-  .trk.none { color: var(--faint); }
-  .trk.pres-shown { background: var(--presShown); color: #fff; } .trk.pres-hidden { background: var(--presHidden); color: #fff; }
-  .seam { flex: 0 0 32px; display: flex; flex-direction: column; justify-content: center; align-items: center;
-    padding-top: 22px; height: 118px; font: 10px/1.35 var(--mono); color: var(--faint); text-align: center; }
-  .seam .on { color: var(--flag); font-weight: 600; }
-  .trackLabels { flex: 0 0 40px; display: flex; flex-direction: column; gap: 4px; color: var(--faint); font-size: 11px; }
-  .trackLabels div { height: 18px; line-height: 18px; } .trackLabels .sp { height: 96px; }
-  #warnings { list-style: none; margin: 4px 0 0; padding: 0; display: flex; flex-wrap: wrap; gap: 6px; }
-  #warnings li { border: 1px solid var(--line); border-radius: 4px; padding: 3px 8px; color: var(--flag); cursor: pointer; background: var(--panel); }
-  #warnings li.info { color: var(--muted); cursor: default; }
+  /* ---------- cut ---------- */
+  .toolbar { display: flex; flex-direction: column; gap: 10px; padding-block: 12px; }
+  .seg { display: inline-flex; border: 1px solid var(--line); border-radius: 999px; overflow: hidden; background: var(--raise); }
+  .seg button { border: 0; border-radius: 0; min-height: 34px; padding: 4px 12px; background: transparent; }
+  .seg button[aria-pressed="true"] { background: var(--on); color: var(--onText); }
+  .chips { display: flex; gap: 6px; flex-wrap: wrap; }
+  .chip { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; background: var(--raise); min-height: 30px; }
+  .chip i { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 6px; vertical-align: 1px; }
+  #grid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; padding-bottom: 24px; }
+  .card { position: relative; background: var(--panel); border: 1px solid var(--line); border-radius: 8px; overflow: hidden; cursor: pointer; text-align: left; padding: 0; min-height: 0; display: block; width: 100%; }
+  .card .ph { position: relative; aspect-ratio: 1; background: var(--well); }
+  .card .ph img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .card .cap { padding: 5px 7px 6px; display: flex; flex-direction: column; gap: 1px; }
+  .card .fn { font: 600 14px var(--mono); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .sub { font-size: 12px; color: var(--muted); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
+  .card .fl { font-size: 12px; color: var(--flag); white-space: nowrap; overflow: hidden; text-overflow: ellipsis; min-height: 16px; }
+  .card.out { opacity: .42; }
+  .card.kept { border-color: var(--keep); box-shadow: inset 0 0 0 1px var(--keep); }
+  .badge { position: absolute; font: 600 11px/18px var(--sans); padding: 0 6px; border-radius: 9px; background: rgba(0,0,0,.72); color: #fff; }
+  .badge.tl { left: 5px; top: 5px; } .badge.tr { right: 5px; top: 5px; } .badge.bl { left: 5px; bottom: 5px; } .badge.br { right: 5px; bottom: 5px; }
+  .badge.keep { background: var(--keep); color: #fff; }
+  .camdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+  .empty { padding: 40px 0; color: var(--muted); text-align: center; }
 
-  /* ---------- pool + inspector ---------- */
-  main { display: grid; grid-template-columns: minmax(0, 1fr) 340px; min-height: 50vh; }
-  #pool { padding: 12px 16px; border-right: 1px solid var(--line); min-width: 0; }
-  #pool h2, #inspector h2 { font-size: 12px; font-weight: 650; color: var(--muted); margin: 0 0 10px; text-transform: uppercase; letter-spacing: .06em; }
-  #poolGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 10px; }
-  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 6px; overflow: hidden; cursor: pointer; min-width: 0; }
-  .card .ph { position: relative; height: 130px; background: var(--well); }
-  .card .ph img { width: 100%; height: 100%; object-fit: contain; display: block; pointer-events: none; }
-  .card .ph .pos { position: absolute; right: 4px; top: 4px; }
-  .card .meta { padding: 6px 8px 8px; display: flex; flex-direction: column; gap: 3px; }
-  .card .name { white-space: nowrap; overflow: hidden; text-overflow: ellipsis; }
-  .card .row { display: flex; gap: 4px; flex-wrap: wrap; }
-  .card .row .b { background: var(--panel2); color: var(--text); border: 1px solid var(--line); }
-  .card.inStrip { opacity: .55; }
-  .card .flags { font-size: 12px; color: var(--flag); }
-  .pending { color: var(--faint); font-size: 12px; }
-  #inspector { padding: 12px 16px; position: sticky; top: calc(var(--top) + 56px); align-self: start; max-height: calc(100vh - 56px); overflow: auto; }
-  #inspector .big { width: 100%; height: 220px; object-fit: contain; background: var(--well); border-radius: 4px; display: block; }
-  #inspector table { width: 100%; border-collapse: collapse; margin-top: 10px; }
-  #inspector th, #inspector td { text-align: right; padding: 4px; border-bottom: 1px solid var(--line); font-weight: normal; }
-  #inspector th:first-child, #inspector td:first-child { text-align: left; }
-  #inspector th { color: var(--faint); font-size: 11px; }
-  #inspector dl { display: grid; grid-template-columns: 84px 1fr; gap: 3px 8px; margin: 10px 0 0; }
-  #inspector dt { color: var(--faint); } #inspector dd { margin: 0; overflow-wrap: anywhere; }
-  .keys { color: var(--faint); font-size: 11px; margin-top: 12px; line-height: 1.8; }
-  kbd { font: 11px var(--mono); border: 1px solid var(--line); border-bottom-width: 2px; border-radius: 3px; padding: 0 4px; color: var(--muted); }
-  .swatch { display: inline-block; width: 12px; height: 12px; border-radius: 2px; vertical-align: -2px; border: 1px solid var(--line); }
+  /* ---------- loupe ---------- */
+  #loupe { position: fixed; inset: 0; z-index: 60; background: #0e0e0e; color: #eee; display: flex; flex-direction: column;
+    padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
+  #loupe button { background: #262626; border-color: #3a3a3a; color: #eee; }
+  #loupe button.primary, #loupe button[aria-pressed="true"] { background: #eee; color: #111; border-color: #eee; }
+  #loupe button.keepBtn[aria-pressed="true"] { background: #3fae6c; border-color: #3fae6c; color: #fff; }
+  .lTop { display: flex; align-items: center; gap: 10px; padding: 8px 12px; }
+  .lTop .fn { font: 600 17px var(--mono); flex: 1; min-width: 0; overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
+  .lImg { flex: 1 1 auto; min-height: 0; position: relative; touch-action: pan-y; }
+  .lImg img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; user-select: none; -webkit-user-drag: none; }
+  .lNav { position: absolute; top: 50%; transform: translateY(-50%); width: 44px; height: 64px; opacity: .8; }
+  .lNav.prev { left: 6px; } .lNav.next { right: 6px; }
+  .lPanel { padding: 10px 14px 12px; display: flex; flex-direction: column; gap: 9px; max-height: 46vh; overflow: auto; background: #151515; border-top: 1px solid #2a2a2a; }
+  .lActs { display: grid; grid-template-columns: 1fr 1fr 1.4fr; gap: 8px; }
+  .lActs button { min-height: 46px; font-weight: 650; }
+  .lInfo { font-size: 14px; color: #bbb; display: flex; flex-direction: column; gap: 4px; }
+  .lInfo .flag { color: #f0b04a; }
+  .tagrow { display: flex; align-items: center; gap: 6px; flex-wrap: wrap; }
+  .tagrow > span { color: #999; font-size: 13px; width: 52px; }
+  .tagrow button { min-height: 32px; padding: 3px 10px; font-size: 14px; }
+  .rel { display: flex; gap: 6px; overflow-x: auto; align-items: center; }
+  .rel > span { color: #999; font-size: 13px; flex: 0 0 auto; max-width: 110px; }
+  .rel button { padding: 0; width: 64px; min-height: 0; height: 64px; flex: 0 0 auto; overflow: hidden; position: relative; }
+  .rel button img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .rel button em { position: absolute; left: 0; right: 0; bottom: 0; font: 10px var(--mono); font-style: normal; background: rgba(0,0,0,.7); }
+  details.nums summary { cursor: pointer; color: #999; font-size: 13px; }
+  details.nums table { width: 100%; border-collapse: collapse; font-size: 13px; margin-top: 6px; }
+  details.nums td, details.nums th { padding: 3px 4px; text-align: right; border-bottom: 1px solid #2a2a2a; font-weight: normal; }
+  details.nums td:first-child, details.nums th:first-child { text-align: left; }
+  details.nums th { color: #888; }
 
-  /* ---------- action bar (touch) ---------- */
-  #bar { position: fixed; left: 0; right: 0; bottom: 0; z-index: 8; background: var(--panel); border-top: 1px solid var(--line);
-    padding: 8px 16px calc(8px + env(safe-area-inset-bottom, 0px)); display: flex; flex-wrap: wrap; align-items: center; gap: 6px 10px; }
-  #bar .who { display: flex; align-items: center; gap: 8px; min-width: 0; flex: 1 1 180px; }
-  #bar .who img { width: 40px; height: 40px; object-fit: cover; border-radius: 4px; background: var(--well); }
-  #bar .who span { overflow: hidden; text-overflow: ellipsis; white-space: nowrap; }
-  #bar .grp { display: flex; gap: 4px; align-items: center; }
-  #bar .grp > span { color: var(--faint); font-size: 11px; margin-right: 2px; }
-  #bar .grp button { min-width: 38px; padding: 6px 8px; }
+  /* ---------- sequence ---------- */
+  .lanes { display: flex; gap: 3px; overflow-x: auto; padding-block: 12px 4px; }
+  .lane { flex: 0 0 44px; display: flex; flex-direction: column; gap: 3px; cursor: pointer; }
+  .lane .t { height: 44px; background: var(--well); border-radius: 4px; overflow: hidden; position: relative; }
+  .lane .t img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .lane .t span { position: absolute; left: 3px; top: 1px; font: 10px var(--mono); color: #fff; text-shadow: 0 0 3px #000; }
+  .lane .cam { height: 6px; border-radius: 3px; }
+  .lane .lum { height: 22px; background: var(--panel); border-radius: 3px; position: relative; overflow: hidden; }
+  .lane .lum i { position: absolute; left: 0; right: 0; bottom: 0; background: var(--muted); }
+  .lane .col { height: 10px; border-radius: 3px; border: 1px solid var(--line); }
+  .laneKey { font-size: 12px; color: var(--faint); display: flex; gap: 12px; flex-wrap: wrap; padding-bottom: 8px; }
+  #warnList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
+  #warnList li { color: var(--flag); font-size: 14px; } #warnList li.info { color: var(--muted); }
+  #warnList li::before { content: '• '; }
+  #slots { display: flex; flex-direction: column; margin-top: 12px; }
+  .slotRow { display: grid; grid-template-columns: 30px 88px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px; background: var(--panel);
+    border: 1px solid var(--line); border-radius: 10px; }
+  .slotRow.dragging { opacity: .6; }
+  .slotRow.dropBefore { box-shadow: 0 -3px 0 var(--text); }
+  .slotRow .idx { display: flex; flex-direction: column; align-items: center; gap: 6px; }
+  .slotRow .idx b { font: 700 18px var(--mono); }
+  .handle { cursor: grab; touch-action: none; padding: 6px 4px; color: var(--faint); font-size: 18px; line-height: 1; user-select: none; }
+  .slotRow .th { width: 88px; height: 88px; background: var(--well); border-radius: 6px; overflow: hidden; position: relative; }
+  .slotRow .th img { width: 100%; height: 100%; object-fit: contain; }
+  .slotRow .th .vid { position: absolute; inset: 0; display: grid; place-items: center; font-size: 12px; color: var(--muted); text-align: center; padding: 6px; }
+  .slotRow .body { display: flex; flex-direction: column; gap: 6px; min-width: 0; }
+  .slotRow .role { font-size: 12px; color: var(--muted); text-transform: uppercase; letter-spacing: .06em; }
+  .slotRow .role em { text-transform: none; letter-spacing: 0; font-style: normal; color: var(--faint); }
+  .slotRow .fn { font: 600 16px var(--mono); }
+  .slotRow .fl { font-size: 13px; color: var(--flag); }
+  .slotRow .acts { display: flex; gap: 6px; flex-wrap: wrap; }
+  .pick { display: flex; gap: 4px; flex-wrap: wrap; align-items: center; }
+  .pick > span { font-size: 12px; color: var(--faint); width: 44px; }
+  .pick button { min-height: 28px; padding: 2px 9px; font-size: 13px; border-radius: 999px; }
+  .seamRow { font-size: 12px; color: var(--faint); padding: 5px 0 5px 40px; min-height: 12px; }
+  .seamRow .on { color: var(--flag); }
+  .addRow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding-bottom: 32px; }
+
+  /* ---------- sheet ---------- */
+  #sheet { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; justify-content: center; }
+  #sheet .box { background: var(--bg); width: min(720px, 100%); max-height: 86vh; border-radius: 14px 14px 0 0; display: flex; flex-direction: column;
+    padding-bottom: env(safe-area-inset-bottom, 0px); }
+  #sheet .hd { display: flex; align-items: center; gap: 8px; padding: 12px 16px; border-bottom: 1px solid var(--line); flex-wrap: wrap; }
+  #sheet .hd b { flex: 1; }
+  #sheet .list { overflow: auto; padding: 10px 16px 16px; display: grid; grid-template-columns: repeat(auto-fill, minmax(150px, 1fr)); gap: 8px; }
+  .cand .hints { font-size: 12px; color: var(--keep); } .cand .hints.flag { color: var(--flag); }
 
   /* ---------- preview ---------- */
-  dialog#pv { width: min(1100px, 100vw - 16px); max-width: none; max-height: calc(100dvh - 16px); background: var(--panel); color: var(--text);
-    border: 1px solid var(--line); border-radius: 10px; padding: 0; }
-  dialog#pv::backdrop { background: rgba(0,0,0,.7); }
-  .pvBar { display: flex; flex-wrap: wrap; align-items: center; gap: 8px 12px; padding: 10px 14px; border-bottom: 1px solid var(--line); }
-  .pvBar label { display: flex; align-items: center; gap: 6px; color: var(--muted); font-size: 13px; }
-  .pvBody { display: flex; flex-wrap: wrap; gap: 24px; padding: 16px; justify-content: center; overflow: auto; max-height: calc(100dvh - 140px); }
-  .phone { flex: 0 0 auto; border: 1px solid #333; border-radius: 34px; padding: 40px 12px 22px; background: #000; color: #fff; }
-  .phone.bare { border: 0; border-radius: 8px; padding: 10px 0; }
-  .postHead { display: flex; align-items: center; gap: 8px; padding: 0 4px 8px; font-weight: 600; }
+  .pvWrap { display: flex; flex-wrap: wrap; gap: 24px; padding-block: 14px 32px; justify-content: center; }
+  .phone { flex: 0 0 auto; border: 1px solid #333; border-radius: 34px; padding: 36px 12px 20px; background: #000; color: #fff; }
+  .phone.bare { border: 0; border-radius: 10px; padding: 10px 0; }
+  .postHead { display: flex; align-items: center; gap: 8px; padding: 0 4px 8px; font-weight: 600; font-size: 14px; }
   .postHead i { width: 26px; height: 26px; border-radius: 50%; background: #444; display: inline-block; }
   .car { display: flex; overflow-x: auto; scroll-snap-type: x mandatory; scrollbar-width: none; -webkit-overflow-scrolling: touch; }
   .car::-webkit-scrollbar { display: none; }
   .slide { position: relative; flex: 0 0 auto; overflow: hidden; scroll-snap-align: start; background: #111; }
   .car.cropping .slide { cursor: move; touch-action: none; }
   .slide img, .gcell img { position: absolute; max-width: none; user-select: none; -webkit-user-drag: none; pointer-events: none; }
+  .slide .vid { position: absolute; inset: 0; display: grid; place-items: center; color: #aaa; text-align: center; padding: 20px; }
   .gridBox { position: absolute; border: 1px dashed rgba(255,255,255,.9); box-shadow: 0 0 0 999px rgba(0,0,0,.35); pointer-events: none; }
-  .dots { display: flex; justify-content: center; gap: 4px; padding: 10px 0 4px; }
+  .dots { display: flex; justify-content: center; gap: 4px; padding: 10px 0 4px; flex-wrap: wrap; }
   .dots i { width: 6px; height: 6px; border-radius: 50%; background: #555; } .dots i.on { background: #ddd; }
   .pvNav { display: flex; justify-content: space-between; align-items: center; padding: 4px 4px 0; color: #aaa; }
   .pvNav button { background: #222; border-color: #444; color: #eee; }
-  .side { flex: 0 1 364px; display: flex; flex-direction: column; gap: 10px; min-width: 0; }
+  .side { flex: 0 1 380px; display: flex; flex-direction: column; gap: 12px; min-width: 0; }
   .gridMock .g { display: grid; gap: 2px; background: #000; padding: 2px; border-radius: 4px; width: max-content; max-width: 100%; }
   .gcell { position: relative; overflow: hidden; background: #2a2a2a; }
   #exportLog { font: 12px var(--mono); color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
-  #saveRow { display: flex; flex-wrap: wrap; gap: 6px; }
-  .toast { position: fixed; left: 50%; bottom: calc(110px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--toast); color: var(--toastText);
-    padding: 8px 14px; border-radius: 6px; z-index: 50; max-width: calc(100vw - 32px); }
-  @media (max-width: 860px) {
-    header { position: static; }
-    header h1 { flex: 1 0 100%; }
-    main { grid-template-columns: 1fr; }
-    #pool { border-right: 0; }
-    #inspector { position: static; max-height: none; border-top: 1px solid var(--line); }
-    #poolGrid { grid-template-columns: repeat(auto-fill, minmax(140px, 1fr)); }
-    .keys { display: none; }
+  label.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--on); color: var(--onText);
+    padding: 9px 14px; border-radius: 8px; z-index: 90; max-width: calc(100vw - 32px); font-size: 14px; }
+  @media (max-width: 520px) {
+    #grid, #sheet .list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
+    .card .cap { padding: 4px 5px 5px; } .card .fn { font-size: 12px; } .card .sub, .card .fl { font-size: 11px; }
+    .slotRow { grid-template-columns: 26px 72px minmax(0, 1fr); gap: 8px; padding: 8px; }
+    .slotRow .th { width: 72px; height: 72px; }
   }
   @media (prefers-reduced-motion: reduce) { * { scroll-behavior: auto !important; transition: none !important; } }
 </style>
 </head>
 <body>
-<header>
-  <h1>Carousel Sequencer</h1>
-  <label class="filebtn" id="pickLabel"><button type="button" class="primary" tabindex="-1">Choose photos</button>
-    <input id="photoInput" type="file" multiple aria-label="Choose photos"
-      accept="image/*,.heic,.heif,.dng,.cr2,.cr3,.nef,.nrw,.arw,.raf,.orf,.rw2,.pef,.srw,.json,application/json"></label>
-  <button id="openBtn" hidden>Open folder…</button>
-  <label class="filebtn" id="folderLabel" hidden><button type="button" tabindex="-1">Folder…</button>
-    <input id="dirInput" type="file" webkitdirectory multiple aria-label="Choose a folder"></label>
-  <button id="reopenBtn" hidden></button>
-  <span id="folderChip" class="chip" hidden></span>
-  <span id="measureChip" class="chip" hidden><span id="measureText"></span></span>
-  <div class="progress" id="progress" hidden><i></i></div>
-  <span class="spacer"></span>
-  <span id="baseChip" class="chip" hidden></span>
-  <span id="saveChip" class="chip" hidden></span>
-  <button id="saveSeqBtn" hidden>Save sequence file</button>
-  <button id="previewBtn" disabled>Preview &amp; export</button>
+<header class="wrap">
+  <div class="brand"><b>Carousel Sequencer</b><span class="spacer"></span>
+    <button class="small ghost" id="saveSeqBtn">Save backup</button>
+    <button class="small ghost" id="newBtn">New carousel</button></div>
+  <input id="titleIn" type="text" placeholder="Carousel title or thesis" aria-label="Carousel title or thesis" autocomplete="off">
+  <div id="counts" class="muted"></div>
 </header>
-<div id="notice" class="notice" hidden></div>
-
-<div id="app" hidden>
-  <section id="stripWrap">
-    <div id="strip"></div>
-    <ul id="warnings"></ul>
-  </section>
-  <main>
-    <section id="pool">
-      <h2 id="poolTitle">Photos</h2>
-      <div id="poolGrid"></div>
-    </section>
-    <aside id="inspector">
-      <h2>Frame</h2>
-      <div id="inspBody" class="muted">Select a frame.</div>
-      <div class="keys">
-        <kbd>W</kbd><kbd>C</kbd><kbd>F</kbd><kbd>T</kbd> scale &nbsp; <kbd>0</kbd><kbd>1</kbd><kbd>2</kbd> you: out / face hidden / face shown<br>
-        <kbd>←</kbd><kbd>→</kbd> select &nbsp; <kbd>Enter</kbd> add to strip &nbsp; <kbd>Del</kbd> remove<br>
-        <kbd>Alt</kbd>+<kbd>←</kbd><kbd>→</kbd> move in strip &nbsp; <kbd>Tab</kbd> strip ⇄ photos &nbsp; <kbd>P</kbd> preview
-      </div>
-    </aside>
-  </main>
-</div>
-
-<div id="bar" hidden>
-  <div class="who"><img id="barImg" alt=""><span id="barName" class="muted">Tap a photo</span></div>
-  <div class="grp"><button id="addBtn">Add</button><button id="leftBtn" aria-label="Move earlier">◀</button><button id="rightBtn" aria-label="Move later">▶</button></div>
-  <div class="grp" id="scaleBtns"><span>scale</span>
-    <button data-scale="wide" title="wide (W)">W</button><button data-scale="close" title="close (C)">C</button>
-    <button data-scale="face" title="face (F)">F</button><button data-scale="texture" title="texture (T)">T</button></div>
-  <div class="grp" id="presBtns"><span>you</span>
-    <button data-pres="out" title="not in frame (0)">out</button><button data-pres="hidden" title="in frame, face hidden (1)">hid</button>
-    <button data-pres="shown" title="in frame, face shown (2)">face</button></div>
-</div>
-
-<dialog id="pv">
-  <div class="pvBar">
-    <label>Ratio
-      <select id="aspectSel">
-        <option value="4:5">4:5 · 1080×1350</option>
-        <option value="1:1">1:1 · 1080×1080</option>
-        <option value="3:4">3:4 · 1080×1440</option>
-        <option value="1.91:1">1.91:1 · 1080×566</option>
-      </select></label>
-    <label>Grid
-      <select id="gridSel"><option value="3:4">3:4</option><option value="1:1">1:1</option></select></label>
-    <button id="cropBtn" aria-pressed="false">Adjust crop</button>
-    <label id="zoomLabel" hidden>Zoom <input id="zoomIn" type="range" min="1" max="3" step="0.01" value="1"></label>
-    <button id="resetCropBtn" hidden>Reset</button>
-    <span style="flex:1"></span>
-    <button id="pvClose" autofocus>Close</button>
+<nav class="wrap" aria-label="Steps">
+  <div class="tabs" role="tablist">
+    <button role="tab" id="tabCut" data-tab="cut">Cut<small id="nCut"></small></button>
+    <button role="tab" id="tabSeq" data-tab="seq">Sequence<small id="nSeq"></small></button>
+    <button role="tab" id="tabPv" data-tab="pv">Preview</button>
   </div>
-  <div class="pvBody">
+</nav>
+<div class="wrap"><div id="notices"></div></div>
+
+<section id="cutView" class="wrap">
+  <div class="toolbar">
+    <div class="row">
+      <label class="filebtn"><button type="button" class="primary" tabindex="-1">Add from Photos</button>
+        <input id="photosIn" type="file" multiple accept="image/*" aria-label="Add from Photos"></label>
+      <label class="filebtn"><button type="button" tabindex="-1">Add from Files</button>
+        <input id="filesIn" type="file" multiple aria-label="Add from Files"></label>
+      <label class="filebtn" id="folderLabel" hidden><button type="button" tabindex="-1">Add folder</button>
+        <input id="folderIn" type="file" webkitdirectory multiple aria-label="Add a folder"></label>
+      <span id="measureNote" class="faint"></span>
+    </div>
+    <div class="row">
+      <div class="seg" id="filterSeg" role="group" aria-label="Show">
+        <button data-f="todo">To decide</button><button data-f="keep">Kept</button><button data-f="out">Out</button><button data-f="all">All</button>
+      </div>
+      <button id="stackBtn" class="small" aria-pressed="true">Stack twins</button>
+    </div>
+    <div class="chips" id="camChips"></div>
+  </div>
+  <div id="grid"></div>
+  <div id="gridEmpty" class="empty" hidden></div>
+</section>
+
+<section id="seqView" class="wrap" hidden>
+  <div class="lanes" id="lanes"></div>
+  <div class="laneKey" id="laneKey"></div>
+  <ul id="warnList"></ul>
+  <div id="slots"></div>
+  <div class="addRow">
+    <button id="addPhotoSlot" class="primary">+ Photo</button>
+    <button id="addVideoSlot">+ Video slide</button>
+    <span id="slotCount" class="faint" style="align-self:center"></span>
+  </div>
+</section>
+
+<section id="pvView" class="wrap" hidden>
+  <div class="row" style="padding-top:12px">
+    <label class="field">Carousel ratio
+      <select id="aspectSel">
+        <option value="4:5">4:5 · 1080×1350</option><option value="1:1">1:1 · 1080×1080</option>
+        <option value="3:4">3:4 · 1080×1440</option><option value="1.91:1">1.91:1 · 1080×566</option>
+      </select></label>
+    <label class="field">Profile grid
+      <select id="gridSel"><option value="3:4">3:4</option><option value="1:1">1:1</option></select></label>
+    <button id="cropBtn" aria-pressed="false" style="align-self:flex-end">Adjust crop</button>
+    <label class="field" id="zoomLabel" hidden>Zoom<input id="zoomIn" type="range" min="1" max="3" step="0.01" value="1"></label>
+    <button id="resetCropBtn" hidden style="align-self:flex-end">Reset crop</button>
+  </div>
+  <div class="pvWrap">
     <div class="phone" id="phone">
-      <div class="postHead"><i></i><span>you</span></div>
+      <div class="postHead"><i></i><span id="pvTitle">you</span></div>
       <div class="car" id="car"></div>
       <div class="dots" id="dots"></div>
       <div class="pvNav"><button id="prevBtn" aria-label="Previous slide">‹</button><span id="pvCount" class="num"></span><button id="nextBtn" aria-label="Next slide">›</button></div>
     </div>
     <div class="side">
       <div class="gridMock"><div class="g" id="gridMockG"></div></div>
-      <p class="muted" style="margin:0">Slide 1 at the profile-grid crop (centred), also marked by the dashed box. Swipe to page through. Turn on <b>Adjust crop</b> to drag a slide's framing.</p>
-      <label class="muted">Capture times in exported files
+      <p class="muted" style="margin:0">Slide 1 at the profile-grid crop (centred), also shown by the dashed box. Swipe to page through. <b>Adjust crop</b> lets you drag each slide's framing.</p>
+      <label class="field">Capture times in exported files
         <select id="dateSel">
+          <option value="now">sequential from now (keeps order in Photos)</option>
           <option value="none">none: no metadata at all</option>
-          <option value="now">sequential from now</option>
-          <option value="capture">sequential from slide 1's capture</option>
         </select></label>
-      <p class="faint" style="margin:0">Photos sorts by capture time. With "sequential", the slides land in order in your camera roll.</p>
-      <div><button id="exportBtn" class="primary">Export JPEGs</button></div>
-      <div id="saveRow"></div>
+      <div class="row"><button id="exportBtn" class="primary">Export JPEGs</button></div>
+      <div class="row" id="saveRow"></div>
       <div id="exportLog"></div>
     </div>
   </div>
-</dialog>
+</section>
+
+<div id="loupe" hidden role="dialog" aria-modal="true" aria-label="Photo">
+  <div class="lTop"><button id="lClose" aria-label="Close">✕</button><span class="fn" id="lName"></span><span id="lPos" class="num" style="color:#999"></span></div>
+  <div class="lImg" id="lImg"><img id="lPic" alt=""><button class="lNav prev" id="lPrev" aria-label="Previous">‹</button><button class="lNav next" id="lNext" aria-label="Next">›</button></div>
+  <div class="lPanel">
+    <div class="lActs"><button id="lOut">Out</button><button id="lKeep" class="keepBtn">Keep</button><button id="lAdd">Add to carousel</button></div>
+    <div class="lInfo" id="lInfo"></div>
+    <div class="tagrow" id="lScale"></div>
+    <div class="tagrow" id="lYou"></div>
+    <div class="rel" id="lTwins"></div>
+    <div class="rel" id="lRhymes"></div>
+    <details class="nums" id="lNums"><summary>Numbers</summary><div id="lNumsBody"></div></details>
+  </div>
+</div>
+
+<div id="sheet" hidden>
+  <div class="box" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
+    <div class="hd"><b id="sheetTitle"></b>
+      <div class="seg" id="sheetSort"><button data-s="fit" aria-pressed="true">Smoothest seams first</button><button data-s="added">Order added</button></div>
+      <button id="sheetClose" class="small">Close</button></div>
+    <div class="list" id="sheetList"></div>
+  </div>
+</div>
 <script id="core">
 /* Carousel sequencer core: pure measurement + bookkeeping. No DOM.
    Runs in the page, in the measuring worker, and in node tests. */
@@ -273,8 +325,10 @@ var CS = (function () {
   var MAX_SLIDES = 20;
   var MEASURE_EDGE = 768;       // long edge of the downscaled copy that gets measured
   var THUMB_EDGE = 360;
-  var METRIC_VERSION = 1;       // bump when a metric definition changes (invalidates cache)
-  var DUP_MAX_DIST = 10;        // dHash hamming distance (of 64) for near-duplicates
+  var METRIC_VERSION = 2;       // bump when a metric definition changes (invalidates cache)
+  var DUP_MAX_DIST = 10;        // dHash hamming distance (of 64): twins, same camera
+  var RHYME_MAX_DIST = 12;      // dHash hamming distance: rhymes (same layout of light and dark), different cameras
+  var MIN_GROUP = 3;            // a camera needs this many frames before its outliers are flagged
 
   // Thresholds are fixed. If calibration misses, change the metric definitions, not these.
   var THRESH = {
@@ -284,6 +338,7 @@ var CS = (function () {
     crushPct:  { pts: 3, ratio: 2 },
     rb:        { abs: 0.03 },               // neutral-pixel (R-B)/255, absolute delta
     tint:      { abs: 0.02 },               // neutral-pixel (G-(R+B)/2)/255, absolute delta
+    sharp:     { ratio: 0.5 },              // Laplacian variance below half the group median
     seamTonal: 0.15,                        // |delta median luma| between neighbours
     seamHue:   45,                          // degrees between neighbours' dominant hue
     hueMinStrength: 0.15                    // below this a frame has no meaningful dominant hue
@@ -295,7 +350,8 @@ var CS = (function () {
     { key: 'clipPct',   label: 'highlight clip %',  fmt: 1 },
     { key: 'crushPct',  label: 'crushed shadows %', fmt: 1 },
     { key: 'rb',        label: 'red-blue balance',  fmt: 3 },
-    { key: 'tint',      label: 'green-magenta tint', fmt: 3 }
+    { key: 'tint',      label: 'green-magenta tint', fmt: 3 },
+    { key: 'sharp',     label: 'sharpness',         fmt: 0 }
   ];
 
   function median(values) {
@@ -325,6 +381,7 @@ var CS = (function () {
                (R-B)/255 and (G-(R+B)/2)/255. tint < 0 is magenta, > 0 green.
                Falls back to all unclipped pixels when < 1% are near-neutral.
      hue       saturation-weighted circular mean hue of pixels with S > 0.15, V > 0.1
+     sharp     variance of the 4-neighbour Laplacian of grey (0..255) on the measured copy
      dhash     64-bit difference hash of a 9x8 grey reduction */
   function measurePixels(data, w, h) {
     var n = w * h;
@@ -360,6 +417,7 @@ var CS = (function () {
       }
     }
     var useNeutral = nN >= n * 0.01;
+    var sharp = laplacianVariance(data, w, h);
     var hueDeg = null, hueStrength = 0;
     if (hw > 0) {
       hueStrength = Math.sqrt(hx * hx + hy * hy) / hw;
@@ -378,9 +436,24 @@ var CS = (function () {
       hueDeg: hueDeg,
       hueStrength: hueStrength,
       meanRGB: [Math.round(sr / n), Math.round(sg / n), Math.round(sb / n)],
+      sharp: sharp,
       dhash: dhash(data, w, h),
       measuredW: w, measuredH: h
     };
+  }
+
+  function laplacianVariance(data, w, h) {
+    if (w < 3 || h < 3) return 0;
+    var grey = new Float32Array(w * h);
+    for (var i = 0, p = 0; i < w * h; i++, p += 4) grey[i] = 0.299 * data[p] + 0.587 * data[p + 1] + 0.114 * data[p + 2];
+    var sum = 0, sum2 = 0, n = 0;
+    for (var y = 1; y < h - 1; y++) for (var x = 1; x < w - 1; x++) {
+      var k = y * w + x;
+      var l = 4 * grey[k] - grey[k - 1] - grey[k + 1] - grey[k - w] - grey[k + w];
+      sum += l; sum2 += l * l; n++;
+    }
+    var mean = sum / n;
+    return sum2 / n - mean * mean;
   }
 
   function dhash(data, w, h) {
@@ -413,14 +486,15 @@ var CS = (function () {
 
   /* frames: [{id, metrics:{dhash}}] -> { groupOf: {id: label}, groups: {label: [ids]} }
      Only groups with 2+ members get a label (A, B, C, ...). */
-  function groupDuplicates(frames, maxDist) {
+  function groupDuplicates(frames, maxDist, sameCamera) {
     maxDist = maxDist == null ? DUP_MAX_DIST : maxDist;
     var list = frames.filter(function (f) { return f.metrics && f.metrics.dhash; });
+    var ok = sameCamera ? function (a, b) { return camKey(a) === camKey(b); } : function () { return true; };
     var parent = list.map(function (_, i) { return i; });
     function find(i) { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; }
     for (var i = 0; i < list.length; i++)
       for (var j = i + 1; j < list.length; j++)
-        if (hamming(list[i].metrics.dhash, list[j].metrics.dhash) <= maxDist) parent[find(i)] = find(j);
+        if (ok(list[i], list[j]) && hamming(list[i].metrics.dhash, list[j].metrics.dhash) <= maxDist) parent[find(i)] = find(j);
     var buckets = {};
     list.forEach(function (f, idx) { var r = find(idx); (buckets[r] = buckets[r] || []).push(f.id); });
     var groupOf = {}, groups = {}, n = 0;
@@ -433,11 +507,45 @@ var CS = (function () {
       });
     return { groupOf: groupOf, groups: groups };
   }
+  function camKey(f) { return (f.device && f.device.key) || ''; }
+  /* Twins: near-identical frames from the same camera (the cutting question).
+     Rhymes: similar compositions from different cameras (a reason to keep both). */
+  function twins(frames) { return groupDuplicates(frames, DUP_MAX_DIST, true); }
+  function rhymes(frames) {
+    var list = frames.filter(function (f) { return f.metrics && f.metrics.dhash; }), out = {};
+    for (var i = 0; i < list.length; i++)
+      for (var j = i + 1; j < list.length; j++) {
+        var a = list[i], b = list[j];
+        if (camKey(a) === camKey(b) || !camKey(a) || !camKey(b)) continue;
+        if (hamming(a.metrics.dhash, b.metrics.dhash) <= RHYME_MAX_DIST) {
+          (out[a.id] = out[a.id] || []).push(b.id);
+          (out[b.id] = out[b.id] || []).push(a.id);
+        }
+      }
+    return out;
+  }
   function groupLabel(n) {
     var s = '';
     do { s = String.fromCharCode(65 + (n % 26)) + s; n = Math.floor(n / 26) - 1; } while (n >= 0);
     return s;
   }
+
+  /* Per-camera baselines. Each camera's frames are judged against that camera's median, so a
+     deliberate difference between cameras is never flagged. The set-wide median is returned
+     for display only. RAW previews (the camera's look, not the edit) are left out.
+     frames: [{id, device:{key}, raw, metrics}], pick(frame) -> true to include. */
+  function cameraBaselines(frames, pick) {
+    var groups = {}, all = [];
+    frames.forEach(function (f) {
+      if (!f.metrics || f.raw || (pick && !pick(f))) return;
+      (groups[camKey(f)] = groups[camKey(f)] || []).push(f.metrics);
+      all.push(f.metrics);
+    });
+    var out = { byCamera: {}, set: baseline(all) };
+    Object.keys(groups).forEach(function (k) { out.byCamera[k] = baseline(groups[k]); });
+    return out;
+  }
+  function baselineFor(f, bases) { return bases.byCamera[camKey(f)] || null; }
 
   /* Median of each metric across the given metrics objects. */
   function baseline(metricsList) {
@@ -450,7 +558,7 @@ var CS = (function () {
 
   /* One frame against the baseline -> list of flags. Never compares frames to each other. */
   function frameFlags(m, base) {
-    if (!m || !base || !base.n) return [];
+    if (!m || !base || base.n < MIN_GROUP) return [];
     var flags = [];
     function push(key, text, delta) {
       flags.push({ key: key, text: text, value: m[key], base: base[key], delta: delta });
@@ -469,6 +577,8 @@ var CS = (function () {
     if (Math.abs(d) >= THRESH.rb.abs) push('rb', d > 0 ? 'warmer (red)' : 'cooler (blue)', d);
     d = m.tint - base.tint;
     if (Math.abs(d) >= THRESH.tint.abs) push('tint', d < 0 ? 'magenta-shifted' : 'green-shifted', d);
+    if (m.sharp != null && base.sharp > 0 && m.sharp < THRESH.sharp.ratio * base.sharp)
+      push('sharp', 'softer', m.sharp - base.sharp);
     return flags;
   }
 
@@ -491,8 +601,7 @@ var CS = (function () {
     }
     var da = a.device || {}, db = b.device || {};
     if (da.key && db.key && da.key !== db.key) {
-      out.deviceChange = true;
-      out.flags.push('device');
+      out.deviceChange = true;                 // a label, never a flag: mixing cameras is deliberate
       if (!!da.phone !== !!db.phone) out.phoneCamera = true;
     }
     return out;
@@ -513,13 +622,15 @@ var CS = (function () {
     return out;
   }
 
-  /* slides: [{scale, presence, dup, device, id}] in strip order.
-     Returns factual statements about the arrangement; never proposes one. */
+  /* slides: [{kind:'photo'|'video', scale, presence, twin, id}] in carousel order.
+     Returns factual statements about the arrangement; never proposes one. Video slides
+     break runs and are otherwise not judged. Devices are never a warning. */
   function sequenceWarnings(slides) {
     var w = [];
     var n = slides.length;
+    var photo = function (s) { return s.kind !== 'video'; };
     Object.keys(SCALE_WORDS).forEach(function (scale) {
-      runs(slides, function (s) { return s.scale === scale; }).forEach(function (r) {
+      runs(slides, function (s) { return photo(s) && s.scale === scale; }).forEach(function (r) {
         var len = r[1] - r[0] + 1;
         if (len >= 3) w.push({ kind: 'scale', slides: [r[0], r[1]],
           text: countWord(len) + ' ' + SCALE_WORDS[scale] + ' in a row (' + range(r[0], r[1]) + ')' });
@@ -527,19 +638,18 @@ var CS = (function () {
     });
     var open = {};
     slides.slice(0, 3).forEach(function (s, i) {
-      if (s.dup) (open[s.dup] = open[s.dup] || []).push(i);
+      if (photo(s) && s.twin) (open[s.twin] = open[s.twin] || []).push(i);
     });
     Object.keys(open).forEach(function (g) {
       if (open[g].length > 1) w.push({ kind: 'dup-open', slides: open[g],
-        text: 'near-duplicates (group ' + g + ') both in slides 1–3: ' +
-              open[g].map(function (i) { return i + 1; }).join(' and ') });
+        text: 'twins both in slides 1–3: ' + open[g].map(function (i) { return i + 1; }).join(' and ') });
     });
     for (var i = 0; i + 1 < n; i++) {
-      if (slides[i].dup && slides[i].dup === slides[i + 1].dup && !(i + 1 < 3 && open[slides[i].dup] && open[slides[i].dup].length > 1))
-        w.push({ kind: 'dup-adjacent', slides: [i, i + 1],
-          text: 'near-duplicates (group ' + slides[i].dup + ') side by side at ' + range(i, i + 1) });
+      var a = slides[i], b = slides[i + 1];
+      if (photo(a) && photo(b) && a.twin && a.twin === b.twin && !(i + 1 < 3 && open[a.twin] && open[a.twin].length > 1))
+        w.push({ kind: 'dup-adjacent', slides: [i, i + 1], text: 'twins side by side at ' + range(i, i + 1) });
     }
-    var present = function (s) { return s.presence === 'hidden' || s.presence === 'shown'; };
+    var present = function (s) { return photo(s) && (s.presence === 'hidden' || s.presence === 'shown'); };
     runs(slides, present).forEach(function (r) {
       var len = r[1] - r[0] + 1;
       if (len >= 3) w.push({ kind: 'presence-run', slides: [r[0], r[1]],
@@ -557,16 +667,24 @@ var CS = (function () {
           text: countWord(best) + ' of your ' + countWord(total) + ' in-frame slides fall within ' +
                 range(bestAt, bestAt + win - 1) });
     }
-    for (var k = 0; k + 1 < n; k++) {
-      var a = slides[k].device || {}, b = slides[k + 1].device || {};
-      if (a.key && b.key && !!a.phone !== !!b.phone)
-        w.push({ kind: 'phone-camera', slides: [k, k + 1],
-          text: 'phone frame next to camera frame at ' + range(k, k + 1) });
-    }
-    var untagged = slides.filter(function (s) { return !s.scale || !s.presence; }).length;
+    var untagged = slides.filter(function (s) { return photo(s) && (!s.scale || !s.presence); }).length;
     if (untagged) w.push({ kind: 'untagged', slides: [],
-      text: countWord(untagged) + ' slide' + (untagged === 1 ? '' : 's') + ' missing a scale or presence tag' });
+      text: countWord(untagged) + ' photo' + (untagged === 1 ? '' : 's') + ' without a scale or you-in-it tag' });
     return w;
+  }
+
+  /* Filenames that show a phone picker renamed or converted the file (the original number is lost). */
+  function looksRenamed(name) {
+    return /^tempImage/i.test(name) || /^image([\s_-]?\(?\d+\)?)?\.(jpe?g|heic|png)$/i.test(name) ||
+      /^[0-9a-f]{8}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{4}-[0-9a-f]{12}/i.test(name);
+  }
+  /* The number people call a frame by: "9774" from IMG_9774.JPG, "103_0216" from 103_0216.JPG. */
+  function frameNumber(name) {
+    var base = String(name || '').replace(/\.[^.]+$/, '');
+    var m = /^(\d{3}_\d{3,5})$/.exec(base) || /(\d{3}_\d{4})/.exec(base);
+    if (m) return m[1];
+    m = /(\d{3,})(?!.*\d{3,})/.exec(base);
+    return m ? m[1] : base;
   }
 
   /* ---------- EXIF (read) ----------
@@ -918,6 +1036,9 @@ var CS = (function () {
   return {
     MAX_SLIDES: MAX_SLIDES, MEASURE_EDGE: MEASURE_EDGE, METRIC_VERSION: METRIC_VERSION,
     THRESH: THRESH, METRICS: METRICS, ASPECTS: ASPECTS, DUP_MAX_DIST: DUP_MAX_DIST,
+    MIN_GROUP: MIN_GROUP, RHYME_MAX_DIST: RHYME_MAX_DIST,
+    twins: twins, rhymes: rhymes, cameraBaselines: cameraBaselines, baselineFor: baselineFor,
+    looksRenamed: looksRenamed, frameNumber: frameNumber,
     median: median, measurePixels: measurePixels, dhash: dhash, hamming: hamming,
     groupDuplicates: groupDuplicates, baseline: baseline, frameFlags: frameFlags,
     hueDistance: hueDistance, seam: seam, sequenceWarnings: sequenceWarnings,
@@ -946,40 +1067,36 @@ self.onmessage = async function (e) {
 <script>
 (function () {
   'use strict';
-  var SEQ_FILE = 'carousel-sequence.json';
-  var EXPORT_DIR = 'carousel-export';
   var IMG_RE = /\.(jpe?g|png|webp|gif|heic|heif|avif)$/i;
-  var SCALE_KEYS = { w: 'wide', c: 'close', f: 'face', t: 'texture' };
-  var SCALE_LETTER = { wide: 'W', close: 'C', face: 'F', texture: 'T' };
-  var PRES_KEYS = { '0': 'out', '1': 'hidden', '2': 'shown' };
-  var PRES_GLYPH = { out: '○', hidden: '◐', shown: '●' };
-  var PRES_TEXT = { out: 'not in frame', hidden: 'in frame, face hidden', shown: 'in frame, face shown' };
-  var CAPTURE_TEXT = { exif: 'EXIF original', 'exif-modified': 'EXIF modify date', file: 'file date, no EXIF', pick: 'no capture time: pick order' };
+  var SCALES = [['wide', 'Wide'], ['close', 'Close'], ['face', 'Face'], ['texture', 'Texture']];
+  var YOU = [['out', 'Not in it'], ['hidden', 'Face hidden'], ['shown', 'Face shown']];
+  var SCALE_WORD = {}; SCALES.forEach(function (x) { SCALE_WORD[x[0]] = x[1]; });
+  var YOU_WORD = {}; YOU.forEach(function (x) { YOU_WORD[x[0]] = x[1]; });
+  var CAM_VARS = ['--cam1', '--cam2', '--cam3', '--cam4', '--cam5'];
+  var FLAG_SHORT = { sat: { 'more saturated': 'more saturated', 'less saturated': 'less saturated' } };
 
   var inFrame = (function () { try { return window.top !== window.self; } catch (e) { return true; } })();
-  var canPickFolder = !!window.showDirectoryPicker && !inFrame;
   var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
-  // claude.ai viewer: files are offered through the downloads capability (plain downloads are blocked there)
   var dlP = (window.claude && typeof window.claude.use === 'function')
     ? window.claude.use('downloads').catch(function () { return null; }) : Promise.resolve(null);
 
   var S = {
-    dir: null, dirName: '', writable: false, example: false, setKey: '',
-    frames: [], byId: new Map(), strip: [],
-    sel: null,                     // { where: 'strip'|'pool', id }
-    aspect: '4:5', gridAspect: '3:4',
-    dups: { groupOf: {}, groups: {} }, dupsAt: -1,
-    measured: 0, hl: []
+    title: '', frames: [], byId: new Map(), slides: [], example: false,
+    filter: 'todo', cam: null, stack: true, tab: 'cut',
+    aspect: '4:5', gridAspect: '3:4', sheetSort: 'fit', renamed: [], measured: 0
   };
+  var D = { twins: { groupOf: {}, groups: {} }, rhymes: {}, at: -1, bases: null, slideOf: {}, camOrder: [] };
 
   function $(s) { return document.querySelector(s); }
   function h(tag, attrs) {
     var e = document.createElement(tag);
     if (attrs) for (var k in attrs) {
-      if (k === 'text') e.textContent = attrs[k];
-      else if (k === 'class') e.className = attrs[k];
-      else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), attrs[k]);
-      else if (attrs[k] != null && attrs[k] !== false) e.setAttribute(k, attrs[k]);
+      var v = attrs[k];
+      if (v == null || v === false) continue;
+      if (k === 'text') e.textContent = v;
+      else if (k === 'class') e.className = v;
+      else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), v);
+      else e.setAttribute(k, v);
     }
     for (var i = 2; i < arguments.length; i++) {
       var c = arguments[i];
@@ -988,33 +1105,24 @@ self.onmessage = async function (e) {
     }
     return e;
   }
+  var toastEl = null, toastTimer = null;
   function toast(msg) {
-    var t = h('div', { class: 'toast', text: msg, role: 'status' });
-    document.body.appendChild(t);
-    setTimeout(function () { t.remove(); }, 3000);
+    if (!toastEl) { toastEl = h('div', { class: 'toast', role: 'status' }); document.body.appendChild(toastEl); }
+    toastEl.textContent = msg; toastEl.hidden = false;
+    clearTimeout(toastTimer);
+    toastTimer = setTimeout(function () { toastEl.hidden = true; }, 3000);
   }
   function fmt(v, d) { return v == null ? '–' : Number(v).toFixed(d); }
   function signed(v, d) { return v == null ? '–' : (v > 0 ? '+' : v < 0 ? '−' : '±') + Math.abs(v).toFixed(d); }
-  function fmtTime(ms) {
-    if (ms == null) return '–';
-    var d = new Date(ms);
-    function p(n) { return (n < 10 ? '0' : '') + n; }
-    return d.getUTCFullYear() + '-' + p(d.getUTCMonth() + 1) + '-' + p(d.getUTCDate()) + ' ' +
-      p(d.getUTCHours()) + ':' + p(d.getUTCMinutes()) + ':' + p(d.getUTCSeconds());
-  }
-  function hash(str) {
-    var x = 2166136261;
-    for (var i = 0; i < str.length; i++) { x ^= str.charCodeAt(i); x = Math.imul(x, 16777619); }
-    return (x >>> 0).toString(36);
-  }
+  function plural(n, one, many) { return n + ' ' + (n === 1 ? one : (many || one + 's')); }
 
-  /* ---------- IndexedDB: remembered folder, per-set sequence, measurement cache ---------- */
+  /* ---------- storage: measurement cache (with thumbnails) + the current carousel ---------- */
   var dbp = null;
   function db() {
     if (!dbp) dbp = new Promise(function (res, rej) {
-      var r = indexedDB.open('carousel-sequencer', 2);
+      var r = indexedDB.open('carousel-sequencer', 3);
       r.onupgradeneeded = function () {
-        ['kv', 'metrics', 'seq'].forEach(function (n) { if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n); });
+        ['kv', 'metrics', 'seq', 'proj', 'blobs'].forEach(function (n) { if (!r.result.objectStoreNames.contains(n)) r.result.createObjectStore(n); });
       };
       r.onsuccess = function () { res(r.result); };
       r.onerror = function () { rej(r.error); };
@@ -1032,683 +1140,720 @@ self.onmessage = async function (e) {
       }).catch(function () { return undefined; });
     } catch (e) { return Promise.resolve(undefined); }
   }
-  function cacheKey(f) { return f.name + '|' + f.file.size + '|' + f.file.lastModified + '|v' + CS.METRIC_VERSION; }
+  function frameId(name, size) { return name + '|' + size; }
+  function cacheKey(f) { return f.id + '|v' + CS.METRIC_VERSION; }
 
-  /* ---------- opening ---------- */
-  $('#openBtn').hidden = !canPickFolder;
-  $('#folderLabel').hidden = canPickFolder || isIOS || !('webkitdirectory' in document.createElement('input'));
-  $('#openBtn').onclick = async function () {
-    var handle;
-    try { handle = await showDirectoryPicker({ id: 'carousel-sequencer', mode: 'readwrite' }); }
-    catch (e) { return; }
-    idb('kv', 'readwrite', function (s) { return s.put(handle, 'lastDir'); });
-    openDir(handle);
-  };
-  $('#photoInput').onchange = function (e) {
-    var files = Array.prototype.slice.call(e.target.files);
-    e.target.value = '';
-    if (files.length) loadFiles(files, { name: files.length + ' picked' });
-  };
-  $('#dirInput').onchange = function (e) {
-    var all = Array.prototype.slice.call(e.target.files);
-    e.target.value = '';
-    var top = all.filter(function (f) { return (f.webkitRelativePath || f.name).split('/').length <= 2; });
-    var name = all.length ? (all[0].webkitRelativePath || '').split('/')[0] : '';
-    if (top.length) loadFiles(top, { name: name });
-  };
-  $('#reopenBtn').onclick = async function () {
-    var handle = await idb('kv', 'readonly', function (s) { return s.get('lastDir'); });
-    if (!handle) return;
-    try {
-      var p = await handle.requestPermission({ mode: 'readwrite' });
-      if (p !== 'granted') p = await handle.requestPermission({ mode: 'read' });
-      if (p !== 'granted') return toast('Folder access was not granted');
-    } catch (e) { return toast('Could not reopen ' + handle.name); }
-    openDir(handle);
-  };
-  (async function offerReopen() {
-    if (!canPickFolder) return;
-    var handle = await idb('kv', 'readonly', function (s) { return s.get('lastDir'); });
-    if (handle) { var b = $('#reopenBtn'); b.textContent = 'Reopen ' + handle.name; b.hidden = false; }
-  })();
-
-  async function openDir(handle) {
-    var files = [];
-    for await (var entry of handle.values()) {
-      if (entry.kind === 'file') files.push(await entry.getFile());
-    }
-    var writable = false;
-    try { writable = (await handle.queryPermission({ mode: 'readwrite' })) === 'granted'; } catch (e) {}
-    loadFiles(files, { handle: handle, name: handle.name, writable: writable });
-  }
-
-  async function loadFiles(files, opt) {
-    S.frames.forEach(function (f) { ['thumbUrl', 'previewUrl'].forEach(function (k) { if (f[k]) URL.revokeObjectURL(f[k]); }); });
-    stopWorkers();
-    S.dir = opt.handle || null; S.dirName = opt.name || ''; S.writable = !!opt.writable; S.example = !!opt.example;
-    S.frames = []; S.byId = new Map(); S.strip = []; S.sel = null; S.measured = 0; S.dupsAt = -1;
-    S.aspect = '4:5'; S.gridAspect = '3:4';
-    var seqFile = null, images = [], skipped = [];
-    files.forEach(function (f) {
-      if (f.name === SEQ_FILE || /\.json$/i.test(f.name)) seqFile = f;
-      else if (f.name[0] === '.') return;
-      else if (IMG_RE.test(f.name) || CS.isRaw(f.name) || /^image\//.test(f.type)) images.push(f);
-      else skipped.push(f.name);
-    });
-    var openedAt = Date.now(), seen = {};
-    var frames = await Promise.all(images.map(async function (file, i) {
-      var exif = {};
-      try { exif = CS.parseExif(await file.slice(0, CS.isRaw(file.name) ? 1 << 20 : 262144).arrayBuffer()); } catch (e) {}
-      return { file: file, exif: exif, pick: i };
-    }));
-    frames = frames.map(function (x) {
-      var name = x.file.name, id = name;
-      seen[name] = (seen[name] || 0) + 1;
-      if (seen[name] > 1) id = name + ' #' + seen[name];     // phone pickers can repeat names
-      return {
-        id: id, name: name, file: x.file, exif: x.exif, pick: x.pick, raw: CS.isRaw(name),
-        capture: CS.captureTime(x.exif, x.file.lastModified, opt.example ? null : openedAt), device: CS.device(x.exif),
-        metrics: null, width: 0, height: 0, thumbUrl: null, previewUrl: null, status: 'queued',
-        tags: { scale: null, presence: null }, crop: { x: 0.5, y: 0.5, zoom: 1 }
-      };
-    });
-    S.frames = CS.captureOrder(frames);
-    S.frames.forEach(function (f) { S.byId.set(f.id, f); });
-    S.setKey = 'set:' + hash(S.frames.map(function (f) { return f.id + '|' + f.file.size; }).sort().join('\n'));
-    var restored = null;
-    if (seqFile) {
-      try { applySequence(JSON.parse(await seqFile.text())); restored = 'loaded ' + seqFile.name; }
-      catch (e) { toast(seqFile.name + ' could not be read; starting fresh'); }
-    }
-    if (!restored) {
-      var saved = await idb('seq', 'readonly', function (s) { return s.get(S.setKey); });
-      if (saved) { try { applySequence(JSON.parse(saved)); restored = 'restored from this device'; } catch (e) {} }
-    }
-    $('#app').hidden = false; $('#bar').hidden = false;
-    $('#folderChip').hidden = false;
-    $('#folderChip').textContent = (S.example ? 'example shoot' : S.dirName) + ' · ' + S.frames.length + ' frames';
-    $('#saveSeqBtn').hidden = S.writable;
-    $('#previewBtn').disabled = false;
-    var notes = [];
-    if (S.example) notes.push('These are generated example frames so you can see how it works. Choose photos to measure your own; they stay on this device.');
-    var noTime = S.frames.filter(function (f) { return f.capture.source === 'pick'; }).length;
-    if (noTime && !S.example) notes.push(noTime + ' of ' + S.frames.length + ' photos carry no capture time, so they follow in the order you picked them.');
-    var raws = S.frames.filter(function (f) { return f.raw; }).length;
-    if (raws) notes.push(raws + ' RAW file' + (raws > 1 ? 's are' : ' is') + ' measured and exported from the camera\'s embedded preview JPEG, not from your RAW edit.');
-    if (skipped.length) notes.push('Skipped ' + skipped.length + ' non-image file' + (skipped.length > 1 ? 's' : '') + '.');
-    $('#notice').hidden = !notes.length;
-    $('#notice').textContent = notes.join(' ');
-    if (S.frames.length) S.sel = { where: 'pool', id: S.frames[0].id };
-    render();
-    updateSaveChip(restored);
-    measureAll();
-  }
-
-  function applySequence(seq) {
-    if (!seq || typeof seq !== 'object') return;
-    if (CS.ASPECTS[seq.aspect]) S.aspect = seq.aspect;
-    if (seq.gridAspect === '1:1' || seq.gridAspect === '3:4') S.gridAspect = seq.gridAspect;
-    var fr = seq.frames || {};
-    Object.keys(fr).forEach(function (id) {
-      var f = S.byId.get(id); if (!f) return;
-      var t = fr[id] || {};
-      if (SCALE_LETTER[t.scale]) f.tags.scale = t.scale;
-      if (PRES_TEXT[t.presence]) f.tags.presence = t.presence;
-      if (t.crop) f.crop = { x: num01(t.crop.x), y: num01(t.crop.y), zoom: Math.max(1, +t.crop.zoom || 1) };
-    });
-    var missing = [];
-    (seq.order || []).forEach(function (id) {
-      if (S.strip.length >= CS.MAX_SLIDES || S.strip.indexOf(id) >= 0) return;
-      if (S.byId.has(id)) S.strip.push(id); else missing.push(id);
-    });
-    if (missing.length) toast(missing.length + ' saved slide(s) are not among these photos: ' + missing.join(', '));
-  }
-  function num01(v) { v = Number(v); return isFinite(v) ? Math.min(1, Math.max(0, v)) : 0.5; }
-
-  function sequenceJSON() {
-    var frames = {};
-    S.frames.forEach(function (f) {
-      var t = {};
-      if (f.tags.scale) t.scale = f.tags.scale;
-      if (f.tags.presence) t.presence = f.tags.presence;
-      if (f.crop.x !== 0.5 || f.crop.y !== 0.5 || f.crop.zoom !== 1)
-        t.crop = { x: +f.crop.x.toFixed(4), y: +f.crop.y.toFixed(4), zoom: +f.crop.zoom.toFixed(3) };
-      if (Object.keys(t).length) frames[f.id] = t;
-    });
-    return JSON.stringify({
-      tool: 'carousel-sequencer', version: 1, savedAt: new Date().toISOString(),
-      aspect: S.aspect, gridAspect: S.gridAspect, order: S.strip.slice(), frames: frames
-    }, null, 2) + '\n';
-  }
-
-  /* Saving: always to this device (IndexedDB, keyed by the photo set); also next to the
-     photos when a writable folder is open. */
   var saveTimer = null;
-  function changed() { render(); changedQuiet(); }
-  function changedQuiet() {
-    updateSaveChip('saving…');
+  function dirty() {
+    if (S.example) return;
     clearTimeout(saveTimer);
-    saveTimer = setTimeout(save, 400);
+    saveTimer = setTimeout(saveProject, 500);
   }
-  async function save() {
-    var json = sequenceJSON();
-    await idb('seq', 'readwrite', function (s) { return s.put(json, S.setKey); });
-    if (S.writable && S.dir) {
-      try {
-        var fh = await S.dir.getFileHandle(SEQ_FILE, { create: true });
-        var w = await fh.createWritable();
-        await w.write(json);
-        await w.close();
-        updateSaveChip('saved to folder');
-        return;
-      } catch (e) {
-        S.writable = false; $('#saveSeqBtn').hidden = false;
-      }
+  function projectJSON() {
+    return {
+      tool: 'carousel-sequencer', version: 2, savedAt: new Date().toISOString(),
+      title: S.title, aspect: S.aspect, gridAspect: S.gridAspect,
+      frames: S.frames.map(function (f) {
+        return { id: f.id, name: f.name, size: f.size, raw: f.raw, exif: f.exif, status: f.status, tags: f.tags, crop: f.crop };
+      }),
+      slides: S.slides.map(function (s) { return s.kind === 'video' ? { kind: 'video', id: s.id, label: s.label } : { kind: 'photo', id: s.id }; })
+    };
+  }
+  async function saveProject() {
+    await idb('proj', 'readwrite', function (st) { return st.put(JSON.stringify(projectJSON()), 'current'); });
+  }
+  async function restoreProject() {
+    var raw = await idb('proj', 'readonly', function (st) { return st.get('current'); });
+    if (!raw) return false;
+    var p; try { p = JSON.parse(raw); } catch (e) { return false; }
+    if (!p.frames || !p.frames.length) return false;
+    S.title = p.title || ''; S.aspect = CS.ASPECTS[p.aspect] ? p.aspect : '4:5'; S.gridAspect = p.gridAspect === '1:1' ? '1:1' : '3:4';
+    for (var i = 0; i < p.frames.length; i++) {
+      var x = p.frames[i];
+      var f = newFrame(null, x.name, x.size, x.exif || {});
+      f.id = x.id; f.status = x.status || null; f.tags = x.tags || f.tags; f.crop = x.crop || f.crop;
+      addFrame(f);
+      var hit = await idb('metrics', 'readonly', function (st) { return st.get(cacheKey(f)); });
+      if (hit && hit.metrics) finishMeasure(f, hit); else { f.measure = 'needs file'; }
     }
-    updateSaveChip('saved on this device');
-  }
-  function updateSaveChip(text) {
-    var c = $('#saveChip');
-    c.hidden = !text;
-    c.textContent = text || '';
-  }
-  $('#saveSeqBtn').onclick = function () {
-    deliver([{ name: SEQ_FILE, blob: new Blob([sequenceJSON()], { type: 'application/json' }) }], 'sequence file');
-  };
-
-  /* Hand files to the person: claude.ai downloads capability, else share sheet, else download links. */
-  async function deliver(files, what) {
-    var dl = await dlP;
-    if (dl) {
-      for (var i = 0; i < files.length; i++) {
-        try { await dl.save({ filename: files[i].name, data: files[i].blob }); }
-        catch (e) {
-          if (e && e.code === 'rate_limited') { i--; await new Promise(function (r) { setTimeout(r, 1200); }); continue; }
-          if (e && e.code === 'declined') { toast('Stopped at ' + files[i].name); return false; }
-          toast('Could not save ' + files[i].name + (e && e.message ? ': ' + e.message : '')); return false;
-        }
-      }
-      return true;
-    }
-    var shareFiles = null;
-    try {
-      shareFiles = files.map(function (f) { return new File([f.blob], f.name, { type: f.blob.type }); });
-      if (navigator.canShare && navigator.canShare({ files: shareFiles })) {
-        await navigator.share({ files: shareFiles });
-        return true;
-      }
-    } catch (e) { if (e && e.name === 'AbortError') return false; }
-    for (var j = 0; j < files.length; j++) {
-      var a = h('a', { href: URL.createObjectURL(files[j].blob), download: files[j].name });
-      document.body.appendChild(a); a.click(); a.remove();
-      (function (u) { setTimeout(function () { URL.revokeObjectURL(u); }, 5000); })(a.href);
-      if (files.length > 1) await new Promise(function (r) { setTimeout(r, 200); });
+    for (var j = 0; j < (p.slides || []).length; j++) {
+      var s = p.slides[j];
+      if (s.kind === 'video') {
+        var v = { kind: 'video', id: s.id, label: s.label || 'video' };
+        var poster = await idb('blobs', 'readonly', function (st) { return st.get('poster:' + s.id); });
+        if (poster) v.poster = URL.createObjectURL(poster);
+        S.slides.push(v);
+      } else if (S.byId.has(s.id)) S.slides.push({ kind: 'photo', id: s.id });
     }
     return true;
   }
 
-  /* ---------- measuring (background workers, main thread as fallback) ---------- */
-  var workers = [], queue = [], workerSrc = null;
+  /* ---------- frames ---------- */
+  function newFrame(file, name, size, exif) {
+    return {
+      id: frameId(name, size), name: name, num: CS.frameNumber(name), size: size, file: file, exif: exif,
+      raw: CS.isRaw(name), renamed: CS.looksRenamed(name), device: CS.device(exif),
+      metrics: null, width: 0, height: 0, thumbUrl: null, previewUrl: null, measure: 'queued',
+      status: null, tags: { scale: null, presence: null }, crop: { x: 0.5, y: 0.5, zoom: 1 }
+    };
+  }
+  function addFrame(f) { S.frames.push(f); S.byId.set(f.id, f); }
+
+  async function addFiles(list, opt) {
+    var files = Array.prototype.slice.call(list);
+    if (!files.length) return;
+    if (S.example && !(opt && opt.example)) clearAll(true);   // your photos replace the generated ones
+    var added = 0, relinked = 0, skipped = 0, fresh = [], jsons = [];
+    for (var i = 0; i < files.length; i++) {
+      var file = files[i];
+      if (/\.json$/i.test(file.name)) { jsons.push(file); continue; }
+      if (file.name[0] === '.' || !(IMG_RE.test(file.name) || CS.isRaw(file.name) || /^image\//.test(file.type))) { skipped++; continue; }
+      var id = frameId(file.name, file.size), have = S.byId.get(id);
+      if (have) { if (!have.file) { have.file = file; relinked++; if (!have.metrics) fresh.push(have); } continue; }
+      var exif = {};
+      try { exif = CS.parseExif(await file.slice(0, CS.isRaw(file.name) ? 1 << 20 : 262144).arrayBuffer()); } catch (e) {}
+      var f = newFrame(file, file.name, file.size, exif);
+      addFrame(f); fresh.push(f); added++;
+    }
+    for (var j = 0; j < jsons.length; j++) {
+      try { importBackup(JSON.parse(await jsons[j].text())); toast('Loaded ' + jsons[j].name); }
+      catch (e) { toast(jsons[j].name + ' is not a carousel backup'); }
+    }
+    var renamed = fresh.filter(function (f) { return f.renamed; });
+    if (renamed.length) S.renamed = S.renamed.concat(renamed.map(function (f) { return f.name; }));
+    if ((added || relinked) && !(opt && opt.example)) toast((added ? 'Added ' + plural(added, 'photo') : '') + (added && relinked ? ', ' : '') +
+      (relinked ? 'relinked ' + plural(relinked, 'original') : '') + (skipped ? ' · skipped ' + skipped + ' other files' : ''));
+    else if (skipped) toast('No photos in that selection');
+    if (S.tab !== 'cut') setTab('cut');
+    changed();
+    measure(fresh);
+  }
+
+  function importBackup(p) {
+    if (!p || !p.frames) return;
+    if (p.title && !S.title) S.title = p.title;
+    if (CS.ASPECTS[p.aspect]) S.aspect = p.aspect;
+    p.frames.forEach(function (x) {
+      var f = S.byId.get(x.id); if (!f) return;
+      f.status = x.status || f.status; if (x.tags) f.tags = x.tags; if (x.crop) f.crop = x.crop;
+    });
+    if (p.slides && !S.slides.length) p.slides.forEach(function (s) {
+      if (s.kind === 'video') S.slides.push({ kind: 'video', id: s.id, label: s.label || 'video' });
+      else if (S.byId.has(s.id) && S.slides.length < CS.MAX_SLIDES) S.slides.push({ kind: 'photo', id: s.id });
+    });
+  }
+
+  function clearAll(silent) {
+    S.frames.forEach(function (f) { if (f.thumbUrl) URL.revokeObjectURL(f.thumbUrl); if (f.previewUrl) URL.revokeObjectURL(f.previewUrl); });
+    stopWorkers();
+    S.frames = []; S.byId = new Map(); S.slides = []; S.title = ''; S.example = false; S.renamed = []; S.measured = 0;
+    S.cam = null; S.filter = 'todo';
+    D.at = -1; cards = new Map(); $('#grid').textContent = '';
+    if (!silent) { idb('proj', 'readwrite', function (st) { return st.delete('current'); }); changed(); }
+  }
+
+  /* ---------- measuring (background workers; main thread without OffscreenCanvas) ---------- */
+  var workers = [], queue = [], workerSrc = null, busy = 0;
   var workerOK = typeof Worker !== 'undefined' && typeof OffscreenCanvas !== 'undefined' &&
     typeof OffscreenCanvas.prototype.convertToBlob === 'function';
-  function stopWorkers() { workers.forEach(function (w) { w.terminate(); }); workers = []; queue = []; S.gen = {}; }
-  async function measureAll() {
-    var gen = {};
-    S.gen = gen;
-    var todo = [];
-    for (var i = 0; i < S.frames.length; i++) {
-      var f = S.frames[i];
-      var hit = await idb('metrics', 'readonly', function (s) { return s.get(cacheKey(f)); });
-      if (S.gen !== gen) return;
-      if (hit && hit.metrics) finish(f, hit);
-      else todo.push(f);
+  function stopWorkers() { workers.forEach(function (w) { w.terminate(); }); workers = []; queue = []; busy = 0; }
+  async function measure(frames) {
+    for (var i = 0; i < frames.length; i++) {
+      var f = frames[i];
+      var hit = await idb('metrics', 'readonly', function (st) { return st.get(cacheKey(f)); });
+      if (hit && hit.metrics) finishMeasure(f, hit); else if (f.file) queue.push(f);
     }
     progress();
-    if (!todo.length) return;
-    queue = todo.slice();
-    if (workerOK) {
-      try {
-        if (!workerSrc) workerSrc = URL.createObjectURL(new Blob(
-          [document.getElementById('core').textContent, '\n', document.getElementById('worker').textContent],
-          { type: 'text/javascript' }));
-        // phones: one or two decodes at a time keeps memory in check with 24-48 MP files
-        var n = Math.max(1, Math.min(isIOS ? 2 : 4, (navigator.hardwareConcurrency || 4) - 1, todo.length));
-        for (var k = 0; k < n; k++) {
-          var w = new Worker(workerSrc);
-          w.onmessage = onResult;
-          w.onerror = function (ev) { ev.preventDefault(); workerOK = false; stopWorkers(); S.gen = gen; mainThreadLoop(gen); };
-          workers.push(w);
-          next(w);
-        }
-        return;
-      } catch (e) { workerOK = false; }
-    }
-    mainThreadLoop(gen);
+    pump();
   }
-  async function mainThreadLoop(gen) {
-    while (queue.length && S.gen === gen) {
-      var f = queue.shift();
-      if (f.status === 'done') continue;
-      try { var r = await CS.measureFile(f.file, true); if (S.gen !== gen) return; store(f, r); }
-      catch (e) { f.status = 'error'; f.error = String(e && e.message || e); S.measured++; }
-      progress();
-    }
+  function pump() {
+    if (!queue.length) return;
+    if (!workerOK) { if (!busy) mainLoop(); return; }
+    try {
+      if (!workerSrc) workerSrc = URL.createObjectURL(new Blob(
+        [document.getElementById('core').textContent, '\n', document.getElementById('worker').textContent], { type: 'text/javascript' }));
+      // one decode at a time on phones: 24–48 MP frames are ~100–200 MB each once decoded
+      var n = Math.max(1, Math.min(isIOS ? 1 : 3, (navigator.hardwareConcurrency || 4) - 1));
+      while (workers.length < n) {
+        var w = new Worker(workerSrc);
+        w.onmessage = onResult;
+        w.onerror = function (ev) { ev.preventDefault(); workerOK = false; stopWorkers(); requeueAll(); pump(); };
+        w.idle = true;
+        workers.push(w);
+      }
+      workers.forEach(function (w) { if (w.idle) next(w); });
+    } catch (e) { workerOK = false; pump(); }
   }
+  function requeueAll() { S.frames.forEach(function (f) { if (f.measure === 'measuring' && f.file) { f.measure = 'queued'; queue.push(f); } }); }
   function next(w) {
     var f = queue.shift();
-    if (!f) return;
-    f.status = 'measuring';
+    if (!f) { w.idle = true; return; }
+    w.idle = false; f.measure = 'measuring';
     w.postMessage({ id: f.id, file: f.file });
   }
   function onResult(e) {
     var r = e.data, f = S.byId.get(r.id);
-    if (f) {
-      if (r.ok) store(f, r);
-      else { f.status = 'error'; f.error = r.error; S.measured++; }
-    }
+    if (f) { if (r.ok) storeMeasure(f, r); else { f.measure = 'error'; f.error = r.error; S.measured++; } }
     progress();
     next(e.target);
-    if (!queue.length && S.measured >= S.frames.length) stopWorkers();
   }
-  function store(f, r) {
-    var val = { metrics: r.metrics, width: r.width, height: r.height, thumb: r.thumb, preview: r.preview, exif: r.exif, fromRawPreview: !!r.fromRawPreview };
-    finish(f, val);
+  async function mainLoop() {
+    busy = 1;
+    while (queue.length) {
+      var f = queue.shift();
+      try { storeMeasure(f, await CS.measureFile(f.file, true)); }
+      catch (e) { f.measure = 'error'; f.error = String(e && e.message || e); S.measured++; }
+      progress();
+    }
+    busy = 0;
+  }
+  function storeMeasure(f, r) {
+    var val = { metrics: r.metrics, width: r.width, height: r.height, thumb: r.thumb, preview: r.preview, exif: r.exif };
+    finishMeasure(f, val);
     var key = cacheKey(f);
-    idb('metrics', 'readwrite', function (s) { return s.put(val, key); });
+    idb('metrics', 'readwrite', function (st) { return st.put(val, key); });
   }
-  function finish(f, v) {
-    f.metrics = v.metrics; f.width = v.width; f.height = v.height; f.status = 'done';
-    if (v.thumb) f.thumbUrl = URL.createObjectURL(v.thumb);
-    if (v.preview) f.previewUrl = URL.createObjectURL(v.preview);
-    if (!f.device.key && v.exif) f.device = CS.device(v.exif);
+  function finishMeasure(f, v) {
+    f.metrics = v.metrics; f.width = v.width; f.height = v.height; f.measure = 'done';
+    if (v.thumb && !f.thumbUrl) f.thumbUrl = URL.createObjectURL(v.thumb);
+    if (v.preview && !f.previewUrl) f.previewUrl = URL.createObjectURL(v.preview);
+    if (!f.device.key && v.exif) { f.exif = v.exif; f.device = CS.device(v.exif); }
     S.measured++;
     scheduleRender();
   }
   function progress() {
-    var n = S.frames.length, m = S.measured;
-    $('#measureChip').hidden = false;
-    $('#measureText').textContent = m < n ? 'measuring ' + m + ' / ' + n : 'measured ' + n;
-    $('#progress').hidden = m >= n;
-    $('#progress i').style.width = (n ? 100 * m / n : 0) + '%';
+    var total = S.frames.length, done = S.frames.filter(function (f) { return f.measure === 'done' || f.measure === 'error'; }).length;
+    $('#measureNote').textContent = done < total && queue.length + workers.filter(function (w) { return !w.idle; }).length + busy
+      ? 'measuring ' + done + ' / ' + total : '';
   }
-  var rafPending = false;
-  function scheduleRender() {
-    if (rafPending) return;
-    rafPending = true;
-    requestAnimationFrame(function () { rafPending = false; render(); });
-  }
+  var raf = false;
+  function scheduleRender() { if (raf) return; raf = true; requestAnimationFrame(function () { raf = false; render(); }); }
 
-  /* ---------- derived state ---------- */
-  function currentBaseline() {
-    var inStrip = S.strip.map(function (id) { return S.byId.get(id); }).filter(function (f) { return f.metrics; });
-    var src = inStrip.length ? inStrip : S.frames.filter(function (f) { return f.metrics; });
-    var b = CS.baseline(src.map(function (f) { return f.metrics; }));
-    b.source = inStrip.length ? 'strip' : 'import';
-    return b;
+  /* ---------- derived: twins, rhymes, per-camera baselines ---------- */
+  function derive() {
+    if (D.at !== S.measured || D.n !== S.frames.length) {
+      D.twins = CS.twins(S.frames);
+      D.rhymes = CS.rhymes(S.frames);
+      D.at = S.measured; D.n = S.frames.length;
+      var seen = {};
+      D.camOrder = [];
+      S.frames.forEach(function (f) { var k = f.device.key; if (!(k in seen)) { seen[k] = D.camOrder.length; D.camOrder.push(k); } });
+      D.camIndex = seen;
+    }
+    D.slideOf = {};
+    S.slides.forEach(function (s, i) { if (s.kind === 'photo') D.slideOf[s.id] = i; });
+    var inCar = CS.cameraBaselines(S.frames, function (f) { return D.slideOf[f.id] != null; });
+    var pool = CS.cameraBaselines(S.frames, function (f) { return f.status !== 'out'; });
+    D.bases = { car: inCar, pool: pool, set: pool.set };
   }
-  function refreshDups() {
-    if (S.dupsAt === S.measured) return;
-    S.dups = CS.groupDuplicates(S.frames);
-    S.dupsAt = S.measured;
+  function baseFor(f) {
+    var k = f.device.key, c = D.bases.car.byCamera[k];
+    if (c && c.n >= CS.MIN_GROUP) { c.src = 'carousel'; return c; }
+    var p = D.bases.pool.byCamera[k];
+    if (p) p.src = 'all';
+    return p || null;
   }
-  function slideInfo(f) {
-    return { id: f.id, scale: f.tags.scale, presence: f.tags.presence, dup: S.dups.groupOf[f.id], device: f.device };
-  }
+  function flagsOf(f) { return f.metrics && !f.raw ? CS.frameFlags(f.metrics, baseFor(f)) : []; }
+  function camColor(f) { var i = D.camIndex ? D.camIndex[f.device.key] : 0; return 'var(' + CAM_VARS[Math.min(i || 0, CAM_VARS.length - 1)] + ')'; }
+  function camLabel(f) { return f.device.label === 'unknown device' ? 'unknown camera' : f.device.label; }
+  var FLAG_WORDS = {
+    sat: function (fl) { return fl.delta > 0 ? 'more saturated' : 'less saturated'; },
+    lumSpread: function (fl) { return fl.delta > 0 ? 'more contrast' : 'flatter'; },
+    clipPct: function () { return 'clipped highlights'; },
+    crushPct: function () { return 'crushed shadows'; },
+    rb: function (fl) { return fl.delta > 0 ? 'warmer' : 'cooler'; },
+    tint: function (fl) { return fl.delta < 0 ? 'magenta' : 'green'; },
+    sharp: function () { return 'soft'; }
+  };
+  function flagWords(f) { return flagsOf(f).map(function (fl) { return FLAG_WORDS[fl.key](fl); }); }
+  function slideLabel(i) { return 'slide ' + (i + 1); }
 
   /* ---------- render ---------- */
+  function changed() { dirty(); render(); }
   function render() {
-    if ($('#app').hidden) return;
-    refreshDups();
-    var base = currentBaseline();
-    S.base = base;
-    var bc = $('#baseChip');
-    bc.hidden = !base.n;
-    bc.textContent = 'baseline: ' + (base.source === 'strip' ? 'strip (' + base.n + ')' : 'all photos (' + base.n + ')') +
-      ' · sat ' + fmt(base.sat, 3) + ' · clip ' + fmt(base.clipPct, 1) + '%';
-    renderStrip(base);
-    renderPool(base);
-    renderInspector(base);
-    renderBar();
+    derive();
+    var n = S.frames.length, kept = 0, out = 0;
+    S.frames.forEach(function (f) { if (f.status === 'keep') kept++; else if (f.status === 'out') out++; });
+    if (document.activeElement !== $('#titleIn')) $('#titleIn').value = S.title;
+    $('#counts').textContent = n ? plural(n, 'frame') + ' · ' + kept + ' kept · ' + out + ' out · ' + S.slides.length + ' of 20 in the carousel' +
+      (S.example ? ' · example frames' : '') : 'Add photos to start cutting.';
+    $('#nCut').textContent = n ? ' ' + (n - kept - out) : '';
+    $('#nSeq').textContent = ' ' + S.slides.length + '/20';
+    document.querySelectorAll('nav .tabs button').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)); });
+    renderNotices();
+    $('#cutView').hidden = S.tab !== 'cut'; $('#seqView').hidden = S.tab !== 'seq'; $('#pvView').hidden = S.tab !== 'pv';
+    if (S.tab === 'cut') renderCut();
+    if (S.tab === 'seq') renderSeq();
+    if (!$('#loupe').hidden) renderLoupe();
+    if (!$('#sheet').hidden) renderSheet();
+  }
+  function renderNotices() {
+    var box = $('#notices'); box.textContent = '';
+    if (S.example) box.appendChild(h('div', { class: 'notice' },
+      h('b', { text: 'Example frames. ' }), 'These are generated so you can try the flow. Adding your own photos replaces them. Photos stay on this device.'));
+    if (S.renamed.length) box.appendChild(h('div', { class: 'notice warn' },
+      h('b', { text: plural(S.renamed.length, 'photo') + ' arrived renamed' }), ' (for example ' + S.renamed[0] + '), so their file numbers are lost. ' +
+      'Remove them (Out), then add them again with Add from Photos → Options (top of the picker) → Format: Current, or use Add from Files.'));
+    var needFile = S.frames.filter(function (f) { return !f.file && !f.metrics; }).length;
+    if (needFile) box.appendChild(h('div', { class: 'notice' }, plural(needFile, 'frame') + ' still need measuring. Add the same photos again to link them.'));
   }
 
-  function zoneOf(i, n) {
-    if (i >= n) return 'empty';
-    if (i < 3) return 'open';
-    if (n >= 6 && i >= n - 3) return 'end';
-    return 'middle';
-  }
-  var ZONE_TEXT = { open: 'slides 1–3', middle: 'middle', end: 'end', empty: '' };
-
-  function renderStrip(base) {
-    var wrap = $('#strip'), keep = wrap.scrollLeft;
-    wrap.textContent = '';
-    wrap.appendChild(h('div', { class: 'trackLabels' },
-      h('div', { text: '' }), h('div', { class: 'sp' }), h('div', { text: 'scale' }), h('div', { text: 'you' })));
-    var n = S.strip.length, prevZone = null;
-    for (var i = 0; i < CS.MAX_SLIDES; i++) {
-      var id = S.strip[i], f = id ? S.byId.get(id) : null;
-      if (i > 0) wrap.appendChild(renderSeam(S.byId.get(S.strip[i - 1]), f));
-      var zone = zoneOf(i, n);
-      var col = h('div', { class: 'col' });
-      col.appendChild(h('div', { class: 'zone ' + zone, text: zone !== prevZone ? ZONE_TEXT[zone] : '' }));
-      prevZone = zone;
-      var slot = h('div', { class: 'slot ' + (f ? 'filled' : 'empty'), 'data-idx': i, tabindex: f ? '0' : null,
-        role: 'button', 'aria-label': f ? 'slide ' + (i + 1) + ': ' + f.name : 'empty slot ' + (i + 1) });
-      slot.appendChild(h('span', { class: 'n', text: String(i + 1) }));
-      if (f) {
-        if (f.thumbUrl) slot.appendChild(h('img', { src: f.thumbUrl, alt: '' }));
-        slot.appendChild(badges(f, base, true));
-        slot.draggable = true;
-        (function (f) {
-          slot.addEventListener('click', function () { select('strip', f.id); });
-          slot.addEventListener('dragstart', function (e) { dragStart(e, 'strip', f.id); });
-        })(f);
-        if (S.sel && S.sel.where === 'strip' && S.sel.id === f.id) slot.classList.add('sel');
-        if (S.hl.indexOf(i) >= 0) slot.classList.add('hl');
-      } else {
-        slot.addEventListener('click', tapEmptySlot);
-      }
-      dropZone(slot, i);
-      col.appendChild(slot);
-      var sc = f && f.tags.scale, pr = f && f.tags.presence;
-      col.appendChild(h('div', { class: 'trk' + (f && !sc ? ' none' : ''), title: sc || '',
-        text: f ? (sc ? SCALE_LETTER[sc] : '·') : '' }));
-      col.appendChild(h('div', { class: 'trk' + (pr ? ' pres-' + pr : (f ? ' none' : '')), title: pr ? PRES_TEXT[pr] : '',
-        text: f ? (pr ? PRES_GLYPH[pr] : '·') : '' }));
-      wrap.appendChild(col);
-    }
-    wrap.scrollLeft = keep;
-    var ul = $('#warnings');
-    ul.textContent = '';
-    var slides = S.strip.map(function (id) { return slideInfo(S.byId.get(id)); });
-    CS.sequenceWarnings(slides).forEach(function (w) {
-      var idx = w.slides.length === 2 && w.kind !== 'dup-open' ? rangeIdx(w.slides[0], w.slides[1]) : w.slides;
-      var li = h('li', { class: w.kind === 'untagged' ? 'info' : '', text: w.text });
-      if (w.kind !== 'untagged') {
-        li.addEventListener('mouseenter', function () { S.hl = idx; renderStripHl(); });
-        li.addEventListener('mouseleave', function () { S.hl = []; renderStripHl(); });
-        li.addEventListener('click', function () { S.hl = S.hl === idx ? [] : idx; renderStripHl(); });
-      }
-      ul.appendChild(li);
-    });
-    if (!S.strip.length) ul.appendChild(h('li', { class: 'info', text: 'Strip is empty. Tap a photo, then Add (or drag it up).' }));
-  }
-  function tapEmptySlot() {
-    if (!S.sel) return;
-    var inStrip = S.strip.indexOf(S.sel.id) >= 0;
-    if (!inStrip || S.sel.where === 'strip') { if (addToStrip(S.sel.id)) S.sel = { where: 'strip', id: S.sel.id }; render(); }
-  }
-  function rangeIdx(a, b) { var r = []; for (var i = a; i <= b; i++) r.push(i); return r; }
-  function renderStripHl() {
-    document.querySelectorAll('#strip .slot').forEach(function (s) {
-      s.classList.toggle('hl', S.hl.indexOf(+s.dataset.idx) >= 0 && s.classList.contains('filled'));
-    });
-  }
-
-  function renderSeam(a, b) {
-    var d = h('div', { class: 'seam' });
-    if (!a || !b) return d;
-    var s = CS.seam(a, b);
-    var tonalOn = s.flags.indexOf('tonal') >= 0, hueOn = s.flags.indexOf('hue') >= 0;
-    d.appendChild(h('div', { class: tonalOn ? 'on' : '', title: 'tonal jump: change in median luma',
-      text: s.tonal == null ? '·' : signed(s.tonal, 2).replace('0.', '.') }));
-    d.appendChild(h('div', { class: hueOn ? 'on' : '', title: 'hue shift between dominant hues',
-      text: s.hue == null ? '·' : Math.round(s.hue) + '°' }));
-    if (s.deviceChange) d.appendChild(h('div', { class: 'on' + (s.phoneCamera ? ' phoneCam' : ''),
-      title: (a.device.label || '?') + ' → ' + (b.device.label || '?'), text: s.phoneCamera ? 'ph⇄' : 'dev⇄' }));
-    return d;
-  }
-
-  function badges(f, base, compact) {
-    var row = h('div', { class: compact ? 'badges' : 'row' });
-    if (f.device && f.device.label) row.appendChild(h('span', {
-      class: 'b' + (f.device.phone ? ' isPhone' : '') + (f.raw ? ' isRaw' : ''),
-      title: f.device.label + (f.device.phone ? ' (phone)' : '') + (f.raw ? ' · RAW, measured on embedded preview' : ''),
-      text: compact ? shortDevice(f.device.label) : f.device.label }));
-    var g = S.dups.groupOf[f.id];
-    if (g) row.appendChild(h('span', { class: 'b dup', title: 'near-duplicate group ' + g, text: '≈' + g }));
-    var flags = f.metrics ? CS.frameFlags(f.metrics, base) : [];
-    if (flags.length && compact) row.appendChild(h('span', { class: 'b flagged',
-      title: flags.map(function (x) { return x.text; }).join(', '), text: '⚑' + flags.length }));
-    return row;
-  }
-  function shortDevice(label) { return label.length > 10 ? label.slice(0, 9) + '…' : label; }
-
-  function flagLine(fl) {
-    var m = CS.METRICS.filter(function (x) { return x.key === fl.key; })[0];
-    return fl.text + ' ' + signed(fl.delta, m.fmt);
-  }
-
-  function renderPool(base) {
-    var grid = $('#poolGrid');
-    grid.textContent = '';
-    var noTime = S.frames.some(function (f) { return f.capture.source === 'pick'; });
-    $('#poolTitle').textContent = 'Photos · capture-time order' + (noTime ? ', then pick order' : '') + ' · ' + S.frames.length;
-    S.frames.forEach(function (f) {
-      var pos = S.strip.indexOf(f.id);
-      var card = h('div', { class: 'card' + (pos >= 0 ? ' inStrip' : ''), draggable: 'true', tabindex: '0', role: 'button', 'aria-label': f.name });
-      var ph = h('div', { class: 'ph' });
-      if (f.thumbUrl) ph.appendChild(h('img', { src: f.thumbUrl, alt: '' }));
-      if (pos >= 0) ph.appendChild(h('span', { class: 'b pos', text: 'slide ' + (pos + 1) }));
-      card.appendChild(ph);
-      var meta = h('div', { class: 'meta' });
-      meta.appendChild(h('div', { class: 'name', text: f.name }));
-      meta.appendChild(h('div', { class: 'faint num', text: f.capture.ms == null ? 'picked #' + (f.pick + 1) : fmtTime(f.capture.ms) + (f.capture.source === 'file' ? ' (file date)' : '') }));
-      meta.appendChild(badges(f, base, false));
-      if (f.status === 'done') {
-        var flags = CS.frameFlags(f.metrics, base);
-        if (flags.length) meta.appendChild(h('div', { class: 'flags', text: flags.map(flagLine).join(' · ') }));
-      } else meta.appendChild(h('div', { class: 'pending', text: f.status === 'error' ? 'could not open: ' + f.error : f.status + '…' }));
-      if (f.tags.scale || f.tags.presence) meta.appendChild(h('div', { class: 'faint',
-        text: [f.tags.scale, f.tags.presence && PRES_TEXT[f.tags.presence]].filter(Boolean).join(' · ') }));
-      card.appendChild(meta);
-      if (S.sel && S.sel.where === 'pool' && S.sel.id === f.id) card.classList.add('sel');
-      card.addEventListener('click', function () { select('pool', f.id); });
-      card.addEventListener('dblclick', function () { addToStrip(f.id); });
-      card.addEventListener('dragstart', function (e) { dragStart(e, 'pool', f.id); });
-      card.dataset.id = f.id;
-      grid.appendChild(card);
-    });
-  }
-
-  function renderInspector(base) {
-    var body = $('#inspBody');
-    var f = S.sel && S.byId.get(S.sel.id);
-    if (!f) { body.className = 'muted'; body.textContent = 'Select a frame.'; return; }
-    body.className = '';
-    body.textContent = '';
-    if (f.thumbUrl) body.appendChild(h('img', { class: 'big', src: f.previewUrl || f.thumbUrl, alt: f.name }));
-    var pos = S.strip.indexOf(f.id);
-    var dl = h('dl');
-    function row(k, v) { dl.appendChild(h('dt', { text: k })); dl.appendChild(h('dd', { text: v })); }
-    row('file', f.name + (f.raw ? ' (RAW: embedded preview)' : ''));
-    row('position', pos >= 0 ? 'slide ' + (pos + 1) + ' of ' + S.strip.length : 'not in strip');
-    row('captured', (f.capture.ms == null ? '' : fmtTime(f.capture.ms) + ' ') + '(' + CAPTURE_TEXT[f.capture.source] + ')');
-    row('device', f.device.label + (f.device.phone ? ' · phone' : ''));
-    if (f.width) row('size', f.width + ' × ' + f.height);
-    var g = S.dups.groupOf[f.id];
-    if (g) row('near-dups', '≈' + g + ': ' + S.dups.groups[g].filter(function (x) { return x !== f.id; }).join(', '));
-    row('scale', f.tags.scale || 'untagged');
-    row('you', f.tags.presence ? PRES_TEXT[f.tags.presence] : 'untagged');
-    body.appendChild(dl);
-    if (!f.metrics) { body.appendChild(h('p', { class: 'pending', text: f.status === 'error' ? 'could not open: ' + f.error : f.status + '…' })); return; }
-    var flags = CS.frameFlags(f.metrics, base), flagged = {};
-    flags.forEach(function (x) { flagged[x.key] = x; });
-    var t = h('table', null, h('tr', null, h('th', { text: 'metric' }), h('th', { text: 'frame' }),
-      h('th', { text: base.source === 'strip' ? 'strip med' : 'all med' }), h('th', { text: 'Δ' })));
-    CS.METRICS.forEach(function (m) {
-      var v = f.metrics[m.key], b = base[m.key], fl = flagged[m.key];
-      t.appendChild(h('tr', { class: fl ? 'flag' : '', title: fl ? fl.text : '' },
-        h('td', { text: m.label + (fl ? ' ⚑' : '') }), h('td', { class: 'num', text: fmt(v, m.fmt) }),
-        h('td', { class: 'num', text: fmt(b, m.fmt) }), h('td', { class: 'num', text: b == null ? '–' : signed(v - b, m.fmt) })));
-    });
-    body.appendChild(t);
-    var mm = f.metrics;
-    body.appendChild(h('p', { class: 'faint' },
-      'mean colour ', h('span', { class: 'swatch', style: 'background:rgb(' + mm.meanRGB.join(',') + ')' }),
-      ' · median luma ' + fmt(mm.lumMedian, 2) +
-      ' · dominant hue ' + (mm.hueDeg == null ? '–' : Math.round(mm.hueDeg) + '° (strength ' + fmt(mm.hueStrength, 2) + ')') +
-      ' · cast measured on ' + (mm.castSource === 'neutral' ? 'near-neutral pixels (' + fmt(mm.neutralPct, 0) + '%)' : 'all pixels: too few neutrals')));
-  }
-
-  function renderBar() {
-    var f = S.sel && S.byId.get(S.sel.id);
-    var pos = f ? S.strip.indexOf(f.id) : -1;
-    $('#barImg').src = f && f.thumbUrl ? f.thumbUrl : '';
-    $('#barImg').hidden = !(f && f.thumbUrl);
-    $('#barName').textContent = f ? (pos >= 0 ? 'slide ' + (pos + 1) + ' · ' : '') + f.name : 'Tap a photo';
-    var add = $('#addBtn');
-    add.disabled = !f;
-    add.textContent = pos >= 0 ? 'Remove' : 'Add';
-    $('#leftBtn').disabled = pos <= 0;
-    $('#rightBtn').disabled = pos < 0 || pos >= S.strip.length - 1;
-    document.querySelectorAll('#scaleBtns button').forEach(function (b) {
-      b.disabled = !f; b.setAttribute('aria-pressed', String(!!f && f.tags.scale === b.dataset.scale));
-    });
-    document.querySelectorAll('#presBtns button').forEach(function (b) {
-      b.disabled = !f; b.setAttribute('aria-pressed', String(!!f && f.tags.presence === b.dataset.pres));
-    });
-  }
-  $('#addBtn').onclick = function () {
-    if (!S.sel) return;
-    if (S.strip.indexOf(S.sel.id) >= 0) removeFromStrip(S.sel.id);
-    else if (addToStrip(S.sel.id)) { S.sel = { where: 'strip', id: S.sel.id }; render(); scrollSelIntoView(); }
-  };
-  $('#leftBtn').onclick = function () { moveSel(-1); };
-  $('#rightBtn').onclick = function () { moveSel(1); };
-  document.querySelectorAll('#scaleBtns button').forEach(function (b) { b.onclick = function () { setTag('scale', b.dataset.scale); }; });
-  document.querySelectorAll('#presBtns button').forEach(function (b) { b.onclick = function () { setTag('presence', b.dataset.pres); }; });
-
-  /* ---------- editing ---------- */
-  function select(where, id) { S.sel = { where: where, id: id }; render(); scrollSelIntoView(); }
-  function scrollSelIntoView() {
-    var e = document.querySelector(S.sel && S.sel.where === 'pool' ? '#poolGrid .sel' : '#strip .sel');
-    if (e) e.scrollIntoView({ block: 'nearest', inline: 'nearest' });
-  }
-  function addToStrip(id, at) {
-    var cur = S.strip.indexOf(id);
-    if (cur < 0 && S.strip.length >= CS.MAX_SLIDES) { toast('The strip holds ' + CS.MAX_SLIDES + ' slides'); return false; }
-    if (cur >= 0) S.strip.splice(cur, 1);
-    at = at == null ? S.strip.length : Math.min(at, S.strip.length);
-    S.strip.splice(at, 0, id);
-    changed();
+  /* ----- Cut ----- */
+  var cards = new Map();
+  function visibleInCut(f) {
+    if (S.cam != null && f.device.key !== S.cam) return false;
+    if (S.filter === 'todo') return !f.status;
+    if (S.filter === 'keep') return f.status === 'keep';
+    if (S.filter === 'out') return f.status === 'out';
     return true;
   }
-  function removeFromStrip(id) {
-    var i = S.strip.indexOf(id);
-    if (i < 0) return;
-    S.strip.splice(i, 1);
-    S.sel = { where: 'pool', id: id };
-    changed();
+  /* Grid: one card per twin stack (when stacking). Loupe: the whole stack, in place, so twins
+     are compared one after another. */
+  function cutList(forLoupe) {
+    var list = S.frames.filter(visibleInCut);
+    if (!S.stack) return list;
+    var shown = {}, out = [];
+    list.forEach(function (f) {
+      var g = D.twins.groupOf[f.id];
+      if (!g) { out.push(f); return; }
+      if (shown[g]) return;
+      shown[g] = true;
+      if (!forLoupe) { out.push(f); return; }
+      list.forEach(function (x) { if (D.twins.groupOf[x.id] === g) out.push(x); });
+    });
+    return out;
   }
-  function moveSel(dir) {
-    if (!S.sel) return;
-    var i = S.strip.indexOf(S.sel.id), j = i + dir;
-    if (i < 0 || j < 0 || j >= S.strip.length) return;
-    S.strip.splice(i, 1); S.strip.splice(j, 0, S.sel.id);
-    S.sel = { where: 'strip', id: S.sel.id };
-    changed(); scrollSelIntoView();
+  function renderCut() {
+    document.querySelectorAll('#filterSeg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.f === S.filter)); });
+    $('#stackBtn').setAttribute('aria-pressed', String(S.stack));
+    $('#folderLabel').hidden = isIOS || inFrame || !('webkitdirectory' in document.createElement('input'));
+    // camera chips
+    var chips = $('#camChips'); chips.textContent = '';
+    if (D.camOrder.length > 1) {
+      chips.appendChild(h('button', { class: 'chip', 'aria-pressed': String(S.cam == null), text: 'All cameras',
+        onclick: function () { S.cam = null; render(); } }));
+      D.camOrder.forEach(function (k) {
+        var fs = S.frames.filter(function (f) { return f.device.key === k; });
+        var b = h('button', { class: 'chip', 'aria-pressed': String(S.cam === k), onclick: function () { S.cam = S.cam === k ? null : k; render(); } },
+          h('i', { style: 'background:' + camColor(fs[0]) }), camLabel(fs[0]) + ' · ' + fs.length);
+        chips.appendChild(b);
+      });
+    }
+    var list = cutList(false), grid = $('#grid'), ids = {};
+    list.forEach(function (f, i) {
+      ids[f.id] = 1;
+      var c = cards.get(f.id);
+      if (!c) { c = makeCard(f); cards.set(f.id, c); }
+      updateCard(c, f);
+      if (grid.children[i] !== c.el) grid.insertBefore(c.el, grid.children[i] || null);
+    });
+    while (grid.children.length > list.length) grid.removeChild(grid.lastChild);
+    var empty = $('#gridEmpty');
+    empty.hidden = list.length > 0;
+    if (!list.length) empty.textContent = !S.frames.length ? 'Add photos from your library or files. Load the whole pool; you will cut it down here.'
+      : S.filter === 'todo' ? 'Nothing left to decide' + (S.cam != null ? ' for this camera' : '') + '.' : 'Nothing here.';
   }
-  function setTag(kind, value) {
-    var f = S.sel && S.byId.get(S.sel.id);
-    if (!f) return;
-    f.tags[kind] = f.tags[kind] === value ? null : value;
-    changed();
+  function makeCard(f) {
+    var img = h('img', { alt: '', loading: 'lazy', decoding: 'async' });
+    var el = h('button', { class: 'card', type: 'button' }, h('div', { class: 'ph' }, img));
+    var cap = h('div', { class: 'cap' });
+    var fn = h('div', { class: 'fn' }), sub = h('div', { class: 'sub' }), fl = h('div', { class: 'fl' });
+    cap.appendChild(fn); cap.appendChild(sub); cap.appendChild(fl);
+    el.appendChild(cap);
+    el.addEventListener('click', function () { openLoupe(f.id); });
+    return { el: el, img: img, fn: fn, sub: sub, fl: fl, ph: el.firstChild, sig: '' };
+  }
+  function updateCard(c, f) {
+    var g = D.twins.groupOf[f.id], nTw = g ? D.twins.groups[g].length : 0, slide = D.slideOf[f.id];
+    var words = flagWords(f), rh = D.rhymes[f.id];
+    var sig = [f.thumbUrl, f.status, slide, nTw, words.join(), rh ? rh.length : 0, f.measure, S.stack].join('|');
+    if (c.sig === sig) return;
+    c.sig = sig;
+    if (f.thumbUrl && c.img.src !== f.thumbUrl) c.img.src = f.thumbUrl;
+    c.el.classList.toggle('out', f.status === 'out');
+    c.el.classList.toggle('kept', f.status === 'keep');
+    c.el.setAttribute('aria-label', f.name + (f.status ? ', ' + (f.status === 'keep' ? 'kept' : 'out') : ''));
+    c.fn.textContent = f.num;
+    c.fn.title = f.name;
+    c.sub.textContent = '';
+    c.sub.appendChild(h('span', { class: 'camdot', style: 'background:' + camColor(f) }));
+    c.sub.appendChild(document.createTextNode(camLabel(f) + (f.raw ? ' · RAW' : '')));
+    c.fl.textContent = f.measure === 'error' ? 'could not open' : f.measure !== 'done' ? (f.measure === 'needs file' ? 'add again to measure' : '…') : words.join(' · ');
+    Array.prototype.slice.call(c.ph.querySelectorAll('.badge')).forEach(function (b) { b.remove(); });
+    if (f.status === 'keep') c.ph.appendChild(h('span', { class: 'badge tl keep', text: 'Kept' }));
+    if (slide != null) c.ph.appendChild(h('span', { class: 'badge tr', text: '#' + (slide + 1) }));
+    if (S.stack && nTw > 1) c.ph.appendChild(h('span', { class: 'badge bl', text: '×' + nTw + ' twins' }));
+    else if (nTw > 1) c.ph.appendChild(h('span', { class: 'badge bl', text: 'twin' }));
+    if (rh) c.ph.appendChild(h('span', { class: 'badge br', title: 'same layout of light and dark as a frame from another camera', text: 'rhyme' }));
   }
 
-  /* drag and drop (desktop) */
-  var drag = null;
-  function dragStart(e, from, id) {
-    drag = { from: from, id: id };
-    e.dataTransfer.effectAllowed = 'move';
-    e.dataTransfer.setData('text/plain', id);
+  /* ----- Loupe (full-screen culling) ----- */
+  var L = { id: null, list: [], order: [] };
+  function openLoupe(id) {
+    L.id = id;
+    // the loupe keeps the order it opened with, so deciding on a frame never reshuffles the rest
+    L.order = cutList(true).map(function (f) { return f.id; });
+    var g = D.twins.groupOf[id];
+    $('#loupe').hidden = false;
+    document.body.style.overflow = 'hidden';
+    renderLoupe();
+    if (g && S.stack) toast(plural(D.twins.groups[g].length, 'twin') + ': swipe through them');
   }
-  function dropZone(elm, idx) {
-    elm.addEventListener('dragover', function (e) { if (drag) { e.preventDefault(); elm.classList.add('dropTarget'); } });
-    elm.addEventListener('dragleave', function () { elm.classList.remove('dropTarget'); });
-    elm.addEventListener('drop', function (e) {
-      e.preventDefault(); elm.classList.remove('dropTarget');
-      if (!drag) return;
-      var d = drag; drag = null;
-      if (addToStrip(d.id, idx)) { S.sel = { where: 'strip', id: d.id }; render(); }
+  function closeLoupe() { $('#loupe').hidden = true; document.body.style.overflow = ''; L.id = null; render(); }
+  function loupeList() {
+    var vis = {}, extra = [];
+    cutList(true).forEach(function (f) { vis[f.id] = 1; if (L.order.indexOf(f.id) < 0) extra.push(f.id); });
+    L.order = L.order.concat(extra);
+    if (L.order.indexOf(L.id) < 0) L.order.push(L.id);
+    return L.order.filter(function (id) { return vis[id] || id === L.id; })
+      .map(function (id) { return S.byId.get(id); }).filter(Boolean);
+  }
+  function renderLoupe() {
+    var f = S.byId.get(L.id);
+    if (!f) { closeLoupe(); return; }
+    L.list = loupeList();
+    var i = L.list.indexOf(f);
+    $('#lName').textContent = f.name;
+    $('#lPos').textContent = (i + 1) + ' / ' + L.list.length;
+    var pic = $('#lPic'), src = f.previewUrl || f.thumbUrl || '';
+    if (pic.getAttribute('src') !== src) pic.src = src;
+    pic.alt = f.name;
+    $('#lKeep').setAttribute('aria-pressed', String(f.status === 'keep'));
+    $('#lOut').setAttribute('aria-pressed', String(f.status === 'out'));
+    var slide = D.slideOf[f.id];
+    $('#lAdd').textContent = slide != null ? 'In carousel · #' + (slide + 1) + ' (remove)' : 'Add to carousel';
+    $('#lAdd').setAttribute('aria-pressed', String(slide != null));
+    var info = $('#lInfo'); info.textContent = '';
+    info.appendChild(h('div', null, h('span', { class: 'camdot', style: 'background:' + camColor(f) }), camLabel(f) +
+      (f.width ? ' · ' + f.width + '×' + f.height : '') + (f.raw ? ' · RAW: camera preview, colour not checked' : '')));
+    var base = baseFor(f), flags = flagsOf(f);
+    if (f.metrics && !f.raw) {
+      if (!base || base.n < CS.MIN_GROUP) info.appendChild(h('div', { text: 'Fewer than ' + CS.MIN_GROUP + ' frames from this camera, so nothing to compare against yet.' }));
+      else if (!flags.length) info.appendChild(h('div', { text: 'In line with the other ' + camLabel(f) + ' frames.' }));
+      flags.forEach(function (fl) { info.appendChild(h('div', { class: 'flag', text: flagSentence(fl, f, base) })); });
+    }
+    tagRow($('#lScale'), 'Scale', SCALES, f, 'scale');
+    tagRow($('#lYou'), 'You', YOU, f, 'presence');
+    relRow($('#lTwins'), 'Twins', (D.twins.groups[D.twins.groupOf[f.id]] || []).filter(function (x) { return x !== f.id; }));
+    relRow($('#lRhymes'), 'Rhymes with (other cameras, same layout)', D.rhymes[f.id] || []);
+    numbersTable($('#lNumsBody'), f, base);
+  }
+  function flagSentence(fl, f, base) {
+    var m = CS.METRICS.filter(function (x) { return x.key === fl.key; })[0];
+    var who = 'the ' + (base.src === 'carousel' ? camLabel(f) + ' frames in the carousel' : 'other ' + camLabel(f) + ' frames');
+    var word = FLAG_WORDS[fl.key](fl);
+    if (fl.key === 'clipPct' || fl.key === 'crushPct')
+      return word[0].toUpperCase() + word.slice(1) + ': ' + fmt(fl.value, 1) + '% of pixels, against ' + fmt(fl.base, 1) + '% for ' + who + '.';
+    if (fl.key === 'sharp') return 'Softer than ' + who + ' (' + Math.round(fl.value) + ' against ' + Math.round(fl.base) + ').';
+    return word[0].toUpperCase() + word.slice(1) + ' than ' + who + ' (' + m.label + ' ' + fmt(fl.value, m.fmt) + ', median ' + fmt(fl.base, m.fmt) + ').';
+  }
+  function tagRow(el, label, opts, f, key) {
+    el.textContent = '';
+    el.appendChild(h('span', { text: label }));
+    opts.forEach(function (o) {
+      el.appendChild(h('button', { 'aria-pressed': String(f.tags[key] === o[0]), text: o[1],
+        onclick: function () { f.tags[key] = f.tags[key] === o[0] ? null : o[0]; changed(); } }));
     });
   }
-  var poolEl = $('#pool');
-  poolEl.addEventListener('dragover', function (e) { if (drag && drag.from === 'strip') e.preventDefault(); });
-  poolEl.addEventListener('drop', function (e) {
-    if (!drag || drag.from !== 'strip') return;
-    e.preventDefault();
-    var id = drag.id; drag = null;
-    removeFromStrip(id);
-  });
-  document.addEventListener('dragend', function () { drag = null; });
-
-  /* keyboard (desktop) */
-  document.addEventListener('keydown', function (e) {
-    var tag = (e.target.tagName || '').toLowerCase();
-    if (tag === 'input' || tag === 'select' || tag === 'textarea') return;
-    if ($('#pv').open) { previewKey(e); return; }
-    if ($('#app').hidden || !S.frames.length) return;
-    if (e.ctrlKey || e.metaKey) return;
-    var k = e.key.toLowerCase();
-    if (!e.altKey && SCALE_KEYS[k]) { setTag('scale', SCALE_KEYS[k]); e.preventDefault(); return; }
-    if (!e.altKey && PRES_KEYS[e.key]) { setTag('presence', PRES_KEYS[e.key]); e.preventDefault(); return; }
-    if (k === 'p') { openPreview(); e.preventDefault(); return; }
-    var sel = S.sel || { where: 'pool', id: S.frames[0].id };
-    var list = sel.where === 'strip' ? S.strip : S.frames.map(function (f) { return f.id; });
-    var i = list.indexOf(sel.id);
-    if (e.key === 'ArrowLeft' || e.key === 'ArrowRight') {
-      var dir = e.key === 'ArrowLeft' ? -1 : 1;
-      if (e.altKey && sel.where === 'strip' && i >= 0) moveSel(dir);
-      else if (!e.altKey && list.length) select(sel.where, list[Math.max(0, Math.min(list.length - 1, (i < 0 ? 0 : i + dir)))]);
-      e.preventDefault();
-    } else if ((e.key === 'ArrowUp' || e.key === 'ArrowDown') && sel.where === 'pool') {
-      var cols = Math.max(1, getComputedStyle($('#poolGrid')).gridTemplateColumns.split(' ').length);
-      var ni = Math.max(0, Math.min(list.length - 1, i + (e.key === 'ArrowUp' ? -cols : cols)));
-      select('pool', list[ni]); e.preventDefault();
-    } else if (e.key === 'Enter' && sel.where === 'pool') {
-      if (S.strip.indexOf(sel.id) < 0) addToStrip(sel.id);
-      e.preventDefault();
-    } else if ((e.key === 'Delete' || e.key === 'Backspace') && S.strip.indexOf(sel.id) >= 0) {
-      var at = S.strip.indexOf(sel.id);
-      removeFromStrip(sel.id);
-      if (sel.where === 'strip' && S.strip.length) S.sel = { where: 'strip', id: S.strip[Math.min(at, S.strip.length - 1)] };
-      render(); e.preventDefault();
-    } else if (e.key === 'Tab') {
-      if (sel.where === 'pool' && S.strip.length) {
-        var si = S.strip.indexOf(sel.id);
-        select('strip', si >= 0 ? sel.id : S.strip[0]);
-      } else select('pool', sel.id);
-      e.preventDefault();
+  function relRow(el, label, ids) {
+    el.textContent = '';
+    el.hidden = !ids.length;
+    if (!ids.length) return;
+    el.appendChild(h('span', { text: label }));
+    ids.forEach(function (id) {
+      var g = S.byId.get(id);
+      if (!g) return;
+      el.appendChild(h('button', { title: g.name, onclick: function () { L.id = id; renderLoupe(); } },
+        h('img', { src: g.thumbUrl || '', alt: g.name }), h('em', { text: g.num + (g.status === 'keep' ? ' ✓' : g.status === 'out' ? ' ✕' : '') })));
+    });
+  }
+  function numbersTable(el, f, base) {
+    el.textContent = '';
+    if (!f.metrics) return;
+    var set = D.bases.set, flagged = {};
+    flagsOf(f).forEach(function (x) { flagged[x.key] = 1; });
+    var t = h('table', null, h('tr', null, h('th', { text: '' }), h('th', { text: 'this' }), h('th', { text: 'camera' }), h('th', { text: 'all cameras' })));
+    CS.METRICS.forEach(function (m) {
+      t.appendChild(h('tr', { style: flagged[m.key] ? 'color:#f0b04a' : null }, h('td', { text: m.label }), h('td', { class: 'num', text: fmt(f.metrics[m.key], m.fmt) }),
+        h('td', { class: 'num', text: base ? fmt(base[m.key], m.fmt) : '–' }), h('td', { class: 'num', text: fmt(set[m.key], m.fmt) })));
+    });
+    el.appendChild(t);
+    el.appendChild(h('p', { style: 'color:#888;font-size:12px;margin:6px 0 0',
+      text: 'Flags compare with this camera only. The all-cameras column is for reference and is never flagged.' }));
+  }
+  function loupeStep(d) {
+    var list = L.list, i = list.indexOf(S.byId.get(L.id));
+    var j = Math.max(0, Math.min(list.length - 1, i + d));
+    if (list[j]) { L.id = list[j].id; renderLoupe(); }
+  }
+  function setStatus(st) {
+    var f = S.byId.get(L.id); if (!f) return;
+    var before = L.list.slice(), i = before.indexOf(f);
+    f.status = f.status === st ? null : st;
+    if (f.status === 'out' && D.slideOf[f.id] != null) removeSlide(D.slideOf[f.id]);
+    changed();
+    // move on to the next frame, like a culling loupe
+    if (f.status) {
+      var vis = {}, nxt = null;
+      cutList(true).forEach(function (x) { vis[x.id] = 1; });
+      for (var k = i + 1; k < before.length; k++) if (vis[before[k].id]) { nxt = before[k]; break; }
+      if (nxt) L.id = nxt.id;
     }
-  });
+    renderLoupe();
+  }
+  $('#lClose').onclick = closeLoupe;
+  $('#lPrev').onclick = function () { loupeStep(-1); };
+  $('#lNext').onclick = function () { loupeStep(1); };
+  $('#lKeep').onclick = function () { setStatus('keep'); };
+  $('#lOut').onclick = function () { setStatus('out'); };
+  $('#lAdd').onclick = function () {
+    var f = S.byId.get(L.id); if (!f) return;
+    if (D.slideOf[f.id] != null) removeSlide(D.slideOf[f.id]);
+    else { if (!addSlide({ kind: 'photo', id: f.id })) return; if (!f.status) f.status = 'keep'; toast('Added as slide ' + S.slides.length); }
+    changed();
+  };
+  (function swipe() {
+    var el = $('#lImg'), x0 = null, y0 = 0;
+    el.addEventListener('pointerdown', function (e) { if (e.target.tagName === 'BUTTON') return; x0 = e.clientX; y0 = e.clientY; });
+    el.addEventListener('pointerup', function (e) {
+      if (x0 == null) return;
+      var dx = e.clientX - x0, dy = e.clientY - y0; x0 = null;
+      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) loupeStep(dx < 0 ? 1 : -1);
+    });
+    el.addEventListener('pointercancel', function () { x0 = null; });
+  })();
 
-  /* ---------- preview + crop ---------- */
+  /* ----- Sequence ----- */
+  function addSlide(s, at) {
+    if (S.slides.length >= CS.MAX_SLIDES) { toast('A carousel holds 20 slides, videos included'); return false; }
+    if (s.kind === 'photo' && D.slideOf[s.id] != null) return false;
+    S.slides.splice(at == null ? S.slides.length : at, 0, s);
+    derive();
+    return true;
+  }
+  function removeSlide(i) { S.slides.splice(i, 1); derive(); }
+  function moveSlide(i, j) {
+    if (j < 0 || j >= S.slides.length || i === j) return;
+    var s = S.slides.splice(i, 1)[0]; S.slides.splice(j, 0, s); changed();
+  }
+  function role(i, n) {
+    if (i === 0) return ['Cover', 'shown first and in the profile grid'];
+    if (i === 1) return ['Second cover', 'Instagram re-shows the post from here to people who didn\'t swipe'];
+    if (i === n - 1 && n >= 4) return ['Closer', ''];
+    return null;
+  }
+  function slideInfo(s) {
+    if (s.kind === 'video') return { kind: 'video' };
+    var f = S.byId.get(s.id);
+    return { kind: 'photo', id: f.id, scale: f.tags.scale, presence: f.tags.presence, twin: D.twins.groupOf[f.id] };
+  }
+  function renderSeq() {
+    var n = S.slides.length;
+    // lanes: camera, brightness, colour per slide
+    var lanes = $('#lanes'); lanes.textContent = '';
+    S.slides.forEach(function (s, i) {
+      var f = s.kind === 'photo' ? S.byId.get(s.id) : null;
+      var t = h('div', { class: 't' }, f && f.thumbUrl ? h('img', { src: f.thumbUrl, alt: '' }) : (s.poster ? h('img', { src: s.poster, alt: '' }) : null), h('span', { text: String(i + 1) }));
+      var lane = h('div', { class: 'lane', title: f ? f.name : 'video', onclick: function () { var r = document.querySelector('#slots [data-i="' + i + '"]'); if (r) r.scrollIntoView({ block: 'center', behavior: 'smooth' }); } }, t,
+        h('div', { class: 'cam', style: 'background:' + (f ? camColor(f) : 'transparent') + (f ? '' : ';border:1px dashed var(--line)') }),
+        h('div', { class: 'lum' }, f && f.metrics ? h('i', { style: 'height:' + Math.round(f.metrics.lumMedian * 100) + '%' }) : null),
+        h('div', { class: 'col', style: f && f.metrics ? 'background:rgb(' + f.metrics.meanRGB.join(',') + ')' : 'visibility:hidden' }));
+      lanes.appendChild(lane);
+    });
+    var key = $('#laneKey'); key.textContent = '';
+    if (n) {
+      var cams = {};
+      S.slides.forEach(function (s) { if (s.kind === 'photo') { var f = S.byId.get(s.id); cams[f.device.key] = f; } });
+      Object.keys(cams).forEach(function (k) { key.appendChild(h('span', null, h('span', { class: 'camdot', style: 'background:' + camColor(cams[k]) }), camLabel(cams[k]))); });
+      key.appendChild(h('span', { text: 'bars: brightness · swatch: average colour' }));
+    }
+    var wl = $('#warnList'); wl.textContent = '';
+    CS.sequenceWarnings(S.slides.map(slideInfo)).forEach(function (w) { wl.appendChild(h('li', { class: w.kind === 'untagged' ? 'info' : '', text: w.text })); });
+    var box = $('#slots'); box.textContent = '';
+    if (!n) box.appendChild(h('div', { class: 'empty', text: 'No slides yet. Keep frames in Cut, then add them here, or tap Add to carousel in the photo view.' }));
+    S.slides.forEach(function (s, i) {
+      if (i > 0) box.appendChild(seamRow(S.slides[i - 1], s));
+      box.appendChild(slotRow(s, i, n));
+    });
+    $('#slotCount').textContent = n + ' of 20 slides';
+    $('#addPhotoSlot').disabled = n >= 20; $('#addVideoSlot').disabled = n >= 20;
+  }
+  function seamRow(a, b) {
+    var d = h('div', { class: 'seamRow' });
+    if (a.kind !== 'photo' || b.kind !== 'photo') return d;
+    var fa = S.byId.get(a.id), fb = S.byId.get(b.id), s = CS.seam(fa, fb), parts = [];
+    if (s.tonal != null) {
+      var big = s.flags.indexOf('tonal') >= 0;
+      parts.push(h('span', { class: big ? 'on' : '', text: (Math.abs(s.tonal) < 0.03 ? 'same brightness' : (s.tonal > 0 ? 'brighter ' : 'darker ') + signed(s.tonal, 2)) + (big ? ' (big jump)' : '') }));
+    }
+    if (s.hue != null) parts.push(h('span', { class: s.flags.indexOf('hue') >= 0 ? 'on' : '', text: 'colour shift ' + Math.round(s.hue) + '°' }));
+    if (s.deviceChange) parts.push(h('span', { text: camLabel(fa) + ' → ' + camLabel(fb) }));
+    var rh = D.rhymes[fa.id];
+    if (rh && rh.indexOf(fb.id) >= 0) parts.push(h('span', { text: 'rhyme' }));
+    parts.forEach(function (p, k) { if (k) d.appendChild(document.createTextNode(' · ')); d.appendChild(p); });
+    return d;
+  }
+  function slotRow(s, i, n) {
+    var r = role(i, n);
+    var row = h('div', { class: 'slotRow', 'data-i': i });
+    var handle = h('span', { class: 'handle', 'aria-hidden': 'true', text: '⋮⋮' });
+    row.appendChild(h('div', { class: 'idx' }, h('b', { text: String(i + 1) }), handle));
+    var body = h('div', { class: 'body' });
+    if (r) body.appendChild(h('div', { class: 'role' }, r[0], r[1] ? h('em', { text: ' · ' + r[1] }) : null));
+    var acts = h('div', { class: 'acts' },
+      h('button', { class: 'small', 'aria-label': 'Move earlier', disabled: i === 0 ? '' : null, text: '↑', onclick: function () { moveSlide(i, i - 1); } }),
+      h('button', { class: 'small', 'aria-label': 'Move later', disabled: i === n - 1 ? '' : null, text: '↓', onclick: function () { moveSlide(i, i + 1); } }));
+    if (s.kind === 'video') {
+      row.appendChild(h('div', { class: 'th' }, s.poster ? h('img', { src: s.poster, alt: '' }) : h('div', { class: 'vid', text: 'Video slide' })));
+      var lab = h('input', { type: 'text', value: s.label, 'aria-label': 'Video slide label', placeholder: 'e.g. pano video' });
+      lab.addEventListener('change', function () { s.label = lab.value || 'video'; changed(); });
+      body.appendChild(h('div', { class: 'fn' }, 'Video'));
+      body.appendChild(lab);
+      body.appendChild(h('div', { class: 'faint', style: 'font-size:13px', text: 'Counts toward the 20. Not measured or exported; add the video in Instagram at slide ' + (i + 1) + '.' }));
+      var vin = h('input', { type: 'file', accept: 'video/*' });
+      vin.addEventListener('change', function () { if (vin.files[0]) posterFor(s, vin.files[0]); });
+      acts.appendChild(h('label', { class: 'filebtn' }, h('button', { type: 'button', class: 'small', tabindex: '-1', text: s.poster ? 'Change video' : 'Show a frame' }), vin));
+    } else {
+      var f = S.byId.get(s.id);
+      row.appendChild(h('div', { class: 'th' }, f.thumbUrl ? h('img', { src: f.thumbUrl, alt: '', onclick: function () { openLoupe(f.id); } }) : null));
+      body.appendChild(h('div', { class: 'fn', title: f.name }, f.num, h('span', { class: 'faint', style: 'font:13px var(--sans);margin-left:8px' },
+        h('span', { class: 'camdot', style: 'background:' + camColor(f) }), camLabel(f))));
+      var words = flagWords(f);
+      if (words.length) body.appendChild(h('div', { class: 'fl', text: words.join(' · ') + ' (vs its camera)' }));
+      body.appendChild(pickRow('Scale', SCALES, f, 'scale'));
+      body.appendChild(pickRow('You', YOU, f, 'presence'));
+      acts.appendChild(h('button', { class: 'small', text: 'Swap', onclick: function () { openSheet('replace', i); } }));
+    }
+    acts.appendChild(h('button', { class: 'small', text: 'Remove', onclick: function () { removeSlide(i); changed(); } }));
+    body.appendChild(acts);
+    row.appendChild(body);
+    dragReorder(handle, row, i);
+    return row;
+  }
+  function pickRow(label, opts, f, key) {
+    var el = h('div', { class: 'pick' }, h('span', { text: label }));
+    opts.forEach(function (o) {
+      el.appendChild(h('button', { 'aria-pressed': String(f.tags[key] === o[0]), text: o[1],
+        onclick: function () { f.tags[key] = f.tags[key] === o[0] ? null : o[0]; changed(); } }));
+    });
+    return el;
+  }
+  function posterFor(s, file) {
+    var v = document.createElement('video'), url = URL.createObjectURL(file);
+    v.muted = true; v.playsInline = true; v.preload = 'auto'; v.src = url;
+    var done = false;
+    function grab() {
+      if (done) return; done = true;
+      try {
+        var c = document.createElement('canvas'), sc = Math.min(1, 480 / Math.max(v.videoWidth, v.videoHeight));
+        c.width = Math.round(v.videoWidth * sc); c.height = Math.round(v.videoHeight * sc);
+        c.getContext('2d').drawImage(v, 0, 0, c.width, c.height);
+        c.toBlob(function (b) {
+          if (b) { s.poster = URL.createObjectURL(b); idb('blobs', 'readwrite', function (st) { return st.put(b, 'poster:' + s.id); }); }
+          if (!s.label || s.label === 'video') s.label = file.name;
+          URL.revokeObjectURL(url); changed();
+        }, 'image/jpeg', 0.8);
+      } catch (e) { URL.revokeObjectURL(url); toast('Could not read a frame from that video'); }
+    }
+    v.addEventListener('loadeddata', function () { try { v.currentTime = Math.min(0.5, (v.duration || 1) / 2); } catch (e) { grab(); } });
+    v.addEventListener('seeked', grab);
+    v.addEventListener('error', function () { toast('This browser cannot open that video'); });
+  }
+  function dragReorder(handle, row, i) {
+    handle.addEventListener('pointerdown', function (e) {
+      e.preventDefault();
+      handle.setPointerCapture(e.pointerId);
+      row.classList.add('dragging');
+      var rows = Array.prototype.slice.call(document.querySelectorAll('#slots .slotRow')), target = i;
+      function mv(ev) {
+        target = rows.length;
+        for (var k = 0; k < rows.length; k++) {
+          var rc = rows[k].getBoundingClientRect();
+          if (ev.clientY < rc.top + rc.height / 2) { target = k; break; }
+        }
+        rows.forEach(function (r, k) { r.classList.toggle('dropBefore', k === target && k !== i && k !== i + 1); });
+      }
+      function up() {
+        handle.removeEventListener('pointermove', mv); handle.removeEventListener('pointerup', up); handle.removeEventListener('pointercancel', up);
+        rows.forEach(function (r) { r.classList.remove('dropBefore', 'dragging'); });
+        var j = target > i ? target - 1 : target;
+        if (j !== i) moveSlide(i, j);
+      }
+      handle.addEventListener('pointermove', mv); handle.addEventListener('pointerup', up); handle.addEventListener('pointercancel', up);
+    });
+  }
+  $('#addPhotoSlot').onclick = function () { openSheet('insert', S.slides.length); };
+  $('#addVideoSlot').onclick = function () {
+    if (addSlide({ kind: 'video', id: 'v' + Date.now().toString(36), label: 'video' })) changed();
+  };
+
+  /* ----- Sheet: pick a frame for a slot (swap or add) ----- */
+  var SH = { mode: 'insert', at: 0 };
+  function openSheet(mode, at) { SH.mode = mode; SH.at = at; $('#sheet').hidden = false; renderSheet(); }
+  function closeSheet() { $('#sheet').hidden = true; }
+  $('#sheetClose').onclick = closeSheet;
+  $('#sheet').addEventListener('click', function (e) { if (e.target.id === 'sheet') closeSheet(); });
+  document.querySelectorAll('#sheetSort button').forEach(function (b) { b.onclick = function () { S.sheetSort = b.dataset.s; renderSheet(); }; });
+  function neighbours() {
+    var prevI = SH.at - 1, nextI = SH.mode === 'replace' ? SH.at + 1 : SH.at;
+    var p = S.slides[prevI], nx = S.slides[nextI];
+    return [p && p.kind === 'photo' ? S.byId.get(p.id) : null, nx && nx.kind === 'photo' ? S.byId.get(nx.id) : null];
+  }
+  function hintsFor(f, nb) {
+    var good = [], bad = [], fit = 0;
+    nb.forEach(function (o) {
+      if (!o || !f.metrics || !o.metrics) return;
+      var s = CS.seam(o, f);
+      if (!s.flags.length) fit++;
+      var rh = D.rhymes[f.id];
+      if (rh && rh.indexOf(o.id) >= 0) { good.push('rhymes with ' + o.num); fit += 0.5; }
+    });
+    var nbs = nb.filter(Boolean);
+    if (nbs.length && fit >= nbs.length) good.unshift('smooth seams here');
+    var g = D.twins.groupOf[f.id];
+    if (g) D.twins.groups[g].forEach(function (id) { if (id !== f.id && D.slideOf[id] != null) bad.push('twin of slide ' + (D.slideOf[id] + 1)); });
+    bad = bad.concat(flagWords(f));
+    return { good: good, bad: bad, fit: fit - bad.length * 0.25 };
+  }
+  function renderSheet() {
+    var nb = neighbours();
+    $('#sheetTitle').textContent = SH.mode === 'replace' ? 'Swap slide ' + (SH.at + 1) : 'Add slide ' + (SH.at + 1);
+    document.querySelectorAll('#sheetSort button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.s === S.sheetSort)); });
+    var cands = S.frames.filter(function (f) { return f.status === 'keep' && D.slideOf[f.id] == null; });
+    var rest = S.frames.filter(function (f) { return !f.status && D.slideOf[f.id] == null; });
+    var list = $('#sheetList'); list.textContent = '';
+    function section(title, fs) {
+      if (!fs.length) return;
+      var scored = fs.map(function (f, k) { return { f: f, k: k, hi: hintsFor(f, nb) }; });
+      if (S.sheetSort === 'fit') scored.sort(function (a, b) { return (b.hi.fit - a.hi.fit) || (a.k - b.k); });
+      list.appendChild(h('div', { style: 'grid-column:1/-1;font-size:13px;color:var(--muted);padding-top:4px', text: title }));
+      scored.forEach(function (x) {
+        var f = x.f;
+        var c = h('button', { class: 'card cand', type: 'button', onclick: function () { place(f.id); } },
+          h('div', { class: 'ph' }, f.thumbUrl ? h('img', { src: f.thumbUrl, alt: '' }) : null),
+          h('div', { class: 'cap' }, h('div', { class: 'fn', text: f.num }),
+            h('div', { class: 'sub' }, h('span', { class: 'camdot', style: 'background:' + camColor(f) }), camLabel(f)),
+            x.hi.good.length ? h('div', { class: 'hints', text: x.hi.good.join(' · ') }) : null,
+            x.hi.bad.length ? h('div', { class: 'hints flag', text: x.hi.bad.join(' · ') }) : null));
+        list.appendChild(c);
+      });
+    }
+    section('Kept (' + cands.length + ')', cands);
+    section('Still to decide (' + rest.length + ')', rest);
+    if (!cands.length && !rest.length) list.appendChild(h('div', { class: 'empty', style: 'grid-column:1/-1', text: 'Nothing left to place. Keep more frames in Cut.' }));
+  }
+  function place(id) {
+    var f = S.byId.get(id);
+    if (SH.mode === 'replace') { S.slides[SH.at] = { kind: 'photo', id: id }; derive(); }
+    else if (!addSlide({ kind: 'photo', id: id }, SH.at)) return;
+    if (!f.status) f.status = 'keep';
+    closeSheet(); changed();
+  }
+
+  /* ----- Preview ----- */
   var pv = { idx: 0, slides: [], W: 360, gridW: 120, cropping: false };
   function aspectNum(a) { var s = CS.ASPECTS[a]; return s.w / s.h; }
   function gridNum(a) { return a === '1:1' ? 1 : 3 / 4; }
-
-  $('#previewBtn').onclick = openPreview;
-  $('#pvClose').onclick = function () { $('#pv').close(); };
-  $('#pv').addEventListener('close', function () { render(); });
-
-  function openPreview() {
-    if (!S.strip.length) { toast('Add some photos to the strip first'); return; }
-    if (S.strip.some(function (id) { return !S.byId.get(id).width; })) { toast('Strip photos are still being measured'); return; }
-    var narrow = window.innerWidth < 520;
-    pv.W = Math.min(360, window.innerWidth - (narrow ? 56 : 80));
-    pv.gridW = Math.floor(Math.min(120, (Math.min(364, window.innerWidth - 56) - 8) / 3));
-    $('#phone').classList.toggle('bare', narrow);
-    $('#aspectSel').value = S.aspect;
-    $('#gridSel').value = S.gridAspect;
-    $('#exportLog').textContent = '';
-    $('#saveRow').textContent = '';
-    setCropping(false);
-    pv.idx = 0;
-    buildCarousel();
-    $('#pv').showModal();
-    $('#car').scrollLeft = 0;
-  }
   function setCropping(on) {
     pv.cropping = on;
     $('#cropBtn').setAttribute('aria-pressed', String(on));
@@ -1716,17 +1861,26 @@ self.onmessage = async function (e) {
     $('#zoomLabel').hidden = !on; $('#resetCropBtn').hidden = !on;
   }
   $('#cropBtn').onclick = function () { setCropping(!pv.cropping); };
-  function imgUrl(f) { return f.previewUrl || f.thumbUrl; }
-
-  function buildCarousel() {
+  function buildPreview() {
+    var narrow = window.innerWidth < 520;
+    pv.W = Math.min(360, window.innerWidth - (narrow ? 32 : 80));
+    pv.gridW = Math.floor(Math.min(120, (Math.min(380, window.innerWidth - 32) - 8) / 3));
+    $('#phone').classList.toggle('bare', narrow);
+    $('#aspectSel').value = S.aspect; $('#gridSel').value = S.gridAspect;
+    $('#pvTitle').textContent = S.title || 'you';
+    setCropping(false);
     var car = $('#car'), H = Math.round(pv.W / aspectNum(S.aspect));
-    car.textContent = '';
-    car.style.width = pv.W + 'px'; car.style.height = H + 'px';
-    pv.slides = S.strip.map(function (id, i) {
-      var f = S.byId.get(id);
+    car.textContent = ''; car.style.width = pv.W + 'px'; car.style.height = H + 'px';
+    pv.slides = S.slides.map(function (sl, i) {
       var box = h('div', { class: 'slide' });
       box.style.width = pv.W + 'px'; box.style.height = H + 'px';
-      var img = h('img', { src: imgUrl(f), alt: 'slide ' + (i + 1) });
+      if (sl.kind === 'video') {
+        if (sl.poster) { var vi = h('img', { src: sl.poster, alt: '' }); vi.style.cssText = 'inset:0;width:100%;height:100%;object-fit:cover;opacity:.5'; box.appendChild(vi); }
+        box.appendChild(h('div', { class: 'vid', text: 'Video slide ' + (i + 1) + ': ' + sl.label }));
+        car.appendChild(box);
+        return { video: true, box: box };
+      }
+      var f = S.byId.get(sl.id), img = h('img', { src: f.previewUrl || f.thumbUrl || '', alt: 'slide ' + (i + 1) });
       box.appendChild(img);
       var gb = null;
       if (i === 0) { gb = h('div', { class: 'gridBox' }); box.appendChild(gb); }
@@ -1735,11 +1889,13 @@ self.onmessage = async function (e) {
       attachCropDrag(s);
       return s;
     });
-    pv.slides.forEach(placeSlide);
+    pv.slides.forEach(function (s) { if (!s.video) placeSlide(s); });
     var dots = $('#dots'); dots.textContent = '';
     pv.slides.forEach(function () { dots.appendChild(h('i')); });
     buildGridMock();
+    car.scrollLeft = 0;
     syncIdx();
+    $('#exportBtn').disabled = !S.slides.some(function (s) { return s.kind === 'photo'; });
   }
   function placeImg(img, iw, ih, rect, boxW) {
     var sc = boxW / rect.w;
@@ -1748,8 +1904,7 @@ self.onmessage = async function (e) {
   }
   function slideRect(f) { return CS.cropRect(f.width || 1, f.height || 1, aspectNum(S.aspect), f.crop); }
   function placeSlide(s) {
-    var f = s.f;
-    placeImg(s.img, f.width, f.height, slideRect(f), pv.W);
+    placeImg(s.img, s.f.width, s.f.height, slideRect(s.f), pv.W);
     if (s.gb) {
       var g = CS.gridRect(aspectNum(S.aspect), gridNum(S.gridAspect)), H = pv.W / aspectNum(S.aspect);
       s.gb.style.left = g.x * pv.W + 'px'; s.gb.style.top = g.y * H + 'px';
@@ -1758,20 +1913,20 @@ self.onmessage = async function (e) {
   }
   function buildGridMock() {
     var G = $('#gridMockG'), gh = Math.round(pv.gridW / gridNum(S.gridAspect));
-    G.textContent = '';
-    G.style.gridTemplateColumns = 'repeat(3, ' + pv.gridW + 'px)';
+    G.textContent = ''; G.style.gridTemplateColumns = 'repeat(3, ' + pv.gridW + 'px)';
+    var first = pv.slides[0];
     for (var i = 0; i < 9; i++) {
       var c = h('div', { class: 'gcell' });
       c.style.width = pv.gridW + 'px'; c.style.height = gh + 'px';
-      if (i === 0 && pv.slides[0]) c.appendChild(h('img', { src: imgUrl(pv.slides[0].f), alt: 'slide 1 in the profile grid' }));
+      if (i === 0 && first && !first.video) c.appendChild(h('img', { src: first.f.previewUrl || first.f.thumbUrl || '', alt: 'slide 1 in the profile grid' }));
       G.appendChild(c);
     }
     placeGridCell();
   }
   function placeGridCell() {
-    var img = document.querySelector('#gridMockG .gcell img');
-    if (!img || !pv.slides[0]) return;
-    var f = pv.slides[0].f, r = slideRect(f), g = CS.gridRect(aspectNum(S.aspect), gridNum(S.gridAspect));
+    var img = document.querySelector('#gridMockG .gcell img'), first = pv.slides[0];
+    if (!img || !first || first.video) return;
+    var f = first.f, r = slideRect(f), g = CS.gridRect(aspectNum(S.aspect), gridNum(S.gridAspect));
     placeImg(img, f.width, f.height, { x: r.x + g.x * r.w, y: r.y + g.y * r.h, w: g.w * r.w, h: g.h * r.h }, pv.gridW);
   }
   function attachCropDrag(s) {
@@ -1779,167 +1934,210 @@ self.onmessage = async function (e) {
     s.box.addEventListener('pointerdown', function (e) {
       if (!pv.cropping) return;
       start = { x: e.clientX, y: e.clientY, cx: s.f.crop.x, cy: s.f.crop.y };
-      s.box.setPointerCapture(e.pointerId);
-      e.preventDefault();
+      s.box.setPointerCapture(e.pointerId); e.preventDefault();
     });
     s.box.addEventListener('pointermove', function (e) {
       if (!start) return;
-      var f = s.f, r = slideRect(f), sc = pv.W / r.w;
-      var freeX = f.width - r.w, freeY = f.height - r.h;
+      var f = s.f, r = slideRect(f), sc = pv.W / r.w, freeX = f.width - r.w, freeY = f.height - r.h;
       if (freeX > 0.5) f.crop.x = clamp01(start.cx - (e.clientX - start.x) / sc / freeX);
       if (freeY > 0.5) f.crop.y = clamp01(start.cy - (e.clientY - start.y) / sc / freeY);
-      placeSlide(s);
-      if (s === pv.slides[0]) placeGridCell();
+      placeSlide(s); if (s === pv.slides[0]) placeGridCell();
     });
-    function end() { if (start) { start = null; changedQuiet(); } }
-    s.box.addEventListener('pointerup', end);
-    s.box.addEventListener('pointercancel', end);
+    function end() { if (start) { start = null; dirty(); } }
+    s.box.addEventListener('pointerup', end); s.box.addEventListener('pointercancel', end);
   }
   function clamp01(v) { return v < 0 ? 0 : v > 1 ? 1 : v; }
   function syncIdx() {
     var i = Math.round($('#car').scrollLeft / pv.W);
     pv.idx = Math.max(0, Math.min(pv.slides.length - 1, i));
-    $('#pvCount').textContent = (pv.idx + 1) + ' / ' + pv.slides.length;
+    $('#pvCount').textContent = pv.slides.length ? (pv.idx + 1) + ' / ' + pv.slides.length : 'no slides';
     Array.prototype.forEach.call($('#dots').children, function (d, j) { d.className = j === pv.idx ? 'on' : ''; });
     var s = pv.slides[pv.idx];
-    if (s) $('#zoomIn').value = s.f.crop.zoom;
+    if (s && !s.video) $('#zoomIn').value = s.f.crop.zoom;
   }
   $('#car').addEventListener('scroll', syncIdx);
   function go(d) { $('#car').scrollTo({ left: Math.max(0, pv.idx + d) * pv.W, behavior: 'smooth' }); }
   $('#prevBtn').onclick = function () { go(-1); };
   $('#nextBtn').onclick = function () { go(1); };
-  function previewKey(e) {
-    if (e.key === 'ArrowLeft') { go(-1); e.preventDefault(); }
-    else if (e.key === 'ArrowRight') { go(1); e.preventDefault(); }
-  }
   $('#zoomIn').oninput = function () {
-    var s = pv.slides[pv.idx]; if (!s) return;
-    s.f.crop.zoom = Math.max(1, +this.value);
-    placeSlide(s); if (pv.idx === 0) placeGridCell();
-    changedQuiet();
+    var s = pv.slides[pv.idx]; if (!s || s.video) return;
+    s.f.crop.zoom = Math.max(1, +this.value); placeSlide(s); if (pv.idx === 0) placeGridCell(); dirty();
   };
   $('#resetCropBtn').onclick = function () {
-    var s = pv.slides[pv.idx]; if (!s) return;
-    s.f.crop = { x: 0.5, y: 0.5, zoom: 1 };
-    placeSlide(s); if (pv.idx === 0) placeGridCell(); syncIdx();
-    changedQuiet();
+    var s = pv.slides[pv.idx]; if (!s || s.video) return;
+    s.f.crop = { x: 0.5, y: 0.5, zoom: 1 }; placeSlide(s); if (pv.idx === 0) placeGridCell(); syncIdx(); dirty();
   };
-  $('#aspectSel').onchange = function () { S.aspect = this.value; buildCarousel(); $('#car').scrollLeft = 0; changedQuiet(); };
-  $('#gridSel').onchange = function () { S.gridAspect = this.value; buildGridMock(); if (pv.slides[0]) placeSlide(pv.slides[0]); changedQuiet(); };
+  $('#aspectSel').onchange = function () { S.aspect = this.value; buildPreview(); dirty(); };
+  $('#gridSel').onchange = function () { S.gridAspect = this.value; buildGridMock(); if (pv.slides[0] && !pv.slides[0].video) placeSlide(pv.slides[0]); dirty(); };
 
-  /* ---------- export ---------- */
-  $('#exportBtn').onclick = exportSlides;
-  async function exportSlides() {
+  /* ----- Export ----- */
+  async function deliver(files) {
+    var dl = await dlP;
+    if (dl) {
+      for (var i = 0; i < files.length; i++) {
+        try { await dl.save({ filename: files[i].name, data: files[i].blob }); }
+        catch (e) {
+          if (e && e.code === 'rate_limited') { i--; await new Promise(function (r) { setTimeout(r, 1200); }); continue; }
+          if (e && e.code === 'declined') { toast('Stopped at ' + files[i].name); return false; }
+          toast('Could not save ' + files[i].name); return false;
+        }
+      }
+      return true;
+    }
+    try {
+      var sf = files.map(function (f) { return new File([f.blob], f.name, { type: f.blob.type }); });
+      if (navigator.canShare && navigator.canShare({ files: sf })) { await navigator.share({ files: sf }); return true; }
+    } catch (e) { if (e && e.name === 'AbortError') return false; }
+    for (var j = 0; j < files.length; j++) {
+      var a = h('a', { href: URL.createObjectURL(files[j].blob), download: files[j].name });
+      document.body.appendChild(a); a.click(); a.remove();
+      if (files.length > 1) await new Promise(function (r) { setTimeout(r, 200); });
+    }
+    return true;
+  }
+  $('#exportBtn').onclick = function () { exportSlides(false); };
+  async function exportSlides(fromCopies) {
     var btn = $('#exportBtn'), log = $('#exportLog'), row = $('#saveRow');
     var size = CS.ASPECTS[S.aspect], A = size.w / size.h, mode = $('#dateSel').value;
-    var slides = S.strip.map(function (id) { return S.byId.get(id); });
-    var base = null;
-    if (mode === 'now') base = Date.now() - new Date().getTimezoneOffset() * 60000;
-    if (mode === 'capture') base = slides[0].capture.ms != null ? slides[0].capture.ms : Date.now() - new Date().getTimezoneOffset() * 60000;
-    btn.disabled = true; row.textContent = '';
-    log.textContent = 'rendering ' + slides.length + ' slides at ' + size.w + '×' + size.h + '…\n';
+    var missing = S.slides.filter(function (s) { return s.kind === 'photo' && !S.byId.get(s.id).file; }).map(function (s) { return S.byId.get(s.id).num; });
+    row.textContent = '';
+    if (missing.length && !fromCopies) {
+      log.textContent = 'The originals of ' + missing.join(', ') + ' are not loaded in this session. Add them again (Add from Photos or Files) for full quality, or export from the stored 1440 px copies.\n';
+      row.appendChild(h('button', { text: 'Export from stored copies', onclick: function () { exportSlides(true); } }));
+      return;
+    }
+    var base = mode === 'now' ? Date.now() - new Date().getTimezoneOffset() * 60000 : null;
+    btn.disabled = true;
+    log.textContent = 'Rendering at ' + size.w + '×' + size.h + '…\n';
     var out = [];
     try {
-      for (var i = 0; i < slides.length; i++) {
-        var f = slides[i];
-        var src = await CS.decodableBlob(f.file);
-        var bmp = await createImageBitmap(src.blob, { imageOrientation: 'from-image' });
+      for (var i = 0; i < S.slides.length; i++) {
+        var sl = S.slides[i], nn = (i < 9 ? '0' : '') + (i + 1);
+        if (sl.kind === 'video') { log.textContent += nn + '  video: add "' + sl.label + '" in Instagram at slide ' + (i + 1) + '\n'; continue; }
+        var f = S.byId.get(sl.id);
+        var blobIn = f.file ? (await CS.decodableBlob(f.file)).blob : await fetchBlob(f.previewUrl);
+        var bmp = await createImageBitmap(blobIn, { imageOrientation: 'from-image' });
         var r = CS.cropRect(bmp.width, bmp.height, A, f.crop);
-        var cv = document.createElement('canvas');
-        cv.width = size.w; cv.height = size.h;
-        var ctx = cv.getContext('2d');
-        ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
+        var cv = document.createElement('canvas'); cv.width = size.w; cv.height = size.h;
+        var ctx = cv.getContext('2d'); ctx.imageSmoothingEnabled = true; ctx.imageSmoothingQuality = 'high';
         ctx.drawImage(bmp, r.x, r.y, r.w, r.h, 0, 0, size.w, size.h);
         if (bmp.close) bmp.close();
         var blob = await new Promise(function (res) { cv.toBlob(res, 'image/jpeg', 0.92); });
-        cv.width = cv.height = 1;   // release canvas memory early (iOS)
+        cv.width = cv.height = 1;
         var bytes = new Uint8Array(await blob.arrayBuffer());
         if (base != null) bytes = CS.insertApp1(bytes, CS.buildDateApp1(base + i * 1000));
-        var name = 'carousel-' + (i < 9 ? '0' : '') + (i + 1) + '.jpg';
+        var name = nn + '-' + f.num.replace(/[^\w-]+/g, '_') + '.jpg';
         out.push({ name: name, blob: new Blob([bytes], { type: 'image/jpeg' }) });
-        log.textContent += name + '  ← ' + f.name + (r.w < bmp.width * 0.999 || r.h < bmp.height * 0.999 ? '  (cropped)' : '') + '\n';
+        log.textContent += name + (f.file ? '' : '  (from stored copy)') + '\n';
       }
-      log.textContent += mode === 'none' ? 'No EXIF, GPS, XMP or IPTC in the files.\n'
-        : 'Only capture times written, 1 s apart from ' + CS.exifDateString(base) + '.\n';
-      if (S.dir && S.writable) {
-        var dir = await S.dir.getDirectoryHandle(EXPORT_DIR, { create: true });
-        var stale = [];
-        for await (var entry of dir.values()) {
-          if (entry.kind === 'file' && /^carousel-\d\d\.jpg$/.test(entry.name) &&
-              !out.some(function (o) { return o.name === entry.name; })) stale.push(entry.name);
-        }
-        for (var s = 0; s < stale.length; s++) await dir.removeEntry(stale[s]);
-        for (var k = 0; k < out.length; k++) {
-          var fh = await dir.getFileHandle(out[k].name, { create: true });
-          var w = await fh.createWritable(); await w.write(out[k].blob); await w.close();
-        }
-        log.textContent += 'Written to ' + S.dirName + '/' + EXPORT_DIR + '/' +
-          (stale.length ? ' (removed ' + stale.length + ' older file' + (stale.length > 1 ? 's' : '') + ')' : '') + '\n';
-      } else {
-        // saving needs a fresh tap (share sheets and save prompts require one)
-        row.appendChild(h('button', { class: 'primary', text: 'Save all ' + out.length, onclick: async function () {
-          if (await deliver(out, 'slides')) log.textContent += 'Handed ' + out.length + ' files to the save sheet.\n';
-        } }));
-        out.forEach(function (o) {
-          row.appendChild(h('button', { text: o.name.replace('carousel-', '').replace('.jpg', ''), title: 'Save ' + o.name,
-            onclick: function () { deliver([o], o.name); } }));
-        });
-      }
+      log.textContent += (base != null ? 'Only capture times written, 1 s apart, so Photos keeps this order.' : 'No metadata in the files.') + '\n';
+      row.appendChild(h('button', { class: 'primary', text: 'Save all ' + out.length, onclick: async function () {
+        if (await deliver(out)) log.textContent += 'Handed ' + out.length + ' files to the save sheet.\n';
+      } }));
+      out.forEach(function (o) { row.appendChild(h('button', { class: 'small', text: o.name.slice(0, 2), title: 'Save ' + o.name, onclick: function () { deliver([o]); } })); });
     } catch (err) {
       log.textContent += 'Export stopped: ' + (err && err.message || err) + '\n';
     } finally { btn.disabled = false; }
   }
+  function fetchBlob(url) {
+    return new Promise(function (res, rej) {
+      var img = new Image();
+      img.onload = function () { var c = document.createElement('canvas'); c.width = img.naturalWidth; c.height = img.naturalHeight; c.getContext('2d').drawImage(img, 0, 0); c.toBlob(res, 'image/png'); };
+      img.onerror = rej; img.src = url;
+    });
+  }
 
-  /* ---------- example shoot (generated) ---------- */
+  /* ---------- wiring ---------- */
+  function setTab(t) { S.tab = t; render(); if (t === 'pv') buildPreview(); window.scrollTo(0, 0); }
+  document.querySelectorAll('nav .tabs button').forEach(function (b) { b.onclick = function () { setTab(b.dataset.tab); }; });
+  document.querySelectorAll('#filterSeg button').forEach(function (b) { b.onclick = function () { S.filter = b.dataset.f; render(); }; });
+  $('#stackBtn').onclick = function () { S.stack = !S.stack; cards.forEach(function (c) { c.sig = ''; }); render(); };
+  $('#titleIn').addEventListener('input', function () { S.title = this.value; dirty(); });
+  $('#photosIn').onchange = function (e) { var fs = e.target.files; addFiles(fs).then(function () { e.target.value = ''; }); };
+  $('#filesIn').onchange = function (e) { var fs = e.target.files; addFiles(fs).then(function () { e.target.value = ''; }); };
+  $('#folderIn').onchange = function (e) {
+    var fs = Array.prototype.slice.call(e.target.files).filter(function (f) { return (f.webkitRelativePath || f.name).split('/').length <= 2; });
+    addFiles(fs).then(function () { e.target.value = ''; });
+  };
+  var newArmed = 0;
+  $('#newBtn').onclick = function () {
+    if (!S.frames.length) return;
+    if (Date.now() - newArmed > 4000) { newArmed = Date.now(); $('#newBtn').textContent = 'Tap again to clear'; setTimeout(function () { $('#newBtn').textContent = 'New carousel'; }, 4000); return; }
+    newArmed = 0; $('#newBtn').textContent = 'New carousel';
+    clearAll(false); setTab('cut');
+  };
+  $('#saveSeqBtn').onclick = function () {
+    var name = (S.title || 'carousel').replace(/[^\w\- ]+/g, '').trim().replace(/\s+/g, '-').toLowerCase() || 'carousel';
+    deliver([{ name: name + '.json', blob: new Blob([JSON.stringify(projectJSON(), null, 2)], { type: 'application/json' }) }]);
+  };
+  document.addEventListener('keydown', function (e) {
+    var tag = (e.target.tagName || '').toLowerCase();
+    if (tag === 'input' || tag === 'select' || tag === 'textarea' || e.metaKey || e.ctrlKey) return;
+    if (!$('#loupe').hidden) {
+      var k = e.key.toLowerCase();
+      if (e.key === 'ArrowLeft') loupeStep(-1); else if (e.key === 'ArrowRight') loupeStep(1);
+      else if (e.key === 'Escape') closeLoupe();
+      else if (k === 'p' || k === 'k') setStatus('keep');
+      else if (k === 'x') setStatus('out');
+      else if (k === 'u') { var f = S.byId.get(L.id); if (f) { f.status = null; changed(); } }
+      else if (k === 'a') $('#lAdd').click();
+      else return;
+      e.preventDefault();
+    } else if (!$('#sheet').hidden && e.key === 'Escape') closeSheet();
+    else if (S.tab === 'pv' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) go(e.key === 'ArrowLeft' ? -1 : 1);
+  });
+
+  /* ---------- example pool (generated, so the page opens in a working state) ---------- */
   async function exampleFiles() {
-    var specs = [
-      ['DSCF2201.jpg', 0, 'cam', { seed: 3, warm: 0.30 }],
-      ['DSCF2202.jpg', 25, 'cam', { seed: 3, warm: 0.30, bright: 14 }],   // near-duplicate
-      ['DSCF2204.jpg', 70, 'cam', { seed: 8, warm: 0.25 }],
-      ['IMG_7731.jpg', 95, 'phone', { seed: 11, warm: 0.45, sky: 0.26 }],
-      ['DSCF2207.jpg', 140, 'cam', { seed: 5, warm: 0.28 }],
-      ['DSCF2209.jpg', 190, 'cam', { seed: 21, warm: 0.3, cast: [10, -9, 12] }],  // magenta cast
-      ['DSCF2213.jpg', 260, 'cam', { seed: 13, warm: 0.22 }],
-      ['DSCF2218.jpg', 330, 'cam', { seed: 17, warm: 0.32 }],
-      ['IMG_7740.jpg', 400, 'phone', { seed: 29, warm: 0.40 }],
-      ['DSCF2224.jpg', 460, 'cam', { seed: 31, warm: 0.27 }]
+    var cams = {
+      main: { make: 'FUJIFILM', model: 'X-T5', name: function (n) { return 'IMG_' + (9760 + n) + '.JPG'; }, warm: 0.30 },
+      digi: { make: 'Canon', model: 'Canon PowerShot SD1000', name: function (n) { return '103_' + String(210 + n).padStart(4, '0') + '.JPG'; }, warm: 0.12, lift: 18 },
+      phone: { make: 'Apple', model: 'iPhone 15 Pro', name: function (n) { return 'IMG_' + (4400 + n) + '.JPG'; }, warm: 0.42 }
+    };
+    var plan = [
+      ['main', 1, 3], ['main', 2, 3, { bright: 14 }], ['digi', 1, 5], ['main', 3, 8], ['phone', 1, 11], ['main', 4, 13, { cast: [11, -9, 12] }],
+      ['digi', 2, 3], ['main', 5, 17], ['digi', 3, 19, { sky: 0.3 }], ['phone', 2, 23], ['main', 6, 29], ['digi', 4, 31], ['main', 7, 37, { blur: 3 }],
+      ['phone', 3, 41], ['digi', 5, 43], ['main', 8, 47], ['digi', 6, 53], ['main', 9, 59], ['phone', 4, 61], ['main', 10, 67], ['digi', 7, 71], ['main', 11, 73]
     ];
     var files = [];
-    for (var i = 0; i < specs.length; i++) {
-      var sp = specs[i], r = sp[3];
-      var c = document.createElement('canvas'); c.width = 1200; c.height = 900;
-      var g = c.getContext('2d'), seed = r.seed * 9301;
+    for (var i = 0; i < plan.length; i++) {
+      var cam = cams[plan[i][0]], r = plan[i][3] || {}, seed = plan[i][2] * 9301;
       var rnd = function () { seed = (seed * 9301 + 49297) % 233280; return seed / 233280; };
+      var c = document.createElement('canvas'); c.width = 1200; c.height = 900;
+      var g = c.getContext('2d');
       var sky = g.createLinearGradient(0, 0, 0, 900);
       sky.addColorStop(0, 'rgb(150,166,178)'); sky.addColorStop(1, 'rgb(96,92,84)');
       g.fillStyle = sky; g.fillRect(0, 0, 1200, 900);
-      for (var k = 0; k < 26; k++) {
-        var v = 45 + rnd() * 160, s = rnd() * r.warm;
+      for (var k = 0; k < 24; k++) {
+        var v = 45 + rnd() * 160 + (cam.lift || 0), s = rnd() * cam.warm;
         g.fillStyle = 'rgb(' + Math.round(v * (1 + s)) + ',' + Math.round(v) + ',' + Math.round(v * (1 - s)) + ')';
-        g.fillRect(rnd() * 1200, 200 + rnd() * 700, 60 + rnd() * 380, 40 + rnd() * 260);
+        g.fillRect(rnd() * 1200, 180 + rnd() * 720, 60 + rnd() * 380, 40 + rnd() * 260);
       }
       if (r.sky) { g.fillStyle = '#fff'; g.fillRect(0, 0, 1200, 900 * r.sky); }
+      if (r.blur) { g.filter = 'blur(' + r.blur + 'px)'; g.drawImage(c, 0, 0); g.filter = 'none'; }
       if (r.bright || r.cast) {
         var d = g.getImageData(0, 0, 1200, 900), px = d.data, add = r.cast || [r.bright, r.bright, r.bright];
         for (var p = 0; p < px.length; p += 4) { px[p] += add[0]; px[p + 1] += add[1]; px[p + 2] += add[2]; }
         g.putImageData(d, 0, 0);
       }
-      var blob = await new Promise(function (res) { c.toBlob(res, 'image/jpeg', 0.88); });
-      var bytes = new Uint8Array(await blob.arrayBuffer());
-      var when = Date.UTC(2026, 8, 12, 17, 0, 0) + sp[1] * 1000;
-      bytes = CS.insertApp1(bytes, CS.buildExifApp1(sp[2] === 'cam'
-        ? { make: 'FUJIFILM', model: 'X-T5', date: when } : { make: 'Apple', model: 'iPhone 15 Pro', date: when }));
-      files.push(new File([bytes], sp[0], { type: 'image/jpeg', lastModified: when }));
+      var blob = await new Promise(function (res) { c.toBlob(res, 'image/jpeg', 0.86); });
+      var bytes = CS.insertApp1(new Uint8Array(await blob.arrayBuffer()), CS.buildExifApp1({ make: cam.make, model: cam.model, date: Date.UTC(2026, 7, 1 + i, 12) }));
+      files.push(new File([bytes], cam.name(plan[i][1]), { type: 'image/jpeg' }));
     }
     return files;
   }
-  async function loadExample() {
-    try { loadFiles(await exampleFiles(), { name: 'example', example: true }); }
-    catch (e) { $('#notice').hidden = false; $('#notice').textContent = 'Choose photos to begin.'; }
+  async function boot() {
+    if (await restoreProject()) { changed(); S.measured = S.frames.filter(function (f) { return f.metrics; }).length; render(); return; }
+    try {
+      var files = await exampleFiles();
+      S.example = true;
+      await addFiles(files, { example: true });
+      render();
+    } catch (e) { render(); }
   }
-  loadExample();
+  boot();
 
-  window.__cs = { state: S, render: render };  // for tests / console poking
+  window.__cs = { state: S, derived: D, render: render };  // for tests / console poking
 })();
 </script>
 </body>

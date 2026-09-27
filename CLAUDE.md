@@ -1,8 +1,13 @@
 # carousel sequencer
-- measure, never decide: no auto-ordering, cut suggestions, captions, or generated prose
-- default order = capture time
-- baseline = median of frames in the strip; variants judged against it, never each other
+- measure and guide, never decide: nothing is placed, ordered or cut without a tap; no captions or generated prose. Suggestions are allowed as labelled hints and sort orders the person can switch off
+- workflow is cutting: load a pool of dozens to a couple hundred frames, keep/out, then sequence up to 20; late swaps must be one tap
+- default order = the order frames were added (carousels mix days, places and cameras; capture time is not a meaningful order)
+- cameras (digicam 102_/103_, main camera IMG_, phone) are mixed on purpose: device is a label, never a warning
+- colour/tone flags compare each frame with its own camera's median (strip frames of that camera if 3+, else that camera's kept/undecided frames); set-wide numbers are shown, never flagged
+- RAW previews are the camera's look, not the edit: excluded from colour checks and baselines
+- video slides count toward the 20: placeholder slots, never measured
+- filename (file number) visible on every card; never trust a picker's name without checking (Safari 17+ renames to tempImage….heic when accept lists HEIC: keep HEIC out of accept)
 - everything local, images never leave the machine
-- ships as one self-contained html file
+- ships as one self-contained html file; must work on iPhone Safari with a couple hundred frames
 - max 20 slides
 - fixtures: radar station set, expected flags in tests/expected.json

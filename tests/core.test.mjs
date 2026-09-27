@@ -99,7 +99,7 @@ test('near-duplicate grouping survives a tonal edit but not a different frame', 
   assert.equal(g.groupOf.c, undefined);
 });
 
-test('seams: tonal jump, hue shift, device change', () => {
+test('seams: tonal jump and hue shift are flags, a camera change is only a label', () => {
   const cam = { key: 'fujifilm|x-t5', label: 'X-T5', phone: false };
   const phone = { key: 'apple|iphone 15 pro', label: 'iPhone 15 Pro', phone: true };
   const a = { metrics: { lumMedian: 0.3, hueDeg: 30, hueStrength: 0.5 }, device: cam };
@@ -107,30 +107,90 @@ test('seams: tonal jump, hue shift, device change', () => {
   const s = CS.seam(a, b);
   close(s.tonal, 0.2, 1e-12);
   assert.equal(s.hue, 170);
-  assert.deepEqual(s.flags, ['tonal', 'hue', 'device']);
-  assert.ok(s.phoneCamera);
+  assert.deepEqual(s.flags, ['tonal', 'hue']);
+  assert.ok(s.deviceChange && s.phoneCamera);
   const weak = CS.seam(a, { metrics: { lumMedian: 0.32, hueDeg: 200, hueStrength: 0.05 }, device: cam });
   assert.equal(weak.hue, null);
   assert.deepEqual(weak.flags, []);
 });
 
-test('sequence warnings state facts about the arrangement', () => {
+test('sequence warnings state facts, skip videos, and never mention devices', () => {
   const cam = { key: 'cam', phone: false }, phone = { key: 'phone', phone: true };
-  const s = (scale, presence, extra = {}) => ({ scale, presence, device: cam, ...extra });
+  const s = (scale, presence, extra = {}) => ({ kind: 'photo', scale, presence, device: cam, ...extra });
+  const video = { kind: 'video' };
   const w = CS.sequenceWarnings([
-    s('close', 'out', { dup: 'A' }), s('face', 'shown'), s('close', 'out', { dup: 'A' }),
-    s('wide', 'out'), s('wide', 'out'), s('wide', 'out', { device: phone }),
-    s('texture', 'hidden'), s('close', 'shown'), s('face', 'shown'), s('close', 'out')
+    s('close', 'out', { twin: 'A' }), s('face', 'shown'), s('close', 'out', { twin: 'A' }),
+    video, s('wide', 'out'), s('wide', 'out'), s('wide', 'out', { device: phone }),
+    s('texture', 'hidden'), s('close', 'shown'), s('face', 'shown'), s('close', 'out'), video
   ]).map((x) => x.text);
-  assert.ok(w.includes('three wides in a row (slides 4–6)'), w.join('\n'));
-  assert.ok(w.includes('near-duplicates (group A) both in slides 1–3: 1 and 3'), w.join('\n'));
-  assert.ok(w.includes('phone frame next to camera frame at slides 5–6'), w.join('\n'));
-  assert.ok(w.includes('phone frame next to camera frame at slides 6–7'), w.join('\n'));
-  assert.ok(w.includes('you are in three slides in a row (slides 7–9)'), w.join('\n'));
-  assert.ok(w.some((t) => /^three of your four in-frame slides fall within slides 7–9$/.test(t)), w.join('\n'));
-  // nothing proposes an order or a cut
+  assert.ok(w.includes('three wides in a row (slides 5–7)'), w.join('\n'));
+  assert.ok(w.includes('twins both in slides 1–3: 1 and 3'), w.join('\n'));
+  assert.ok(w.includes('you are in three slides in a row (slides 8–10)'), w.join('\n'));
+  assert.ok(!w.some((t) => /phone|camera|device/.test(t)), w.join('\n'));
   assert.ok(w.every((t) => !/\b(move|swap|cut|remove|drop|try|should|consider)\b/i.test(t)), w.join('\n'));
-  assert.deepEqual(CS.sequenceWarnings([s(null, null)]).map((x) => x.kind), ['untagged']);
+  const v = CS.sequenceWarnings([s('wide', 'out'), s('wide', 'out'), video, s('wide', 'out')]).map((x) => x.kind);
+  assert.ok(!v.includes('scale'), 'a video slide breaks a run');
+  assert.deepEqual(CS.sequenceWarnings([s(null, null), video]).map((x) => x.kind), ['untagged']);
+});
+
+test('colour flags compare each camera with itself; set-wide numbers never flag', () => {
+  const m = (tint, clipPct = 2) => ({ sat: 0.27, lumSpread: 0.7, clipPct, crushPct: 0.5, rb: 0.01, tint, sharp: 400 });
+  const fuji = { key: 'fuji' }, digi = { key: 'digi' };
+  const frames = [
+    ...[0, 0.002, -0.001, 0.001].map((t, i) => ({ id: 'f' + i, device: fuji, metrics: m(t) })),
+    // the digicam is greener across the board: a deliberate look, not an outlier
+    ...[0.05, 0.052, 0.049, 0.051].map((t, i) => ({ id: 'd' + i, device: digi, metrics: m(t) })),
+    { id: 'd-odd', device: digi, metrics: m(0.02) },
+    { id: 'raw', device: fuji, raw: true, metrics: m(0.3, 40) }
+  ];
+  const b = CS.cameraBaselines(frames);
+  assert.equal(b.byCamera.fuji.n, 4, 'RAW previews stay out of the baseline');
+  const flags = (id) => { const f = frames.find((x) => x.id === id); return CS.frameFlags(f.metrics, CS.baselineFor(f, b)).map((x) => x.text); };
+  assert.deepEqual(flags('d0'), [], 'a whole camera is not flagged against the set');
+  assert.deepEqual(flags('f1'), []);
+  assert.deepEqual(flags('d-odd'), ['magenta-shifted'], 'outlier within its own camera');
+  const lone = { id: 'p', device: { key: 'phone' }, metrics: m(0.2) };
+  const b2 = CS.cameraBaselines(frames.concat(lone));
+  assert.deepEqual(CS.frameFlags(lone.metrics, CS.baselineFor(lone, b2)), [], 'too few frames from a camera to judge');
+  assert.equal(b2.set.n, 10);
+});
+
+test('sharpness: a soft frame measures lower and is flagged within its camera', () => {
+  const sharpImg = img(64, 64, (x, y) => ((x >> 2) + (y >> 2)) % 2 ? [220, 220, 220] : [30, 30, 30]);
+  const softImg = img(64, 64, (x, y) => { const v = 125 + 60 * Math.sin(x / 6) * Math.cos(y / 6); return [v, v, v]; });
+  const a = CS.measurePixels(sharpImg, 64, 64), s = CS.measurePixels(softImg, 64, 64);
+  assert.ok(a.sharp > 20 * s.sharp, `${a.sharp} vs ${s.sharp}`);
+  const base = { n: 4, sat: s.sat, lumSpread: s.lumSpread, clipPct: s.clipPct, crushPct: s.crushPct, rb: s.rb, tint: s.tint, sharp: a.sharp };
+  assert.ok(CS.frameFlags(s, base).some((f) => f.text === 'softer'));
+});
+
+test('twins are same-camera near-duplicates; rhymes are similar frames across cameras', () => {
+  const scene = (x, y) => { const v = Math.round(255 * ((Math.sin(x / 7) + Math.cos(y / 5)) / 4 + 0.5)); return [v, v, v]; };
+  const hA = CS.dhash(img(90, 80, scene), 90, 80);
+  const hB = CS.dhash(img(90, 80, (x, y) => scene(x, y).map((v) => Math.min(255, v * 1.1 + 8))), 90, 80);
+  const other = CS.dhash(img(90, 80, (x, y) => { const v = Math.round(255 * ((Math.cos(x / 11 + 1) * Math.sin(y / 3)) / 2 + 0.5)); return [v, v, v]; }), 90, 80);
+  const fr = (id, key, h) => ({ id, device: { key }, metrics: { dhash: h } });
+  const frames = [fr('IMG_1', 'fuji', hA), fr('IMG_2', 'fuji', hB), fr('103_1', 'digi', hB), fr('IMG_3', 'fuji', other)];
+  const t = CS.twins(frames);
+  assert.equal(t.groupOf.IMG_1, t.groupOf.IMG_2);
+  assert.equal(t.groupOf['103_1'], undefined, 'a different camera is never a twin');
+  const r = CS.rhymes(frames);
+  assert.deepEqual(r['103_1'].sort(), ['IMG_1', 'IMG_2']);
+  assert.equal(r.IMG_3, undefined);
+});
+
+test('file numbers and renamed-by-picker detection', () => {
+  assert.equal(CS.frameNumber('IMG_9774.JPG'), '9774');
+  assert.equal(CS.frameNumber('103_0216.JPG'), '103_0216');
+  assert.equal(CS.frameNumber('102_0031.jpg'), '102_0031');
+  assert.equal(CS.frameNumber('IMG_4412.jpeg'), '4412');
+  assert.equal(CS.frameNumber('DSCF2201.jpg'), '2201');
+  assert.equal(CS.frameNumber('9774-edit.jpg'), '9774');
+  assert.equal(CS.frameNumber('beach.jpg'), 'beach');
+  for (const n of ['tempImageHjyd3l.heic', 'image.jpg', 'image 2.jpeg', '3F2504E0-4F89-11D3-9A0C-0305E82C3301.jpeg'])
+    assert.ok(CS.looksRenamed(n), n);
+  for (const n of ['IMG_9774.JPG', '103_0216.JPG', 'IMG_4412.jpeg', 'imagery.jpg'])
+    assert.ok(!CS.looksRenamed(n), n);
 });
 
 test('EXIF: read make/model/capture time, write capture time only', () => {

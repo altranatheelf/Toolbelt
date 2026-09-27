@@ -3,8 +3,8 @@
   "fixtureDir": "tests/fixtures/radar-station",
   "notes": [
     "Fixture photos are not committed (tests/fixtures/ is gitignored): copy the radar station Lightroom exports into fixtureDir, then run `npm run calibrate`.",
-    "Baseline is the whole import, since calibration places nothing in the strip.",
-    "frame.index is the 1-based position in capture-time order; frame.name matches a filename substring (shortest match wins, so the original export beats '-2' or '-edit' variants). If 'image 17' means a filename, swap index for name.",
+    "Flags compare each frame with its own camera's median (the page's rule); the set medians below are checked across all cameras.",
+    "frame.index is the 1-based position in capture-time order (calibration only; the page keeps the order photos were added); frame.name matches a filename substring (shortest match wins, so the original export beats '-2' or '-edit' variants). If 'image 17' means a filename, swap index for name.",
     "If a check misses, fix the metric definitions in the core script, not the thresholds."
   ],
   "setMedian": {
