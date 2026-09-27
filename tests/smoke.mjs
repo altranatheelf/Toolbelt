@@ -38,6 +38,21 @@ const browser = await chromium.launch();
 const errors = [];
 try {
   const ctx = await browser.newContext({ acceptDownloads: true, viewport: { width: 1280, height: 900 } });
+  // stand-in for the claude.ai runtime's `sample` capability, so Propose can be driven end to end
+  await ctx.addInitScript(() => {
+    const fake = {
+      json: async (prompt, opts) => {
+        window.__proposeCalls = (window.__proposeCalls || 0) + 1;
+        window.__lastPrompt = prompt; window.__lastImages = opts.images.length;
+        const n = window.__cs.state.slides.length;
+        if (window.__badProposal) return { order: Array.from({ length: n }, (_, i) => n - i), cuts: [], reasons: [] };
+        const mid = Array.from({ length: n - 2 }, (_, i) => i + 2).reverse();
+        return { order: [1, ...mid], cuts: [{ slot: n, reason: 'repeats the tone of 5' }], reasons: [{ slot: 1, reason: 'strongest face at grid size' }] };
+      },
+      limits: async () => ({ maxPromptBytes: 65536, images: { maxCount: 5, maxInputBytes: 2e7, mediaTypes: ['image/jpeg'] } })
+    };
+    window.claude = { use: (name) => Promise.resolve(name === 'sample' ? fake : null) };
+  });
   const page = await ctx.newPage();
   page.on('pageerror', (e) => errors.push(String(e)));
   page.on('console', (m) => { if (m.type() === 'error') errors.push(m.text()); });
@@ -154,7 +169,66 @@ try {
   await page.click('#sheetList .card:has(.fn:text-is("9783"))');
   const seq2 = await page.evaluate(() => window.__cs.state.slides.map((s) => s.kind === 'video' ? 'video' : window.__cs.state.byId.get(s.id).num));
   assert.deepEqual(seq2, ['9774', '103_0216', '9783', 'video', '103_0219', '9781', '103_0224']);
+  // --- proposals ---
+  let warn2 = await page.$$eval('#warnList li > div > span', (els) => els.map((e) => e.textContent));
+  assert.ok(!warn2.some((t) => /jump/.test(t)), 'a big jump is never a warning');
+  // pin the cover
+  await page.click('#slots .slotRow >> nth=0 >> button:has-text("Pin")');
+  // three wides in a row at 5–7, then fix it move by move
+  for (const k of [4, 5, 6]) await page.click(`#slots .slotRow >> nth=${k} >> .pick >> nth=0 >> button:has-text("Wide")`);
+  const runLi = page.locator('#warnList li', { hasText: 'three wides in a row (slides 5–7)' });
+  await runLi.locator('button:has-text("Fix")').click();
+  const moves = await runLi.locator('.fix .mv').allTextContents();
+  assert.ok(moves.length >= 1 && moves.length <= 2, JSON.stringify(moves));
+  assert.ok(moves.every((m) => /— no three of one scale in a row/.test(m)), JSON.stringify(moves));
+  while (await page.locator('#warnList .fix button:has-text("Apply"):not([disabled])').count()) await page.click('#warnList .fix button:has-text("Apply"):not([disabled])');
+  warn2 = await page.$$eval('#warnList li > div > span', (els) => els.map((e) => e.textContent));
+  assert.ok(!warn2.some((t) => /three wides/.test(t)), JSON.stringify(warn2));
+  assert.equal(await page.evaluate(() => window.__cs.state.byId.get(window.__cs.state.slides[0].id).num), '9774', 'pinned cover stayed');
+  // cuts: one line per slot, pinned kept, video kept
+  await page.click('#cutsBtn');
+  const cutLines = await page.$$eval('#panel .line span', (els) => els.map((e) => e.textContent));
+  assert.ok(cutLines.includes('Keep 1 · 9774: pinned'), JSON.stringify(cutLines));
+  assert.ok(cutLines.some((t) => /^Keep \d: video slide$/.test(t)), JSON.stringify(cutLines));
+  assert.equal(cutLines.filter((t) => /^(Cut|Keep) /.test(t)).length, 7);
+  // bridge finder on the 1→2 seam
+  await page.click('#slots .seamRow >> nth=0 >> button:has-text("Bridge")');
+  assert.match(await page.textContent('#sheetTitle'), /Bridge between 1 · 9774 and 2 · 103_0216/);
+  const bridgeText = await page.textContent('#sheetList');
+  assert.ok(/tone between|unlike both|same camera as/.test(bridgeText) || /No frame in the pool/.test(bridgeText), bridgeText);
+  await page.click('#sheetClose');
+  // cover candidates at grid size
+  await page.click('#coverBtn');
+  assert.match(await page.textContent('#panel'), /9774.*face shown.*is the cover/);
+  // propose with Claude (stand-in): order by slot number, a cut, pinned slot 1 untouched
   await page.fill('#titleIn', 'Radar season');
+  await page.click('#proposeBtn');
+  await page.click('#panel button:has-text("Propose")');
+  await page.waitForSelector('#panel button:has-text("Use this order and cuts")');
+  assert.equal(await page.evaluate(() => window.__lastImages), 1, 'one contact sheet');
+  assert.match(await page.evaluate(() => window.__lastPrompt), /title or thesis: "Radar season"[\s\S]*1 \| 9774 \| FUJIFILM X-T5 \| scale wide \| you face shown[\s\S]*PINNED/);
+  const before = await page.evaluate(() => window.__cs.state.slides.map((s) => s.id));
+  await page.click('#panel button:has-text("Use this order and cuts")');
+  const after = await page.evaluate(() => window.__cs.state.slides.map((s) => s.id));
+  assert.equal(after.length, before.length - 1);
+  assert.equal(after[0], before[0]);
+  assert.deepEqual(after.slice(1), before.slice(1, -1).reverse());
+  // a proposal that moves the pinned cover is refused
+  await page.evaluate(() => { window.__badProposal = true; });
+  await page.click('#panel button:has-text("Propose")');
+  await page.waitForSelector('#panel .flag');
+  assert.match(await page.textContent('#panel .flag'), /Can’t apply the order as is: .*pinned slot 1/);
+  assert.equal(await page.locator('#panel button:has-text("Use this order")').count(), 0);
+  await page.click('#proposeBtn');
+  // put the sequence back the way the export checks expect it
+  await page.evaluate(() => {
+    const s = window.__cs.state, id = (n) => s.frames.find((f) => f.num === n).id;
+    const v = s.slides.find((x) => x.kind === 'video');
+    ['103_0224'].forEach((n) => { s.byId.get(id(n)).status = 'keep'; });
+    s.slides = [{ kind: 'photo', id: id('9774'), pinned: true }, { kind: 'photo', id: id('103_0216') }, { kind: 'photo', id: id('9783') }, v,
+      { kind: 'photo', id: id('103_0219') }, { kind: 'photo', id: id('9781') }, { kind: 'photo', id: id('103_0224') }];
+    window.__cs.render();
+  });
   if (shots) await page.screenshot({ path: join(shots, 'sequence.png'), fullPage: true });
 
   // 5. preview + export (video slot skipped, file numbers in names, only capture times)

@@ -2,14 +2,23 @@
 
 ## Carousel Sequencer
 
-`carousel-sequencer.html` is one self-contained page for cutting a pool of photos down to an Instagram carousel of up to 20 slides. It measures and guides; it never places, orders or cuts anything without a tap. Rules live in `CLAUDE.md`.
+`carousel-sequencer.html` is one self-contained page for cutting a pool of photos down to an Instagram carousel of up to 20 slides. It measures and proposes; it never places, orders or cuts anything without a tap. Rules live in `CLAUDE.md`.
 
-**Open it:** on iPhone, use the published claude.ai link. On desktop, double-click the file. Photos never leave the device.
+**Open it:** on iPhone, use the published claude.ai link. On desktop, double-click the file. Photos never leave the device, except the contact sheet that Propose sends when you tap it.
 
 ### The three tabs
 
 1. **Cut.** Add the whole pool from Photos or Files, dozens to a couple hundred frames, in any number of batches. Frames stay in the order you added them, labelled by file number (`9774`, `103_0216`) and camera. Tap a frame to open it full screen, then **Keep** or **Out**; the next frame comes up by itself. Near-identical frames from the same camera stack as **twins** and come one after another. Similar framing across different cameras is marked as a **rhyme**. Filters: To decide, Kept, Out, All, and one chip per camera.
-2. **Sequence.** The carousel as a storyboard. Each row shows the slide's role (Cover; Second cover, where Instagram re-shows the post to people who didn't swipe; Closer), the file number, the camera, and plain-word tags (Scale: Wide, Close, Face, Texture; You: Not in it, Face hidden, Face shown). Reorder with the handle or ↑ ↓. **Swap** replaces a slide from your kept frames in one tap, with hints such as "smooth seams here", "rhymes with 103_0216" or "twin of slide 3". Add **video slides**: they count toward the 20 and hold the slot, optionally with a frame from the clip. Between rows you see the brightness change, the colour shift and any camera change (a label, never a warning). A lane view shows camera, brightness and average colour across the whole sequence.
+2. **Sequence.** The carousel as a storyboard. Each row shows the slide's role (Cover; Second cover, where Instagram re-shows the post to people who didn't swipe; Closer), the file number, the camera, and plain-word tags (Scale: Wide, Close, Face, Texture; You: Not in it, Face hidden, Face shown). Reorder with the handle or ↑ ↓. **Pin** a slide to keep it where it is. **Swap** replaces a slide from your kept frames in one tap. **Video slides** count toward the 20 and hold the slot. Between rows you see the brightness change, the colour shift and any camera change (a label, never a warning).
+
+   Every proposal is given by slot number with one reason. Nothing applies until you tap, and pinned slides never move:
+   - **Cuts**: a cut list and a keep list on mechanical grounds only: the weaker twin (softer, then more clipped), frames off their camera's baseline, and face-hidden frames of you beyond four. Texture breaks from a second camera are flagged as a pair, to keep both or cut both. **Copy list** copies it as plain lines.
+   - **Fix** on a warning: the fewest moves (at most two) that clear it without adding a new warning, each labelled with the rule it serves, applied one at a time.
+   - Pacing warnings are about pivots and movement: **flat runs** (three or more slides with no tonal movement) and **no pivot from 1 to 2**. A big jump is never a warning.
+   - **Bridge** on a seam: frames from the pool that could sit between the two sides, with a tone between them, a scale unlike both and a camera matching one side.
+   - **Cover candidates**: frames tagged with you in frame and not soft, shown at profile-grid thumbnail size.
+   - **This post: hold phone frames back as an epilogue**: a switch for this carousel only. When on, a Fix proposes the moves that put them at the end.
+   - **Propose with Claude** (only in the claude.ai viewer): sends a small numbered contact sheet, the title and the tags. It gets back an order and cuts by slot number with one-line reasons, using thesis language only when you've given a title. A proposal that moves or cuts a pinned slide is refused. This is the only thing that leaves the device, and only when you tap it.
 3. **Preview.** Swipe through the carousel at one ratio, with slide 1 at the profile-grid crop, and adjust each slide's crop. Export renders `NN-<file number>.jpg` at 1080 px wide and skips video slots, telling you where each video goes. Only sequential capture times are written, so Photos keeps the order; there is also an option for no metadata at all.
 
 The carousel (title, decisions, tags, order, crops) autosaves on the device. **Save backup** writes it as a JSON file; adding that file restores it.
@@ -36,7 +45,7 @@ Safari 17+ renames picked photos to `tempImage….heic` (and converts them) when
 
 ```
 npm test            # core: metrics, per-camera flags, twins/rhymes, file numbers, EXIF, RAW, crop maths
-npm run smoke       # drives the page in Chromium: cut → sequence (video slot, swap) → export → reload
+npm run smoke       # drives the page in Chromium: cut → sequence (video, swap, pin, fix, cuts, bridge, cover, propose) → export → reload
 npm run scale       # 200 full-size frames on an emulated iPhone: load, measure and tap timings
 npm run calibrate   # radar station set: put the exports in tests/fixtures/radar-station/
 ```

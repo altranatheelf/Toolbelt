@@ -278,3 +278,89 @@ test('page ships as one self-contained file with no network access', () => {
   assert.doesNotMatch(html, /@import/);
   assert.doesNotMatch(html, /\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource/);
 });
+
+// ---------- proposals: pacing, smallest fix, cuts, bridges ----------
+const P = (id, o = {}) => ({ kind: 'photo', id, scale: null, presence: null, lum: 0.5, hue: null, hueStrength: 0, ...o });
+
+test('pacing: big jumps are fine; flat runs and a missing 1→2 pivot are warned', () => {
+  const lums = [0.2, 0.7, 0.3, 0.5, 0.52, 0.54, 0.51, 0.8];
+  const w = CS.sequenceWarnings(lums.map((l, i) => P('s' + i, { lum: l, scale: i % 2 ? 'wide' : 'close', presence: 'out' })));
+  assert.deepEqual(w.map((x) => x.text), ['no tonal movement across slides 4–7']);
+  const noPivot = CS.sequenceWarnings([P('a', { lum: 0.4, scale: 'wide', presence: 'out' }), P('b', { lum: 0.45, scale: 'wide', presence: 'out' })]);
+  assert.deepEqual(noPivot.map((x) => x.kind), ['no-pivot']);
+  const scalePivot = CS.sequenceWarnings([P('a', { lum: 0.4, scale: 'face', presence: 'out' }), P('b', { lum: 0.45, scale: 'wide', presence: 'out' })]);
+  assert.deepEqual(scalePivot, [], 'a change of scale is a pivot');
+  assert.ok(!CS.sequenceWarnings([P('a', { lum: 0.1 }), P('b', { lum: 0.9 })]).some((x) => /jump/.test(x.text)));
+});
+
+test('presence cap: a fifth face-hidden frame is warned', () => {
+  const w = CS.sequenceWarnings(Array.from({ length: 10 }, (_, i) => P('s' + i, { lum: i % 2 ? 0.2 : 0.7, scale: i % 2 ? 'wide' : 'close', presence: i < 5 ? 'hidden' : 'out' })));
+  assert.ok(w.some((x) => x.kind === 'presence-cap' && /five face-hidden frames/.test(x.text)), w.map((x) => x.text).join('\n'));
+});
+
+test('smallest fix: fewest moves, labelled with the rule, pinned slides never move', () => {
+  const lum = [0.2, 0.7, 0.3, 0.75, 0.25, 0.8, 0.35];
+  const scale = ['close', 'wide', 'wide', 'wide', 'face', 'close', 'texture'];
+  const slides = lum.map((l, i) => P('s' + i, { lum: l, scale: scale[i], presence: 'out' }));
+  const w = CS.sequenceWarnings(slides).find((x) => x.kind === 'scale');
+  assert.equal(w.text, 'three wides in a row (slides 2–4)');
+  const fix = CS.fixWarning(slides, w);
+  assert.equal(fix.length, 1, JSON.stringify(fix));
+  assert.equal(fix[0].rule, 'no three of one scale in a row');
+  let after = slides; fix.forEach((m) => { after = CS.applyOp(after, m); });
+  assert.ok(!CS.sequenceWarnings(after).some((x) => x.kind === 'scale'));
+  assert.equal(CS.sequenceWarnings(after).length, CS.sequenceWarnings(slides).length - 1, 'no new warnings');
+  // pin everything except the run: no fix may touch the pinned slides
+  const pinned = slides.map((s, i) => ({ ...s, pinned: i !== 2 && i !== 3 && i !== 5 }));
+  const f2 = CS.fixWarning(pinned, w);
+  f2.forEach((m) => { assert.ok(!pinned[m.from].pinned && !(m.op === 'swap' && pinned[m.to].pinned)); });
+  let a2 = pinned; f2.forEach((m) => { a2 = CS.applyOp(a2, m); });
+  a2.forEach((s, i) => { if (s.pinned) assert.equal(s.id, pinned[i].id, 'pinned slide stayed at slot ' + (i + 1)); });
+});
+
+test('epilogue moves hold phone frames to the end, one move each, pinned untouched', () => {
+  const sl = ['a', 'p1', 'b', 'p2', 'c', 'd'].map((id) => P(id));
+  const moves = CS.epilogueMoves(sl, (s) => s.id[0] === 'p');
+  let cur = sl; moves.forEach((m) => { cur = CS.applyOp(cur, m); });
+  assert.deepEqual(cur.map((s) => s.id), ['a', 'b', 'c', 'd', 'p1', 'p2']);
+  assert.equal(moves.length, 2);
+  assert.ok(moves.every((m) => m.rule === 'epilogue: phone frames held to the end'));
+  const pinnedEnd = sl.map((s) => ({ ...s, pinned: s.id === 'd' }));
+  assert.ok(CS.epilogueMoves(pinnedEnd, (s) => s.id[0] === 'p').every((m) => m.to < 5));
+});
+
+test('cuts: weaker twin, off-baseline frames, presence past the cap, texture pairs; one line per slot', () => {
+  const it = (slot, o) => ({ slot, id: 'f' + slot, num: String(9770 + slot), kind: 'photo', pinned: false, sharp: 500, clipPct: 1,
+    flags: [], camKey: 'fuji', camLabel: 'X-T5', scale: 'wide', presence: 'out', ...o });
+  const items = [
+    it(0, { twin: 'A', sharp: 600 }), it(1, { twin: 'A', sharp: 300 }),
+    it(2, { flags: ['magenta'] }),
+    ...[3, 4, 5, 6, 7].map((k) => it(k, { presence: 'hidden', sharp: 400 + k })),
+    it(8, { camKey: 'digi', camLabel: 'PowerShot', scale: 'texture' }), it(9, { camKey: 'digi', camLabel: 'PowerShot', scale: 'texture' }),
+    { slot: 10, id: 'v', kind: 'video' },
+    it(11, { flags: ['soft'], pinned: true })
+  ];
+  const r = CS.cutList(items);
+  assert.deepEqual(r.cuts.map((c) => c.text), [
+    'Cut 2 · 9771: softer twin of 1 (9770)',
+    'Cut 3 · 9772: magenta against the other X-T5 frames',
+    'Cut 4 · 9773: fifth face-hidden frame of you (cap 4)'
+  ]);
+  assert.ok(r.keeps.some((k) => k.text === 'Keep 1 · 9770: stronger of its twins'));
+  assert.ok(r.keeps.some((k) => k.text === 'Keep 12 · 9781: pinned'), 'pinned is never cut');
+  assert.ok(r.keeps.some((k) => k.text === 'Keep 11: video slide'));
+  assert.deepEqual(r.pairs.map((p) => p.text), ['9 (9778) and 10 (9779): PowerShot texture breaks, both or neither']);
+  assert.equal(r.cuts.length + r.keeps.length, items.length, 'every slot gets exactly one line');
+});
+
+test('bridge finder: tone between, a scale unlike both, a camera from one side', () => {
+  const a = { lum: 0.2, scale: 'wide', camKey: 'fuji' }, b = { lum: 0.7, scale: 'wide', camKey: 'digi' };
+  const pool = [
+    { id: 'x', lum: 0.45, scale: 'close', camKey: 'fuji' },
+    { id: 'y', lum: 0.9, scale: 'wide', camKey: 'phone' },
+    { id: 'z', lum: 0.5, scale: 'wide', camKey: 'phone' }
+  ];
+  const r = CS.bridgeCandidates(a, b, pool);
+  assert.deepEqual(r.map((c) => c.id), ['x', 'z']);
+  assert.deepEqual(r[0].reasons, ['tone between the two', 'a close, unlike both', 'same camera as the left']);
+});

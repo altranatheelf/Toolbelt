@@ -1,13 +1,21 @@
 # carousel sequencer
-- measure and guide, never decide: nothing is placed, ordered or cut without a tap; no captions or generated prose. Suggestions are allowed as labelled hints and sort orders the person can switch off
+- measure and propose, never apply: nothing is placed, ordered or cut without a tap; the tool writes no captions and no thesis text of its own
+- proposals come in the forms that get used, each by slot number with one reason, pinned slides never moved or cut:
+  - Cuts: cut list + keep list on mechanical grounds only (weaker twin: softer, then more clipped; off its camera's baseline; face-hidden frames past 4); second-camera texture breaks flagged as a pair, both or neither
+  - smallest fix: fewest moves (≤2) that clear one warning without adding another, each labelled with its rule, applied one at a time
+  - bridge finder on a seam: tone between the sides, a scale unlike both, a camera matching one side
+  - cover candidates: tagged with you in frame, not soft, shown at profile-grid thumbnail size
+  - a full order only from Claude (Propose, artifact `sample` capability): never from an optimizer
+- pacing rules are pivots and movement, not smoothness: never warn on a big jump; warn on flat runs (3+ slides within 0.06 median luma) and on a 1→2 with no pivot
+- phone-frames epilogue is a per-post switch inside the fix proposals, not a preset
 - workflow is cutting: load a pool of dozens to a couple hundred frames, keep/out, then sequence up to 20; late swaps must be one tap
 - default order = the order frames were added (carousels mix days, places and cameras; capture time is not a meaningful order)
 - cameras (digicam 102_/103_, main camera IMG_, phone) are mixed on purpose: device is a label, never a warning
-- colour/tone flags compare each frame with its own camera's median (strip frames of that camera if 3+, else that camera's kept/undecided frames); set-wide numbers are shown, never flagged
+- colour/tone flags compare each frame with its own camera's median (carousel frames of that camera if 3+, else that camera's kept/undecided frames); set-wide numbers are shown, never flagged
 - RAW previews are the camera's look, not the edit: excluded from colour checks and baselines
 - video slides count toward the 20: placeholder slots, never measured
 - filename (file number) visible on every card; never trust a picker's name without checking (Safari 17+ renames to tempImage….heic when accept lists HEIC: keep HEIC out of accept)
-- everything local, images never leave the machine
+- everything local, images never leave the machine — one exception, on an explicit tap: Propose sends a small numbered contact sheet, the title and the tags to Claude
 - ships as one self-contained html file; must work on iPhone Safari with a couple hundred frames
 - max 20 slides
 - fixtures: radar station set, expected flags in tests/expected.json

@@ -140,7 +140,7 @@
   .laneKey { font-size: 12px; color: var(--faint); display: flex; gap: 12px; flex-wrap: wrap; padding-bottom: 8px; }
   #warnList { list-style: none; margin: 0; padding: 0; display: flex; flex-direction: column; gap: 4px; }
   #warnList li { color: var(--flag); font-size: 14px; } #warnList li.info { color: var(--muted); }
-  #warnList li::before { content: '• '; }
+  #warnList li { padding-left: 12px; border-left: 2px solid var(--flag); } #warnList li.info { border-left-color: var(--line); }
   #slots { display: flex; flex-direction: column; margin-top: 12px; }
   .slotRow { display: grid; grid-template-columns: 30px 88px minmax(0, 1fr); gap: 10px; align-items: start; padding: 10px; background: var(--panel);
     border: 1px solid var(--line); border-radius: 10px; }
@@ -164,6 +164,29 @@
   .seamRow { font-size: 12px; color: var(--faint); padding: 5px 0 5px 40px; min-height: 12px; }
   .seamRow .on { color: var(--flag); }
   .addRow { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 12px; padding-bottom: 32px; }
+
+  .switch { display: flex; gap: 8px; align-items: center; font-size: 14px; color: var(--muted); padding-block: 6px; }
+  .switch input { width: 20px; height: 20px; }
+  #warnList li { display: flex; flex-direction: column; gap: 6px; }
+  #warnList li > div { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; }
+  .fix { display: flex; flex-direction: column; gap: 6px; padding: 8px 10px; border: 1px solid var(--line); border-radius: 8px; background: var(--panel); color: var(--text); }
+  .fix .mv { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font-size: 14px; }
+  .fix .mv.done { color: var(--faint); text-decoration: line-through; }
+  .fix .mv em { color: var(--muted); font-style: normal; }
+  #panel { margin-top: 12px; padding: 12px; border: 1px solid var(--line); border-radius: 10px; background: var(--panel); display: flex; flex-direction: column; gap: 8px; }
+  #panel h3 { margin: 0; font-size: 15px; }
+  #panel .line { display: flex; gap: 8px; align-items: center; flex-wrap: wrap; font: 14px/1.4 var(--sans); }
+  #panel .line span { flex: 1 1 220px; }
+  #panel .line.cut span { color: var(--text); } #panel .line.keep span { color: var(--muted); } #panel .line.pair span { color: var(--flag); }
+  #panel .line.applied span { text-decoration: line-through; color: var(--faint); }
+  .covers { display: grid; grid-template-columns: repeat(auto-fill, minmax(104px, 1fr)); gap: 8px; }
+  .cover { display: flex; flex-direction: column; gap: 4px; font-size: 12px; }
+  .cover .gimg { width: 100%; background: var(--well); overflow: hidden; border-radius: 3px; }
+  .cover .gimg img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .cover b { font: 600 13px var(--mono); }
+  .seamRow button { margin-left: 8px; }
+  .pinned .idx b::after { content: ' •'; color: var(--keep); }
+  #proposal pre { white-space: pre-wrap; font: 13px var(--mono); margin: 0; }
 
   /* ---------- sheet ---------- */
   #sheet { position: fixed; inset: 0; z-index: 50; background: rgba(0,0,0,.5); display: flex; align-items: flex-end; justify-content: center; }
@@ -248,8 +271,15 @@
 </section>
 
 <section id="seqView" class="wrap" hidden>
+  <div class="row" style="padding-top:12px">
+    <button id="cutsBtn" aria-pressed="false">Cuts</button>
+    <button id="coverBtn" aria-pressed="false">Cover candidates</button>
+    <button id="proposeBtn" aria-pressed="false" hidden>Propose with Claude</button>
+  </div>
+  <div id="panel" hidden></div>
   <div class="lanes" id="lanes"></div>
   <div class="laneKey" id="laneKey"></div>
+  <label class="switch" id="epiLabel"><input type="checkbox" id="epiIn"> This post: hold phone frames back as an epilogue</label>
   <ul id="warnList"></ul>
   <div id="slots"></div>
   <div class="addRow">
@@ -311,7 +341,7 @@
 <div id="sheet" hidden>
   <div class="box" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
     <div class="hd"><b id="sheetTitle"></b>
-      <div class="seg" id="sheetSort"><button data-s="fit" aria-pressed="true">Smoothest seams first</button><button data-s="added">Order added</button></div>
+      <div class="seg" id="sheetSort"><button data-s="added" aria-pressed="true">Order added</button><button data-s="change">Biggest change from neighbours</button></div>
       <button id="sheetClose" class="small">Close</button></div>
     <div class="list" id="sheetList"></div>
   </div>
@@ -339,7 +369,12 @@ var CS = (function () {
     rb:        { abs: 0.03 },               // neutral-pixel (R-B)/255, absolute delta
     tint:      { abs: 0.02 },               // neutral-pixel (G-(R+B)/2)/255, absolute delta
     sharp:     { ratio: 0.5 },              // Laplacian variance below half the group median
-    seamTonal: 0.15,                        // |delta median luma| between neighbours
+    seamTonal: 0.15,                        // |delta median luma| that counts as a big move (shown, not warned)
+    pivotTone: 0.12,                        // 1->2 pivot: |delta median luma| at least this...
+    pivotHue: 45,                           // ...or a dominant-hue shift at least this, or a scale change
+    flatTone: 0.06,                         // a run whose median luma stays within this range is flat
+    flatMin: 3,                             // ...when it is at least this many slides long
+    hiddenCap: 4,                           // most face-hidden frames of you a carousel has carried
     seamHue:   45,                          // degrees between neighbours' dominant hue
     hueMinStrength: 0.15                    // below this a frame has no meaningful dominant hue
   };
@@ -622,17 +657,18 @@ var CS = (function () {
     return out;
   }
 
-  /* slides: [{kind:'photo'|'video', scale, presence, twin, id}] in carousel order.
-     Returns factual statements about the arrangement; never proposes one. Video slides
-     break runs and are otherwise not judged. Devices are never a warning. */
+  /* slides: [{kind:'photo'|'video', id, scale, presence, twin, lum, hue, hueStrength}] in carousel
+     order. Returns factual statements about the arrangement. Pacing rules are about pivots and
+     movement: a big jump is never a warning; a flat run, or a 1->2 without a pivot, is. Video
+     slides break runs and are otherwise not judged. Devices are never a warning. */
   function sequenceWarnings(slides) {
     var w = [];
     var n = slides.length;
-    var photo = function (s) { return s.kind !== 'video'; };
+    var photo = function (s) { return s && s.kind !== 'video'; };
     Object.keys(SCALE_WORDS).forEach(function (scale) {
       runs(slides, function (s) { return photo(s) && s.scale === scale; }).forEach(function (r) {
         var len = r[1] - r[0] + 1;
-        if (len >= 3) w.push({ kind: 'scale', slides: [r[0], r[1]],
+        if (len >= 3) w.push({ kind: 'scale', slides: [r[0], r[1]], rule: 'no three of one scale in a row',
           text: countWord(len) + ' ' + SCALE_WORDS[scale] + ' in a row (' + range(r[0], r[1]) + ')' });
       });
     });
@@ -641,18 +677,18 @@ var CS = (function () {
       if (photo(s) && s.twin) (open[s.twin] = open[s.twin] || []).push(i);
     });
     Object.keys(open).forEach(function (g) {
-      if (open[g].length > 1) w.push({ kind: 'dup-open', slides: open[g],
+      if (open[g].length > 1) w.push({ kind: 'dup-open', slides: open[g], rule: 'no twins in slides 1–3',
         text: 'twins both in slides 1–3: ' + open[g].map(function (i) { return i + 1; }).join(' and ') });
     });
     for (var i = 0; i + 1 < n; i++) {
       var a = slides[i], b = slides[i + 1];
       if (photo(a) && photo(b) && a.twin && a.twin === b.twin && !(i + 1 < 3 && open[a.twin] && open[a.twin].length > 1))
-        w.push({ kind: 'dup-adjacent', slides: [i, i + 1], text: 'twins side by side at ' + range(i, i + 1) });
+        w.push({ kind: 'dup-adjacent', slides: [i, i + 1], rule: 'no twins side by side', text: 'twins side by side at ' + range(i, i + 1) });
     }
     var present = function (s) { return photo(s) && (s.presence === 'hidden' || s.presence === 'shown'); };
     runs(slides, present).forEach(function (r) {
       var len = r[1] - r[0] + 1;
-      if (len >= 3) w.push({ kind: 'presence-run', slides: [r[0], r[1]],
+      if (len >= 3) w.push({ kind: 'presence-run', slides: [r[0], r[1]], rule: 'no three of you in a row',
         text: 'you are in ' + countWord(len) + ' slides in a row (' + range(r[0], r[1]) + ')' });
     });
     var total = slides.filter(present).length;
@@ -663,15 +699,219 @@ var CS = (function () {
         if (c > best) { best = c; bestAt = s0; }
       }
       if (best >= 3 && best / total >= 0.75)
-        w.push({ kind: 'presence-bunch', slides: [bestAt, bestAt + win - 1],
-          text: countWord(best) + ' of your ' + countWord(total) + ' in-frame slides fall within ' +
-                range(bestAt, bestAt + win - 1) });
+        w.push({ kind: 'presence-bunch', slides: [bestAt, bestAt + win - 1], rule: 'spread your presence out',
+          text: countWord(best) + ' of your ' + countWord(total) + ' in-frame slides fall within ' + range(bestAt, bestAt + win - 1) });
     }
+    var hidden = [];
+    slides.forEach(function (s, k) { if (photo(s) && s.presence === 'hidden') hidden.push(k); });
+    if (hidden.length > THRESH.hiddenCap)
+      w.push({ kind: 'presence-cap', slides: hidden, rule: 'at most ' + countWord(THRESH.hiddenCap) + ' face-hidden frames',
+        text: countWord(hidden.length) + ' face-hidden frames of you; the most a carousel has carried is ' + countWord(THRESH.hiddenCap) });
+    flatRuns(slides).forEach(function (r) {
+      w.push({ kind: 'flat', slides: [r[0], r[1]], rule: 'keep the tone moving',
+        text: 'no tonal movement across ' + range(r[0], r[1]) });
+    });
+    if (n >= 2 && photo(slides[0]) && photo(slides[1]) && !isPivot(slides[0], slides[1]))
+      w.push({ kind: 'no-pivot', slides: [0, 1], rule: 'pivot hard from 1 to 2',
+        text: 'no pivot from 1 to 2: tone, colour and scale carry over' });
     var untagged = slides.filter(function (s) { return photo(s) && (!s.scale || !s.presence); }).length;
-    if (untagged) w.push({ kind: 'untagged', slides: [],
+    if (untagged) w.push({ kind: 'untagged', slides: [], info: true,
       text: countWord(untagged) + ' photo' + (untagged === 1 ? '' : 's') + ' without a scale or you-in-it tag' });
     return w;
   }
+  function isPivot(a, b) {
+    if (a.lum != null && b.lum != null && Math.abs(a.lum - b.lum) >= THRESH.pivotTone) return true;
+    if (a.hue != null && b.hue != null && a.hueStrength >= THRESH.hueMinStrength && b.hueStrength >= THRESH.hueMinStrength &&
+        hueDistance(a.hue, b.hue) >= THRESH.pivotHue) return true;
+    if (a.scale && b.scale && a.scale !== b.scale) return true;
+    if (a.lum == null || b.lum == null) return true;       // unmeasured: nothing to say
+    return false;
+  }
+  /* Maximal stretches of 3+ photo slides whose median luma stays within flatTone. */
+  function flatRuns(slides) {
+    var out = [], n = slides.length, i = 0;
+    while (i < n) {
+      if (!slides[i] || slides[i].kind === 'video' || slides[i].lum == null) { i++; continue; }
+      var lo = slides[i].lum, hi = lo, j = i + 1;
+      while (j < n && slides[j].kind !== 'video' && slides[j].lum != null) {
+        var l = slides[j].lum, nlo = Math.min(lo, l), nhi = Math.max(hi, l);
+        if (nhi - nlo >= THRESH.flatTone) break;
+        lo = nlo; hi = nhi; j++;
+      }
+      if (j - i >= THRESH.flatMin) { out.push([i, j - 1]); i = j; } else i++;
+    }
+    return out;
+  }
+
+  /* ---------- smallest fix ----------
+     The fewest moves (a swap, or a move that doesn't cross a pinned slide) that clear one warning
+     without adding any other warning. Pinned slides never move. Returns [] when two moves can't
+     do it. Each move carries the rule it serves. opts.locked(i) marks extra unmovable slots. */
+  function fixWarning(slides, warning, opts) {
+    opts = opts || {};
+    var n = slides.length;
+    var locked = function (i) { return slides[i].pinned || (opts.locked && opts.locked(i)); };
+    var count = function (list) {
+      var c = {};
+      sequenceWarnings(list).forEach(function (w) { if (!w.info) c[w.kind] = (c[w.kind] || 0) + 1; });
+      return c;
+    };
+    var before = count(slides);
+    function ok(list) {
+      var after = count(list);
+      if ((after[warning.kind] || 0) >= (before[warning.kind] || 0)) return false;
+      for (var k in after) if (k !== warning.kind && after[k] > (before[k] || 0)) return false;
+      return true;
+    }
+    function ops(list, focus) {
+      var out = [];
+      for (var i = 0; i < n; i++) {
+        if (list[i].pinned || (opts.locked && opts.locked(i))) continue;
+        for (var j = 0; j < n; j++) {
+          if (j === i || list[j].pinned || (opts.locked && opts.locked(j))) continue;
+          if (focus && focus.indexOf(i) < 0 && focus.indexOf(j) < 0) continue;
+          if (j > i) out.push({ op: 'swap', from: i, to: j });
+          var lo = Math.min(i, j), hi = Math.max(i, j), crosses = false;
+          for (var k = lo; k <= hi; k++) if (list[k].pinned || (opts.locked && opts.locked(k))) crosses = true;
+          if (!crosses && Math.abs(i - j) > 1) out.push({ op: 'move', from: i, to: j });
+        }
+      }
+      return out;
+    }
+    var focus = [];
+    if (warning.slides.length === 2 && warning.kind !== 'dup-open') for (var f = warning.slides[0]; f <= warning.slides[1]; f++) focus.push(f);
+    else focus = warning.slides.slice();
+    var cost = function (o) { return Math.abs(o.from - o.to) + (o.op === 'swap' ? 0.5 : 0); };
+    var best = null;
+    ops(slides, focus).forEach(function (o) {
+      var l1 = applyOp(slides, o);
+      if (ok(l1) && (!best || cost(o) < best.c)) best = { moves: [o], c: cost(o) };
+    });
+    if (!best) {
+      ops(slides, focus).forEach(function (o1) {
+        var l1 = applyOp(slides, o1);
+        ops(l1, null).forEach(function (o2) {
+          var c = cost(o1) + cost(o2);
+          if (best && c >= best.c) return;
+          if (ok(applyOp(l1, o2))) best = { moves: [o1, o2], c: c };
+        });
+      });
+    }
+    if (!best) return [];
+    var cur = slides;
+    return best.moves.map(function (o) {
+      var m = { op: o.op, from: o.from, to: o.to, id: cur[o.from].id, other: o.op === 'swap' ? cur[o.to].id : null, rule: warning.rule };
+      cur = applyOp(cur, o);
+      return m;
+    });
+  }
+  function applyOp(list, o) {
+    var out = list.slice();
+    if (o.op === 'swap') { var t = out[o.from]; out[o.from] = out[o.to]; out[o.to] = t; }
+    else { var x = out.splice(o.from, 1)[0]; out.splice(o.to, 0, x); }
+    return out;
+  }
+  /* Epilogue: the moves that hold phone frames back to the end, one per frame, pinned untouched. */
+  function epilogueMoves(slides, isPhone) {
+    var cur = slides.slice(), moves = [];
+    for (var guard = 0; guard < slides.length; guard++) {
+      var tailStart = cur.length;
+      while (tailStart > 0 && (isPhone(cur[tailStart - 1]) || cur[tailStart - 1].pinned)) tailStart--;
+      var at = -1;
+      for (var i = tailStart - 1; i >= 0; i--) if (isPhone(cur[i]) && !cur[i].pinned) { at = i; break; }
+      if (at < 0) break;
+      var to = tailStart - 1;                 // just before the phone frames already at the end
+      var crosses = false;
+      for (var k = at; k <= to; k++) if (cur[k].pinned) crosses = true;
+      if (crosses || to <= at) break;
+      moves.push({ op: 'move', from: at, to: to, id: cur[at].id, rule: 'epilogue: phone frames held to the end' });
+      cur = applyOp(cur, { op: 'move', from: at, to: to });
+    }
+    return moves;
+  }
+
+  /* ---------- cuts, on mechanical grounds only ----------
+     items: [{slot (0-based), id, num, kind, pinned, twin, sharp, clipPct, flags:[words], camKey, camLabel,
+              scale, presence, raw}]. Returns {cuts, keeps, pairs}, each entry {slots, text}. */
+  function cutList(items) {
+    var cuts = {}, keepWhy = {}, pairs = [];
+    var bySlot = {};
+    items.forEach(function (it) { bySlot[it.slot] = it; });
+    var photos = items.filter(function (it) { return it.kind !== 'video'; });
+    function cut(it, why) { if (!it.pinned && !cuts[it.slot]) cuts[it.slot] = why; }
+    // twins: keep the stronger (sharper, then less clipped)
+    var groups = {};
+    photos.forEach(function (it) { if (it.twin) (groups[it.twin] = groups[it.twin] || []).push(it); });
+    Object.keys(groups).forEach(function (g) {
+      var list = groups[g];
+      if (list.length < 2) return;
+      var ranked = list.slice().sort(function (a, b) {
+        if (a.pinned !== b.pinned) return a.pinned ? -1 : 1;
+        var ds = (b.sharp || 0) - (a.sharp || 0);
+        if (Math.abs(ds) > 0.1 * Math.max(a.sharp || 0, b.sharp || 0)) return ds;
+        return (a.clipPct || 0) - (b.clipPct || 0);
+      });
+      var keep = ranked[0];
+      keepWhy[keep.slot] = keepWhy[keep.slot] || 'stronger of its twins';
+      ranked.slice(1).forEach(function (it) {
+        var why = (it.sharp || 0) < (keep.sharp || 0) * 0.9 ? 'softer' : (it.clipPct || 0) > (keep.clipPct || 0) ? 'more clipped' : 'weaker';
+        cut(it, why + ' twin of ' + (keep.slot + 1) + ' (' + keep.num + ')');
+      });
+    });
+    // off its camera's baseline
+    photos.forEach(function (it) { if (it.flags && it.flags.length) cut(it, it.flags.join(', ') + ' against the other ' + it.camLabel + ' frames'); });
+    // presence cap: keep the sharpest face-hidden frames up to the cap
+    var hidden = photos.filter(function (it) { return it.presence === 'hidden' && !cuts[it.slot]; });
+    if (hidden.length > THRESH.hiddenCap) {
+      var order = hidden.slice().sort(function (a, b) { return (b.pinned - a.pinned) || ((b.sharp || 0) - (a.sharp || 0)) || (a.slot - b.slot); });
+      order.slice(THRESH.hiddenCap).forEach(function (it, k) {
+        cut(it, ordinal(THRESH.hiddenCap + k + 1) + ' face-hidden frame of you (cap ' + THRESH.hiddenCap + ')');
+      });
+    }
+    // second-camera texture breaks travel as a pair: both or neither
+    var camCount = {};
+    photos.forEach(function (it) { camCount[it.camKey] = (camCount[it.camKey] || 0) + 1; });
+    var main = Object.keys(camCount).sort(function (a, b) { return camCount[b] - camCount[a]; })[0];
+    var breaks = {};
+    photos.forEach(function (it) { if (it.scale === 'texture' && it.camKey !== main) (breaks[it.camKey] = breaks[it.camKey] || []).push(it); });
+    Object.keys(breaks).forEach(function (k) {
+      var list = breaks[k], slots = list.map(function (it) { return it.slot; });
+      var names = list.map(function (it) { return (it.slot + 1) + ' (' + it.num + ')'; }).join(' and ');
+      var cutOne = list.some(function (it) { return cuts[it.slot]; }), cutAll = list.every(function (it) { return cuts[it.slot]; });
+      var text = list.length === 1 ? names + ': a lone ' + list[0].camLabel + ' texture break; these go in pairs, both or neither'
+        : names + ': ' + list[0].camLabel + ' texture breaks, both or neither';
+      if (cutOne && !cutAll) text += '; the list above cuts only part of the pair';
+      pairs.push({ slots: slots, text: text });
+    });
+    var out = { cuts: [], keeps: [], pairs: pairs };
+    items.forEach(function (it) {
+      var label = (it.slot + 1) + (it.num ? ' · ' + it.num : '');
+      if (cuts[it.slot]) out.cuts.push({ slots: [it.slot], id: it.id, text: 'Cut ' + label + ': ' + cuts[it.slot] });
+      else out.keeps.push({ slots: [it.slot], id: it.id, text: 'Keep ' + label + ': ' + (it.kind === 'video' ? 'video slide' : it.pinned ? 'pinned'
+        : keepWhy[it.slot] || (it.raw ? 'RAW preview, colour not checked' : it.judged === false ? 'too few frames from its camera to judge' : 'in line with its camera')) });
+    });
+    return out;
+  }
+  function ordinal(n) { return ['zeroth', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'][n] || n + 'th'; }
+
+  /* ---------- bridge finder ----------
+     Pool frames that could sit between a and b: tone between the two sides, a scale unlike both,
+     a camera matching one side. Returns [{id, score, reasons}] best first (score >= 1). */
+  function bridgeCandidates(a, b, pool) {
+    var lo = Math.min(a.lum, b.lum) - 0.03, hi = Math.max(a.lum, b.lum) + 0.03;
+    var out = [];
+    pool.forEach(function (c, k) {
+      if (c.lum == null) return;
+      var reasons = [];
+      if (c.lum >= lo && c.lum <= hi) reasons.push('tone between the two');
+      if (c.scale && c.scale !== a.scale && c.scale !== b.scale) reasons.push(SCALE_SINGULAR[c.scale] + ', unlike both');
+      if (c.camKey && (c.camKey === a.camKey || c.camKey === b.camKey)) reasons.push('same camera as ' + (c.camKey === a.camKey ? 'the left' : 'the right'));
+      if (reasons.length) out.push({ id: c.id, score: reasons.length, reasons: reasons, k: k });
+    });
+    out.sort(function (x, y) { return (y.score - x.score) || (x.k - y.k); });
+    return out;
+  }
+  var SCALE_SINGULAR = { wide: 'a wide', close: 'a close', face: 'a face', texture: 'a texture' };
 
   /* Filenames that show a phone picker renamed or converted the file (the original number is lost). */
   function looksRenamed(name) {
@@ -1038,6 +1278,8 @@ var CS = (function () {
     THRESH: THRESH, METRICS: METRICS, ASPECTS: ASPECTS, DUP_MAX_DIST: DUP_MAX_DIST,
     MIN_GROUP: MIN_GROUP, RHYME_MAX_DIST: RHYME_MAX_DIST,
     twins: twins, rhymes: rhymes, cameraBaselines: cameraBaselines, baselineFor: baselineFor,
+    isPivot: isPivot, flatRuns: flatRuns, fixWarning: fixWarning, applyOp: applyOp, epilogueMoves: epilogueMoves,
+    cutList: cutList, bridgeCandidates: bridgeCandidates,
     looksRenamed: looksRenamed, frameNumber: frameNumber,
     median: median, measurePixels: measurePixels, dhash: dhash, hamming: hamming,
     groupDuplicates: groupDuplicates, baseline: baseline, frameFlags: frameFlags,
@@ -1156,7 +1398,8 @@ self.onmessage = async function (e) {
       frames: S.frames.map(function (f) {
         return { id: f.id, name: f.name, size: f.size, raw: f.raw, exif: f.exif, status: f.status, tags: f.tags, crop: f.crop };
       }),
-      slides: S.slides.map(function (s) { return s.kind === 'video' ? { kind: 'video', id: s.id, label: s.label } : { kind: 'photo', id: s.id }; })
+      epilogue: !!S.epilogue,
+      slides: S.slides.map(function (s) { return s.kind === 'video' ? { kind: 'video', id: s.id, label: s.label, pinned: !!s.pinned } : { kind: 'photo', id: s.id, pinned: !!s.pinned }; })
     };
   }
   async function saveProject() {
@@ -1179,12 +1422,13 @@ self.onmessage = async function (e) {
     for (var j = 0; j < (p.slides || []).length; j++) {
       var s = p.slides[j];
       if (s.kind === 'video') {
-        var v = { kind: 'video', id: s.id, label: s.label || 'video' };
+        var v = { kind: 'video', id: s.id, label: s.label || 'video', pinned: !!s.pinned };
         var poster = await idb('blobs', 'readonly', function (st) { return st.get('poster:' + s.id); });
         if (poster) v.poster = URL.createObjectURL(poster);
         S.slides.push(v);
-      } else if (S.byId.has(s.id)) S.slides.push({ kind: 'photo', id: s.id });
+      } else if (S.byId.has(s.id)) S.slides.push({ kind: 'photo', id: s.id, pinned: !!s.pinned });
     }
+    S.epilogue = !!p.epilogue;
     return true;
   }
 
@@ -1369,7 +1613,8 @@ self.onmessage = async function (e) {
   function slideLabel(i) { return 'slide ' + (i + 1); }
 
   /* ---------- render ---------- */
-  function changed() { dirty(); render(); }
+  function changed() { if (!applying) P.pending = {}; dirty(); render(); }
+  var applying = false;
   function render() {
     derive();
     var n = S.frames.length, kept = 0, out = 0;
@@ -1643,9 +1888,19 @@ self.onmessage = async function (e) {
     return null;
   }
   function slideInfo(s) {
-    if (s.kind === 'video') return { kind: 'video' };
-    var f = S.byId.get(s.id);
-    return { kind: 'photo', id: f.id, scale: f.tags.scale, presence: f.tags.presence, twin: D.twins.groupOf[f.id] };
+    if (s.kind === 'video') return { kind: 'video', id: s.id, pinned: !!s.pinned };
+    var f = S.byId.get(s.id), m = f.metrics;
+    return { kind: 'photo', id: f.id, pinned: !!s.pinned, scale: f.tags.scale, presence: f.tags.presence, twin: D.twins.groupOf[f.id],
+      lum: m && !f.raw ? m.lumMedian : null, hue: m ? m.hueDeg : null, hueStrength: m ? m.hueStrength : 0, phone: f.device.phone };
+  }
+  function slotName(i) {
+    var s = S.slides[i];
+    if (!s) return String(i + 1);
+    return (i + 1) + ' · ' + (s.kind === 'video' ? s.label : S.byId.get(s.id).num);
+  }
+  function nameOfId(id) {
+    var i = S.slides.findIndex(function (s) { return s.id === id; });
+    return i >= 0 ? slotName(i) : id;
   }
   function renderSeq() {
     var n = S.slides.length;
@@ -1667,42 +1922,42 @@ self.onmessage = async function (e) {
       Object.keys(cams).forEach(function (k) { key.appendChild(h('span', null, h('span', { class: 'camdot', style: 'background:' + camColor(cams[k]) }), camLabel(cams[k]))); });
       key.appendChild(h('span', { text: 'bars: brightness · swatch: average colour' }));
     }
-    var wl = $('#warnList'); wl.textContent = '';
-    CS.sequenceWarnings(S.slides.map(slideInfo)).forEach(function (w) { wl.appendChild(h('li', { class: w.kind === 'untagged' ? 'info' : '', text: w.text })); });
+    renderWarnings();
+    renderPanel();
     var box = $('#slots'); box.textContent = '';
     if (!n) box.appendChild(h('div', { class: 'empty', text: 'No slides yet. Keep frames in Cut, then add them here, or tap Add to carousel in the photo view.' }));
     S.slides.forEach(function (s, i) {
-      if (i > 0) box.appendChild(seamRow(S.slides[i - 1], s));
+      if (i > 0) box.appendChild(seamRow(S.slides[i - 1], s, i));
       box.appendChild(slotRow(s, i, n));
     });
     $('#slotCount').textContent = n + ' of 20 slides';
     $('#addPhotoSlot').disabled = n >= 20; $('#addVideoSlot').disabled = n >= 20;
   }
-  function seamRow(a, b) {
+  function seamRow(a, b, at) {
     var d = h('div', { class: 'seamRow' });
     if (a.kind !== 'photo' || b.kind !== 'photo') return d;
     var fa = S.byId.get(a.id), fb = S.byId.get(b.id), s = CS.seam(fa, fb), parts = [];
-    if (s.tonal != null) {
-      var big = s.flags.indexOf('tonal') >= 0;
-      parts.push(h('span', { class: big ? 'on' : '', text: (Math.abs(s.tonal) < 0.03 ? 'same brightness' : (s.tonal > 0 ? 'brighter ' : 'darker ') + signed(s.tonal, 2)) + (big ? ' (big jump)' : '') }));
-    }
-    if (s.hue != null) parts.push(h('span', { class: s.flags.indexOf('hue') >= 0 ? 'on' : '', text: 'colour shift ' + Math.round(s.hue) + '°' }));
+    if (s.tonal != null)
+      parts.push(h('span', { text: Math.abs(s.tonal) < 0.03 ? 'same brightness' : (s.tonal > 0 ? 'brighter ' : 'darker ') + signed(s.tonal, 2) }));
+    if (s.hue != null) parts.push(h('span', { text: 'colour shift ' + Math.round(s.hue) + '°' }));
     if (s.deviceChange) parts.push(h('span', { text: camLabel(fa) + ' → ' + camLabel(fb) }));
     var rh = D.rhymes[fa.id];
     if (rh && rh.indexOf(fb.id) >= 0) parts.push(h('span', { text: 'rhyme' }));
     parts.forEach(function (p, k) { if (k) d.appendChild(document.createTextNode(' · ')); d.appendChild(p); });
+    d.appendChild(h('button', { class: 'small', text: 'Bridge', title: 'Find a frame to sit between ' + at + ' and ' + (at + 1),
+      onclick: function () { openSheet('bridge', at); } }));
     return d;
   }
   function slotRow(s, i, n) {
     var r = role(i, n);
-    var row = h('div', { class: 'slotRow', 'data-i': i });
+    var row = h('div', { class: 'slotRow' + (s.pinned ? ' pinned' : ''), 'data-i': i });
     var handle = h('span', { class: 'handle', 'aria-hidden': 'true', text: '⋮⋮' });
     row.appendChild(h('div', { class: 'idx' }, h('b', { text: String(i + 1) }), handle));
     var body = h('div', { class: 'body' });
     if (r) body.appendChild(h('div', { class: 'role' }, r[0], r[1] ? h('em', { text: ' · ' + r[1] }) : null));
     var acts = h('div', { class: 'acts' },
-      h('button', { class: 'small', 'aria-label': 'Move earlier', disabled: i === 0 ? '' : null, text: '↑', onclick: function () { moveSlide(i, i - 1); } }),
-      h('button', { class: 'small', 'aria-label': 'Move later', disabled: i === n - 1 ? '' : null, text: '↓', onclick: function () { moveSlide(i, i + 1); } }));
+      h('button', { class: 'small', 'aria-label': 'Move earlier', disabled: i === 0 || s.pinned ? '' : null, text: '↑', onclick: function () { moveSlide(i, i - 1); } }),
+      h('button', { class: 'small', 'aria-label': 'Move later', disabled: i === n - 1 || s.pinned ? '' : null, text: '↓', onclick: function () { moveSlide(i, i + 1); } }));
     if (s.kind === 'video') {
       row.appendChild(h('div', { class: 'th' }, s.poster ? h('img', { src: s.poster, alt: '' }) : h('div', { class: 'vid', text: 'Video slide' })));
       var lab = h('input', { type: 'text', value: s.label, 'aria-label': 'Video slide label', placeholder: 'e.g. pano video' });
@@ -1724,6 +1979,8 @@ self.onmessage = async function (e) {
       body.appendChild(pickRow('You', YOU, f, 'presence'));
       acts.appendChild(h('button', { class: 'small', text: 'Swap', onclick: function () { openSheet('replace', i); } }));
     }
+    acts.appendChild(h('button', { class: 'small', 'aria-pressed': String(!!s.pinned), text: s.pinned ? 'Pinned' : 'Pin',
+      title: 'Pinned slides stay in place: fixes and proposals never move them', onclick: function () { s.pinned = !s.pinned; changed(); } }));
     acts.appendChild(h('button', { class: 'small', text: 'Remove', onclick: function () { removeSlide(i); changed(); } }));
     body.appendChild(acts);
     row.appendChild(body);
@@ -1787,56 +2044,354 @@ self.onmessage = async function (e) {
     if (addSlide({ kind: 'video', id: 'v' + Date.now().toString(36), label: 'video' })) changed();
   };
 
+  /* ----- Proposals: every one by slot number with one reason; nothing applies without a tap;
+     pinned slides never move; the tool writes no thesis text of its own. ----- */
+  var P = { pending: {}, panel: null, cutsDone: {}, proposal: null, sample: null, busy: null };
+  function moveText(m) {
+    if (m.op === 'swap') return 'Swap ' + slotName(m.from) + ' with ' + slotName(m.to);
+    return 'Move ' + slotName(m.from) + ' to slot ' + (m.to + 1);
+  }
+  function applyMove(key, k) {
+    var pend = P.pending[key]; if (!pend) return;
+    var m = pend.moves[k];
+    if (S.slides[m.from] && S.slides[m.from].id !== m.id) { toast('The sequence changed; tap Fix again'); delete P.pending[key]; render(); return; }
+    S.slides = CS.applyOp(S.slides, m);
+    pend.done[k] = true;
+    applying = true; changed(); applying = false;
+  }
+  function phoneTail() {
+    var info = S.slides.map(slideInfo), phones = info.filter(function (x) { return x.phone; }).length, tail = {};
+    if (!phones) return { ok: true, locked: {} };
+    var k = info.length - 1, seen = 0;
+    while (k >= 0 && (info[k].phone || info[k].pinned) && seen < phones) { if (info[k].phone) seen++; tail[k] = 1; k--; }
+    return { ok: seen === phones, locked: seen === phones ? tail : {} };
+  }
+  function renderWarnings() {
+    var wl = $('#warnList'); wl.textContent = '';
+    var info = S.slides.map(slideInfo);
+    var hasPhone = info.some(function (x) { return x.phone; });
+    $('#epiLabel').hidden = !hasPhone;
+    $('#epiIn').checked = !!S.epilogue;
+    var ws = CS.sequenceWarnings(info);
+    var tail = phoneTail();
+    if (S.epilogue && hasPhone && !tail.ok)
+      ws.unshift({ kind: 'epilogue', slides: [], rule: 'epilogue: phone frames held to the end', text: 'phone frames are not all held at the end (epilogue is on for this post)' });
+    ws.forEach(function (w) {
+      var key = w.kind + ':' + w.text;
+      var li = h('li', { class: w.info ? 'info' : '' });
+      var top = h('div', null, h('span', { text: w.text }));
+      if (!w.info) top.appendChild(h('button', { class: 'small', text: P.pending[key] ? 'Hide fix' : 'Fix', onclick: function () {
+        if (P.pending[key]) { delete P.pending[key]; render(); return; }
+        var moves = w.kind === 'epilogue' ? CS.epilogueMoves(S.slides.map(slideInfo), function (x) { return x.phone; })
+          : CS.fixWarning(info, w, S.epilogue && tail.ok ? { locked: function (i) { return !!tail.locked[i]; } } : null);
+        P.pending[key] = { moves: moves, done: {}, kind: w.kind };
+        render();
+      } }));
+      li.appendChild(top);
+      var pend = P.pending[key];
+      if (pend) {
+        var box = h('div', { class: 'fix' });
+        if (!pend.moves.length) box.appendChild(h('div', { text: w.kind === 'presence-cap' ? 'Moves can’t fix a count: see Cuts.'
+          : 'No fix within two moves that keeps pinned slides and adds no new warning. Try a bridge on a seam, or Cuts.' }));
+        var next = pend.moves.findIndex(function (m, k) { return !pend.done[k]; });
+        pend.moves.forEach(function (m, k) {
+          box.appendChild(h('div', { class: 'mv' + (pend.done[k] ? ' done' : '') },
+            h('span', null, moveText(m), h('em', { text: ' — ' + m.rule })),
+            pend.done[k] ? null : h('button', { class: 'small primary', disabled: k !== next ? '' : null, text: 'Apply',
+              onclick: function () { applyMove(key, k); } })));
+        });
+        if (pend.moves.length > 1) box.appendChild(h('div', { class: 'faint', style: 'font-size:12px', text: 'One at a time, in order.' }));
+        li.appendChild(box);
+      }
+      wl.appendChild(li);
+    });
+    // fixes that already cleared their warning stay visible until the next edit
+    Object.keys(P.pending).forEach(function (key) {
+      if (ws.some(function (w) { return w.kind + ':' + w.text === key; })) return;
+      var pend = P.pending[key];
+      if (!Object.keys(pend.done).length) return;
+      wl.appendChild(h('li', { class: 'info', text: 'Cleared: ' + key.split(':').slice(1).join(':') }));
+    });
+  }
+  $('#epiIn').onchange = function () { S.epilogue = this.checked; changed(); };
+
+  function setPanel(name) {
+    P.panel = P.panel === name ? null : name;
+    ['cutsBtn', 'coverBtn', 'proposeBtn'].forEach(function (id) { $('#' + id).setAttribute('aria-pressed', String($('#' + id).dataset.p === P.panel)); });
+    render();
+  }
+  $('#cutsBtn').dataset.p = 'cuts'; $('#coverBtn').dataset.p = 'cover'; $('#proposeBtn').dataset.p = 'propose';
+  $('#cutsBtn').onclick = function () { P.cutsDone = {}; setPanel('cuts'); };
+  $('#coverBtn').onclick = function () { setPanel('cover'); };
+  $('#proposeBtn').onclick = function () { setPanel('propose'); };
+  function renderPanel() {
+    var box = $('#panel');
+    box.hidden = !P.panel;
+    box.textContent = '';
+    if (P.panel === 'cuts') renderCuts(box);
+    if (P.panel === 'cover') renderCovers(box);
+    if (P.panel === 'propose') renderPropose(box);
+  }
+  function cutItems() {
+    return S.slides.map(function (sl, i) {
+      if (sl.kind === 'video') return { slot: i, id: sl.id, kind: 'video', pinned: !!sl.pinned };
+      var f = S.byId.get(sl.id), base = baseFor(f), m = f.metrics || {};
+      return { slot: i, id: f.id, num: f.num, kind: 'photo', pinned: !!sl.pinned, twin: D.twins.groupOf[f.id], sharp: m.sharp, clipPct: m.clipPct,
+        flags: flagWords(f), camKey: f.device.key, camLabel: camLabel(f), scale: f.tags.scale, presence: f.tags.presence,
+        raw: f.raw, judged: !!(base && base.n >= CS.MIN_GROUP) };
+    });
+  }
+  function cutSlide(id) {
+    var i = S.slides.findIndex(function (s) { return s.id === id; });
+    if (i < 0) return;
+    var s0 = S.slides[i];
+    if (s0.pinned) { toast('Slide ' + (i + 1) + ' is pinned'); return; }
+    S.slides.splice(i, 1);
+    if (s0.kind === 'photo') S.byId.get(s0.id).status = 'out';
+    P.cutsDone[id] = true;
+    applying = true; changed(); applying = false;
+  }
+  function copyText(text) {
+    var done = function () { toast('Copied'); };
+    try { navigator.clipboard.writeText(text).then(done, fallback); } catch (e) { fallback(); }
+    function fallback() {
+      var ta = h('textarea'); ta.value = text; document.body.appendChild(ta); ta.select();
+      try { document.execCommand('copy'); done(); } catch (e) { toast('Select the list and copy it'); }
+      ta.remove();
+    }
+  }
+  var cutsSnapshot = null;
+  function renderCuts(box) {
+    box.appendChild(h('h3', { text: 'Cuts' }));
+    box.appendChild(h('div', { class: 'faint', style: 'font-size:13px', text: 'Mechanical grounds only: the weaker of each twin pair, frames off their camera’s baseline, face-hidden frames past ' + CS.THRESH.hiddenCap + '. Pinned slides are never cut. Slot numbers are as they were when you tapped Cuts.' }));
+    if (!S.slides.length) { box.appendChild(h('div', { class: 'faint', text: 'No slides yet.' })); return; }
+    if (!Object.keys(P.cutsDone).length || !cutsSnapshot) cutsSnapshot = CS.cutList(cutItems());
+    var r = cutsSnapshot, lines = [];
+    if (!r.cuts.length) box.appendChild(h('div', { class: 'line' }, h('span', { text: 'No cuts on mechanical grounds.' })));
+    r.cuts.forEach(function (c) {
+      lines.push(c.text);
+      var done = P.cutsDone[c.id];
+      box.appendChild(h('div', { class: 'line cut' + (done ? ' applied' : '') }, h('span', { text: c.text }),
+        done ? null : h('button', { class: 'small', text: 'Cut', onclick: function () { cutSlide(c.id); } })));
+    });
+    r.pairs.forEach(function (pr) { lines.push(pr.text); box.appendChild(h('div', { class: 'line pair' }, h('span', { text: pr.text }))); });
+    r.keeps.forEach(function (k) { lines.push(k.text); box.appendChild(h('div', { class: 'line keep' }, h('span', { text: k.text }))); });
+    box.appendChild(h('div', { class: 'row' }, h('button', { class: 'small', text: 'Copy list', onclick: function () { copyText(lines.join('\n')); } })));
+  }
+  function renderCovers(box) {
+    box.appendChild(h('h3', { text: 'Cover candidates' }));
+    box.appendChild(h('div', { class: 'faint', style: 'font-size:13px', text: 'Frames tagged with you in them, not soft, shown at profile-grid thumbnail size (' + S.gridAspect + ').' }));
+    var fs = S.frames.filter(function (f) {
+      return f.status !== 'out' && (f.tags.presence === 'shown' || f.tags.presence === 'hidden') && flagWords(f).indexOf('soft') < 0;
+    });
+    fs.sort(function (a, b) { return (a.tags.presence === 'shown' ? 0 : 1) - (b.tags.presence === 'shown' ? 0 : 1); });
+    if (!fs.length) { box.appendChild(h('div', { class: 'faint', text: 'No frames are tagged with you in them yet. Tag Face shown or Face hidden in the photo view.' })); return; }
+    var grid = h('div', { class: 'covers' }), ar = S.gridAspect === '1:1' ? '1 / 1' : '3 / 4', pin1 = S.slides[0] && S.slides[0].pinned;
+    fs.forEach(function (f) {
+      var at = D.slideOf[f.id];
+      grid.appendChild(h('div', { class: 'cover' },
+        h('div', { class: 'gimg', style: 'aspect-ratio:' + ar }, h('img', { src: f.previewUrl || f.thumbUrl || '', alt: f.name })),
+        h('b', { text: f.num }),
+        h('span', { class: 'faint', text: (f.tags.presence === 'shown' ? 'face shown' : 'face hidden') + (at != null ? ' · slide ' + (at + 1) : '') }),
+        at === 0 ? h('span', { class: 'faint', text: 'is the cover' }) :
+          h('button', { class: 'small', disabled: pin1 ? '' : null, title: pin1 ? 'Slide 1 is pinned' : null, text: 'Make cover', onclick: function () {
+            if (at != null) S.slides.splice(at, 1);
+            else if (S.slides.length >= CS.MAX_SLIDES) { toast('The carousel is full: cut a slide first'); return; }
+            S.slides.unshift({ kind: 'photo', id: f.id });
+            if (!f.status) f.status = 'keep';
+            changed();
+          } })));
+    });
+    box.appendChild(grid);
+  }
+
+  /* ----- Propose with Claude: an order and cuts that come with arguments ----- */
+  (window.claude && typeof window.claude.use === 'function' ? window.claude.use('sample') : Promise.resolve(null)).then(async function (fn) {
+    if (!fn) return;
+    var caps = await fn.limits().catch(function () { return null; });
+    if (!caps || !caps.images) return;
+    P.sample = fn;
+    $('#proposeBtn').hidden = false;
+  }).catch(function () {});
+  function loadImg(url) {
+    return new Promise(function (res) { var im = new Image(); im.onload = function () { res(im); }; im.onerror = function () { res(null); }; im.src = url; });
+  }
+  async function contactSheet() {
+    var n = S.slides.length, cols = Math.min(5, n), rows = Math.ceil(n / cols), T = 230, L = 30;
+    var c = document.createElement('canvas'); c.width = cols * T; c.height = rows * (T + L);
+    var g = c.getContext('2d');
+    g.fillStyle = '#111'; g.fillRect(0, 0, c.width, c.height);
+    for (var i = 0; i < n; i++) {
+      var x = (i % cols) * T, y = Math.floor(i / cols) * (T + L), sl = S.slides[i];
+      g.fillStyle = '#fff'; g.font = 'bold 22px sans-serif'; g.textBaseline = 'middle';
+      g.fillText(slotName(i), x + 8, y + L / 2);
+      if (sl.kind === 'video') { g.fillStyle = '#333'; g.fillRect(x + 4, y + L, T - 8, T - 8); g.fillStyle = '#bbb'; g.fillText('VIDEO', x + T / 2 - 40, y + L + T / 2); continue; }
+      var im = await loadImg(S.byId.get(sl.id).thumbUrl);
+      if (!im) continue;
+      var sc = Math.min((T - 8) / im.width, (T - 8) / im.height), w = im.width * sc, hh = im.height * sc;
+      g.drawImage(im, x + (T - w) / 2, y + L + (T - 8 - hh) / 2 + 4, w, hh);
+    }
+    return new Promise(function (res) { c.toBlob(res, 'image/jpeg', 0.85); });
+  }
+  function slideLine(i) {
+    var sl = S.slides[i];
+    if (sl.kind === 'video') return (i + 1) + ' | video slide "' + sl.label + '" | not measured' + (sl.pinned ? ' | PINNED' : '');
+    var f = S.byId.get(sl.id), m = f.metrics || {};
+    return [i + 1, f.num, camLabel(f), 'scale ' + (f.tags.scale || 'untagged'), 'you ' + (f.tags.presence ? YOU_WORD[f.tags.presence].toLowerCase() : 'untagged'),
+      'brightness ' + fmt(m.lumMedian, 2), 'hue ' + (m.hueDeg == null ? '-' : Math.round(m.hueDeg)), 'flags ' + (flagWords(f).join(', ') || 'none'),
+      D.twins.groupOf[f.id] ? 'twin group ' + D.twins.groupOf[f.id] : null, sl.pinned ? 'PINNED' : null].filter(Boolean).join(' | ');
+  }
+  function proposePrompt() {
+    var t = (S.title || '').trim();
+    return [
+      'You are helping a photographer sequence an Instagram carousel. The attached image is a numbered contact sheet of the current slides; each tile is labelled "slot · file number".',
+      t ? 'The carousel is built around this title or thesis: "' + t + '". You may use thesis language in reasons.' : 'No title is given: do not invent a theme or thesis; argue from what is visible and the data below.',
+      'Their rules: slide 1 is the cover and must hold at profile-grid thumbnail size; slide 2 is a second cover and 1 to 2 should pivot hard; pacing is about pivots and movement, not smoothness; avoid flat runs; twins (near-duplicates) rarely both belong; mixing cameras is deliberate; at most four face-hidden frames of the photographer. PINNED slots must stay exactly where they are. Video slides are placeholders you can move unless pinned.',
+      'Slides (slot | file number | camera | tags | measured brightness 0-1 | dominant hue | flags against its own camera):',
+      S.slides.map(function (_, i) { return slideLine(i); }).join('\n'),
+      'Reply with ONLY a JSON object: {"order":[slot numbers of the slides to keep, in the new order],"cuts":[{"slot":n,"reason":"one short line"}],"reasons":[{"slot":n,"reason":"one short line on why it sits where it does"}]}.',
+      'Every slot appears exactly once, either in order or in cuts. Reasons are one line, 12 words at most, and refer to slides by slot number. No captions, no prose outside the JSON.'
+    ].join('\n\n');
+  }
+  async function propose() {
+    var ctl = new AbortController();
+    P.busy = ctl; P.proposal = { status: 'thinking' }; render();
+    try {
+      var sheet = await contactSheet();
+      var out = await P.sample.json(proposePrompt(), { images: [sheet], signal: ctl.signal, cache: false, modelTier: 'default' });
+      P.proposal = validateProposal(out);
+    } catch (e) {
+      var code = e && e.code;
+      if (code === 'cancelled') P.proposal = null;
+      else if (code === 'not_granted' || code === 'sampling_disabled' || code === 'not_declared' || code === 'capability_disabled' || code === 'images_unavailable') {
+        P.proposal = { status: 'error', text: 'Claude isn’t available on this page for you, so Propose is hidden.' }; $('#proposeBtn').hidden = true;
+      } else P.proposal = { status: 'error', text: code === 'rate_limited' ? 'Too many requests just now. Try again in a bit.'
+        : code === 'invalid_json' ? 'The answer didn’t come back in the expected format. Try again.' : 'That didn’t go through (' + (code || 'error') + '). Try again.' };
+    } finally { P.busy = null; render(); }
+  }
+  function validateProposal(o) {
+    var n = S.slides.length, order = (o && o.order || []).map(Number), cuts = (o && o.cuts || []).map(function (c) { return { slot: Number(c.slot), reason: String(c.reason || '') }; });
+    var reasons = {}; (o && o.reasons || []).forEach(function (r) { reasons[Number(r.slot)] = String(r.reason || ''); });
+    var seen = {}, problems = [];
+    order.concat(cuts.map(function (c) { return c.slot; })).forEach(function (k) {
+      if (!(k >= 1 && k <= n) || seen[k]) problems.push('slot ' + k + ' is missing, repeated or out of range'); seen[k] = 1;
+    });
+    for (var k = 1; k <= n; k++) if (!seen[k]) problems.push('slot ' + k + ' is left out');
+    var cutSet = {}; cuts.forEach(function (c) { cutSet[c.slot] = 1; });
+    S.slides.forEach(function (sl, i) {
+      if (!sl.pinned) return;
+      if (cutSet[i + 1]) problems.push('it cuts pinned slot ' + (i + 1));
+      var cutBefore = cuts.filter(function (c) { return c.slot < i + 1; }).length;
+      if (order.indexOf(i + 1) !== i - cutBefore) problems.push('it moves pinned slot ' + (i + 1));
+    });
+    return { status: 'ready', ids: S.slides.map(function (sl) { return sl.id; }), order: order, cuts: cuts, reasons: reasons, problems: problems };
+  }
+  function renderPropose(box) {
+    box.appendChild(h('h3', { text: 'Propose with Claude' }));
+    box.appendChild(h('div', { class: 'faint', style: 'font-size:13px', text: 'Sends a small numbered contact sheet of these ' + S.slides.length + ' slides, the title and the tags to Claude, and gets back an order and cuts by slot number, one reason each. This is the one thing that leaves the phone. Nothing changes until you tap.' }));
+    var pr = P.proposal;
+    if (P.busy) {
+      box.appendChild(h('div', { class: 'row' }, h('span', { text: 'Thinking…' }), h('button', { class: 'small', text: 'Stop', onclick: function () { P.busy.abort(); } })));
+      return;
+    }
+    box.appendChild(h('div', { class: 'row' }, h('button', { class: 'primary', disabled: S.slides.length < 2 ? '' : null, text: pr && pr.status === 'ready' ? 'Ask again' : 'Propose', onclick: propose })));
+    if (!pr) return;
+    if (pr.status === 'error') { box.appendChild(h('div', { class: 'flag', text: pr.text })); return; }
+    var stale = pr.ids.join() !== S.slides.map(function (sl) { return sl.id; }).join();
+    var nameOld = function (k) { var id = pr.ids[k - 1], sl = S.slides.find(function (x) { return x.id === id; }); return k + ' · ' + (sl ? (sl.kind === 'video' ? sl.label : S.byId.get(id).num) : '?'); };
+    pr.order.forEach(function (k, j) {
+      box.appendChild(h('div', { class: 'line keep' }, h('span', { text: (j + 1) + ' ← ' + nameOld(k) + (pr.reasons[k] ? ': ' + pr.reasons[k] : '') })));
+    });
+    pr.cuts.forEach(function (c) {
+      var id = pr.ids[c.slot - 1], done = P.cutsDone[id];
+      box.appendChild(h('div', { class: 'line cut' + (done ? ' applied' : '') }, h('span', { text: 'Cut ' + nameOld(c.slot) + ': ' + c.reason }),
+        done ? null : h('button', { class: 'small', text: 'Cut', onclick: function () { cutSlide(id); } })));
+    });
+    if (pr.problems.length) box.appendChild(h('div', { class: 'flag', text: 'Can’t apply the order as is: ' + pr.problems.slice(0, 3).join('; ') + '.' }));
+    else if (stale) box.appendChild(h('div', { class: 'faint', text: 'The carousel changed since this proposal. Ask again to apply an order.' }));
+    else box.appendChild(h('div', { class: 'row' }, h('button', { class: 'primary', text: 'Use this order and cuts', onclick: function () {
+      var byId = {}; S.slides.forEach(function (sl) { byId[sl.id] = sl; });
+      pr.cuts.forEach(function (c) { var sl = byId[pr.ids[c.slot - 1]]; if (sl.kind === 'photo') S.byId.get(sl.id).status = 'out'; });
+      S.slides = pr.order.map(function (k) { return byId[pr.ids[k - 1]]; });
+      P.proposal = null; changed(); toast('Order applied');
+    } })));
+  }
+
   /* ----- Sheet: pick a frame for a slot (swap or add) ----- */
   var SH = { mode: 'insert', at: 0 };
-  function openSheet(mode, at) { SH.mode = mode; SH.at = at; $('#sheet').hidden = false; renderSheet(); }
+  function openSheet(mode, at) {
+    if ((mode === 'bridge' || mode === 'insert') && S.slides.length >= CS.MAX_SLIDES) { toast('The carousel is full: cut a slide first'); return; }
+    SH.mode = mode; SH.at = at; $('#sheet').hidden = false; renderSheet();
+  }
   function closeSheet() { $('#sheet').hidden = true; }
   $('#sheetClose').onclick = closeSheet;
   $('#sheet').addEventListener('click', function (e) { if (e.target.id === 'sheet') closeSheet(); });
   document.querySelectorAll('#sheetSort button').forEach(function (b) { b.onclick = function () { S.sheetSort = b.dataset.s; renderSheet(); }; });
   function neighbours() {
-    var prevI = SH.at - 1, nextI = SH.mode === 'replace' ? SH.at + 1 : SH.at;
+    var prevI = SH.at - 1, nextI = SH.mode === 'replace' ? SH.at + 1 : SH.at;   // insert/bridge: goes before SH.at
     var p = S.slides[prevI], nx = S.slides[nextI];
     return [p && p.kind === 'photo' ? S.byId.get(p.id) : null, nx && nx.kind === 'photo' ? S.byId.get(nx.id) : null];
   }
   function hintsFor(f, nb) {
-    var good = [], bad = [], fit = 0;
+    var good = [], bad = [];
     nb.forEach(function (o) {
-      if (!o || !f.metrics || !o.metrics) return;
-      var s = CS.seam(o, f);
-      if (!s.flags.length) fit++;
       var rh = D.rhymes[f.id];
-      if (rh && rh.indexOf(o.id) >= 0) { good.push('rhymes with ' + o.num); fit += 0.5; }
+      if (o && rh && rh.indexOf(o.id) >= 0) good.push('rhymes with ' + o.num);
     });
-    var nbs = nb.filter(Boolean);
-    if (nbs.length && fit >= nbs.length) good.unshift('smooth seams here');
     var g = D.twins.groupOf[f.id];
     if (g) D.twins.groups[g].forEach(function (id) { if (id !== f.id && D.slideOf[id] != null) bad.push('twin of slide ' + (D.slideOf[id] + 1)); });
     bad = bad.concat(flagWords(f));
-    return { good: good, bad: bad, fit: fit - bad.length * 0.25 };
+    return { good: good, bad: bad };
   }
+  function changeFrom(f, nb) {
+    var c = 0;
+    nb.forEach(function (o) {
+      if (!o || !o.metrics || !f.metrics) return;
+      c += Math.abs(o.metrics.lumMedian - f.metrics.lumMedian);
+      if (o.metrics.hueDeg != null && f.metrics.hueDeg != null) c += CS.hueDistance(o.metrics.hueDeg, f.metrics.hueDeg) / 360;
+      if (o.tags.scale && f.tags.scale && o.tags.scale !== f.tags.scale) c += 0.15;
+    });
+    return c;
+  }
+  function bridgeInfo(f) { return { id: f.id, lum: f.metrics && !f.raw ? f.metrics.lumMedian : null, scale: f.tags.scale, camKey: f.device.key }; }
   function renderSheet() {
     var nb = neighbours();
-    $('#sheetTitle').textContent = SH.mode === 'replace' ? 'Swap slide ' + (SH.at + 1) : 'Add slide ' + (SH.at + 1);
+    var bridge = SH.mode === 'bridge';
+    $('#sheetTitle').textContent = SH.mode === 'replace' ? 'Swap slide ' + (SH.at + 1)
+      : bridge ? 'Bridge between ' + slotName(SH.at - 1) + ' and ' + slotName(SH.at) : 'Add slide ' + (SH.at + 1);
+    $('#sheetSort').hidden = bridge;
     document.querySelectorAll('#sheetSort button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.s === S.sheetSort)); });
-    var cands = S.frames.filter(function (f) { return f.status === 'keep' && D.slideOf[f.id] == null; });
-    var rest = S.frames.filter(function (f) { return !f.status && D.slideOf[f.id] == null; });
+    var free = function (f) { return D.slideOf[f.id] == null && f.status !== 'out'; };
     var list = $('#sheetList'); list.textContent = '';
+    function card(f, lines) {
+      var hi = hintsFor(f, nb);
+      return h('button', { class: 'card cand', type: 'button', onclick: function () { place(f.id); } },
+        h('div', { class: 'ph' }, f.thumbUrl ? h('img', { src: f.thumbUrl, alt: '' }) : null),
+        h('div', { class: 'cap' }, h('div', { class: 'fn', text: f.num }),
+          h('div', { class: 'sub' }, h('span', { class: 'camdot', style: 'background:' + camColor(f) }), camLabel(f)),
+          lines && lines.length ? h('div', { class: 'hints', text: lines.join(' · ') }) : null,
+          hi.good.length ? h('div', { class: 'hints', text: hi.good.join(' · ') }) : null,
+          hi.bad.length ? h('div', { class: 'hints flag', text: hi.bad.join(' · ') }) : null));
+    }
+    if (bridge) {
+      var A = nb[0], B = nb[1];
+      if (!A || !B || !A.metrics || !B.metrics) { list.appendChild(h('div', { class: 'empty', style: 'grid-column:1/-1', text: 'Bridges need a measured photo on both sides.' })); return; }
+      var pool = S.frames.filter(free);
+      var found = CS.bridgeCandidates(bridgeInfo(A), bridgeInfo(B), pool.map(bridgeInfo));
+      list.appendChild(h('div', { style: 'grid-column:1/-1;font-size:13px;color:var(--muted)',
+        text: 'Frames that could sit between ' + A.num + ' and ' + B.num + ': tone between the two sides, a scale unlike both, a camera matching one side. Best matches first.' }));
+      if (!found.length) list.appendChild(h('div', { class: 'empty', style: 'grid-column:1/-1', text: 'No frame in the pool meets any of the three. Tag scales in Cut to widen the search.' }));
+      found.forEach(function (c) { list.appendChild(card(S.byId.get(c.id), c.reasons)); });
+      return;
+    }
+    var cands = S.frames.filter(function (f) { return f.status === 'keep' && free(f); });
+    var rest = S.frames.filter(function (f) { return !f.status && free(f); });
     function section(title, fs) {
       if (!fs.length) return;
-      var scored = fs.map(function (f, k) { return { f: f, k: k, hi: hintsFor(f, nb) }; });
-      if (S.sheetSort === 'fit') scored.sort(function (a, b) { return (b.hi.fit - a.hi.fit) || (a.k - b.k); });
+      var scored = fs.map(function (f, k) { return { f: f, k: k, c: changeFrom(f, nb) }; });
+      if (S.sheetSort === 'change') scored.sort(function (a, b) { return (b.c - a.c) || (a.k - b.k); });
       list.appendChild(h('div', { style: 'grid-column:1/-1;font-size:13px;color:var(--muted);padding-top:4px', text: title }));
-      scored.forEach(function (x) {
-        var f = x.f;
-        var c = h('button', { class: 'card cand', type: 'button', onclick: function () { place(f.id); } },
-          h('div', { class: 'ph' }, f.thumbUrl ? h('img', { src: f.thumbUrl, alt: '' }) : null),
-          h('div', { class: 'cap' }, h('div', { class: 'fn', text: f.num }),
-            h('div', { class: 'sub' }, h('span', { class: 'camdot', style: 'background:' + camColor(f) }), camLabel(f)),
-            x.hi.good.length ? h('div', { class: 'hints', text: x.hi.good.join(' · ') }) : null,
-            x.hi.bad.length ? h('div', { class: 'hints flag', text: x.hi.bad.join(' · ') }) : null));
-        list.appendChild(c);
-      });
+      scored.forEach(function (x) { list.appendChild(card(x.f)); });
     }
     section('Kept (' + cands.length + ')', cands);
     section('Still to decide (' + rest.length + ')', rest);
@@ -1844,7 +2399,7 @@ self.onmessage = async function (e) {
   }
   function place(id) {
     var f = S.byId.get(id);
-    if (SH.mode === 'replace') { S.slides[SH.at] = { kind: 'photo', id: id }; derive(); }
+    if (SH.mode === 'replace') { S.slides[SH.at] = { kind: 'photo', id: id, pinned: !!S.slides[SH.at].pinned }; derive(); }
     else if (!addSlide({ kind: 'photo', id: id }, SH.at)) return;
     if (!f.status) f.status = 'keep';
     closeSheet(); changed();
