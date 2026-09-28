@@ -411,11 +411,16 @@ test('likely cuts: tiny, ranked, mechanical; the weaker twin, pocket shots, soft
   // a twin pair via identical hashes
   frames.push({ id: 'twA', num: 'ta', device: fuji, width: 6000, height: 4000, metrics: m({ dhash: 'ffff0000ffff0000', sharp: 500 }) });
   frames.push({ id: 'twB', num: 'tb', device: fuji, width: 6000, height: 4000, metrics: m({ dhash: 'ffff0000ffff0001', sharp: 300 }) });
+  // a loose stack member (8 bits apart) and a soft-but-blank frame are not cuts
+  frames.push({ id: 'loose', num: 'lo', device: fuji, width: 6000, height: 4000, metrics: m({ dhash: 'ffff0000ffff00ff', sharp: 200 }) });
+  frames.push({ id: 'wall', num: 'wl', device: fuji, width: 6000, height: 4000, metrics: m({ sharp: 2, lumSpread: 0.1 }) });
   const r = CS.likelyCuts(frames);
   assert.ok(r.ranked.includes('twB') && !r.ranked.includes('twA'), 'weaker twin flagged, stronger not');
   assert.equal(r.twins.twB, 'twA');
-  for (const id of ['pocket', 'blur', 'softish', 'blown', 'shot']) assert.ok(r.ranked.includes(id), id + ' should be flagged: ' + JSON.stringify(r.ranked));
+  for (const id of ['pocket', 'blur', 'softish', 'shot']) assert.ok(r.ranked.includes(id), id + ' should be flagged: ' + JSON.stringify(r.ranked));
+  assert.ok(!r.ranked.includes('blown') && r.borderline.includes('blown'), 'exposure alone is borderline, never on the list');
   assert.ok(!r.ranked.includes('kept'), 'decided frames are never flagged');
+  assert.ok(!r.ranked.includes('loose') && !r.ranked.includes('wall'), 'loose twins and blank frames are not cuts');
   assert.ok(!r.ranked.includes('magenta'), 'a colour cast alone is too weak to make the list');
   assert.ok(r.ranked.length <= r.cap + 1, 'tiny: at most ~10% plus twins');
   assert.equal(r.ranked[0], 'twB');

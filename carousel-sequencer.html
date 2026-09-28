@@ -96,6 +96,50 @@
   .camdot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
   .empty { padding: 40px 0; color: var(--muted); text-align: center; }
 
+  .passes { display: grid; grid-template-columns: repeat(4, minmax(0, 1fr)); gap: 6px; padding-top: 12px; }
+  .pass { border: 1px solid var(--line); border-radius: 10px; padding: 8px 10px; background: var(--panel); display: flex; flex-direction: column; gap: 4px; text-align: left; min-height: 0; }
+  .pass b { font-size: 13px; } .pass span { font-size: 12px; color: var(--muted); }
+  .pass.now { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
+  .pass.done b::after { content: ' ✓'; color: var(--keep); }
+  .readout { display: flex; gap: 12px; align-items: baseline; flex-wrap: wrap; padding-top: 10px; }
+  .readout b { font-size: 22px; font-variant-numeric: tabular-nums; }
+  .readout .bar { flex: 1 1 140px; height: 6px; background: var(--well); border-radius: 3px; overflow: hidden; position: relative; }
+  .readout .bar i { position: absolute; left: 0; top: 0; bottom: 0; background: var(--keep); }
+  .readout .bar i.over { background: var(--flag); }
+  .readout input { width: 56px; padding: 3px 6px; }
+  .card.hero { border-color: var(--text); box-shadow: inset 0 0 0 1px var(--text); }
+  .badge.hero { background: var(--on); color: var(--onText); }
+  .badge.flagb { background: var(--flag); color: #fff; }
+  .card .fl.reason { color: var(--flag); }
+  .dot { display: inline-block; width: 8px; height: 8px; border-radius: 50%; margin-right: 5px; vertical-align: 0; }
+  .lHint { position: absolute; left: 50%; top: 50%; transform: translate(-50%, -50%); font: 700 28px var(--sans); color: #fff; background: rgba(0,0,0,.6); padding: 10px 18px; border-radius: 12px; pointer-events: none; opacity: 0; transition: opacity .15s; }
+  .lHint.show { opacity: 1; }
+  #loupe button.heroBtn[aria-pressed="true"] { background: #eee; color: #111; border-color: #eee; }
+  .lActs { grid-template-columns: 1fr 1fr 1fr 1.3fr; }
+  .lFlag { color: #f0b04a; }
+  #survey, #compare { position: fixed; inset: 0; z-index: 60; background: var(--bg); color: var(--text); display: flex; flex-direction: column; padding: env(safe-area-inset-top, 0px) 16px env(safe-area-inset-bottom, 0px); overflow: auto; }
+  .sTop { display: flex; align-items: center; gap: 10px; padding: 10px 0; }
+  .sTop .spacer { flex: 1; }
+  .svGrid { display: grid; grid-template-columns: repeat(auto-fill, minmax(96px, 1fr)); gap: 6px; padding-bottom: 24px; }
+  .svGrid.gridSize { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 2px; background: #000; padding: 2px; border-radius: 4px; max-width: 390px; }
+  .sv { position: relative; background: var(--well); overflow: hidden; border-radius: 4px; aspect-ratio: 1; cursor: pointer; border: 0; padding: 0; }
+  .svGrid.gridSize .sv { aspect-ratio: 3 / 4; border-radius: 0; }
+  .sv img { width: 100%; height: 100%; object-fit: cover; display: block; }
+  .svGrid:not(.gridSize) .sv img { object-fit: contain; }
+  .sv.dropped { opacity: .3; }
+  .sv .n { position: absolute; left: 3px; bottom: 3px; font: 600 11px var(--mono); color: #fff; text-shadow: 0 0 3px #000, 0 0 3px #000; }
+  .sv .h { position: absolute; right: 3px; top: 3px; color: #fff; text-shadow: 0 0 3px #000; }
+  .cpPair { display: grid; grid-template-columns: 1fr 1fr; gap: 6px; flex: 1 1 auto; min-height: 0; }
+  .cpPair.solo { grid-template-columns: 1fr; }
+  .cp { position: relative; background: var(--well); border-radius: 6px; overflow: hidden; min-height: 40vh; cursor: pointer; border: 0; padding: 0; }
+  .cp img { position: absolute; inset: 0; width: 100%; height: 100%; object-fit: contain; }
+  .cp .cap { position: absolute; left: 0; right: 0; bottom: 0; padding: 4px 8px; background: rgba(0,0,0,.65); color: #fff; font: 12px var(--mono); }
+  .cpActs { display: grid; grid-template-columns: 1fr auto 1fr; gap: 8px; padding: 10px 0; }
+  .undoPill { position: fixed; left: 50%; bottom: calc(16px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); z-index: 70; background: var(--on); color: var(--onText);
+    padding: 6px 8px 6px 14px; border-radius: 999px; display: flex; gap: 10px; align-items: center; font-size: 14px; max-width: calc(100vw - 32px); }
+  .undoPill button { background: transparent; color: inherit; border-color: rgba(128,128,128,.5); }
+  @media (max-width: 520px) { .passes { grid-template-columns: repeat(2, minmax(0, 1fr)); } .lActs { grid-template-columns: 1fr 1fr; } .readout .bar { flex-basis: 100%; order: 9; } .cp { min-height: 34vh; } }
+
   /* ---------- loupe ---------- */
   #loupe { position: fixed; inset: 0; z-index: 60; background: #0e0e0e; color: #eee; display: flex; flex-direction: column;
     padding: env(safe-area-inset-top, 0px) 0 env(safe-area-inset-bottom, 0px); }
@@ -219,7 +263,7 @@
   .gcell { position: relative; overflow: hidden; background: #2a2a2a; }
   #exportLog { font: 12px var(--mono); color: var(--muted); white-space: pre-wrap; overflow-wrap: anywhere; }
   label.field { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
-  .toast { position: fixed; left: 50%; bottom: calc(24px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--on); color: var(--onText);
+  .toast { position: fixed; left: 50%; bottom: calc(70px + env(safe-area-inset-bottom, 0px)); transform: translateX(-50%); background: var(--on); color: var(--onText);
     padding: 9px 14px; border-radius: 8px; z-index: 90; max-width: calc(100vw - 32px); font-size: 14px; }
   @media (max-width: 520px) {
     #grid, #sheet .list { grid-template-columns: repeat(3, minmax(0, 1fr)); gap: 6px; }
@@ -248,6 +292,7 @@
 <div class="wrap"><div id="notices"></div></div>
 
 <section id="cutView" class="wrap">
+  <div id="passes" class="passes"></div>
   <div class="toolbar">
     <div class="row">
       <label class="filebtn"><button type="button" class="primary" tabindex="-1">Add from Photos</button>
@@ -260,9 +305,10 @@
     </div>
     <div class="row">
       <div class="seg" id="filterSeg" role="group" aria-label="Show">
-        <button data-f="todo">To decide</button><button data-f="keep">Kept</button><button data-f="out">Out</button><button data-f="all">All</button>
+        <button data-f="flag">Flagged</button><button data-f="todo">To decide</button><button data-f="keep">Kept</button><button data-f="out">Out</button><button data-f="all">All</button>
       </div>
       <button id="stackBtn" class="small" aria-pressed="true">Stack twins</button>
+      <button id="outFlagsBtn" class="small" hidden></button>
     </div>
     <div class="chips" id="camChips"></div>
   </div>
@@ -326,9 +372,9 @@
 
 <div id="loupe" hidden role="dialog" aria-modal="true" aria-label="Photo">
   <div class="lTop"><button id="lClose" aria-label="Close">✕</button><span class="fn" id="lName"></span><span id="lPos" class="num" style="color:#999"></span></div>
-  <div class="lImg" id="lImg"><img id="lPic" alt=""><button class="lNav prev" id="lPrev" aria-label="Previous">‹</button><button class="lNav next" id="lNext" aria-label="Next">›</button></div>
+  <div class="lImg" id="lImg"><img id="lPic" alt=""><div class="lHint" id="lHint"></div><button class="lNav prev" id="lPrev" aria-label="Previous">‹</button><button class="lNav next" id="lNext" aria-label="Next">›</button></div>
   <div class="lPanel">
-    <div class="lActs"><button id="lOut">Out</button><button id="lKeep" class="keepBtn">Keep</button><button id="lAdd">Add to carousel</button></div>
+    <div class="lActs"><button id="lOut">Out ↓</button><button id="lKeep" class="keepBtn">Keep ↑</button><button id="lHero" class="heroBtn">★ Hero</button><button id="lAdd">Add to carousel</button></div>
     <div class="lInfo" id="lInfo"></div>
     <div class="tagrow" id="lScale"></div>
     <div class="tagrow" id="lYou"></div>
@@ -338,6 +384,21 @@
   </div>
 </div>
 
+<div id="survey" hidden role="dialog" aria-modal="true" aria-label="Survey">
+  <div class="sTop"><button id="svClose" aria-label="Close">✕</button><b id="svTitle"></b><span class="spacer"></span>
+    <button id="svSize" class="small" aria-pressed="false">Grid size</button><button id="svCompare" class="small">Compare pairs</button></div>
+  <p class="muted" id="svHelp"></p>
+  <div id="svGrid" class="svGrid"></div>
+</div>
+<div id="compare" hidden role="dialog" aria-modal="true" aria-label="Compare">
+  <div class="sTop"><button id="cpClose" aria-label="Close">✕</button><b id="cpTitle"></b><span class="spacer"></span><span id="cpPos" class="num muted"></span></div>
+  <div class="cpPair" id="cpPair"></div>
+  <div class="cpActs">
+    <button id="cpLeft">Keep left, drop right</button><button id="cpBoth">Keep both</button><button id="cpRight">Keep right, drop left</button>
+  </div>
+  <p class="muted" id="cpHelp">Tap a frame to see it full-size; tap again to go back. Dropping returns a frame to undecided, never to Out.</p>
+</div>
+<div id="undo" class="undoPill" hidden><span id="undoText"></span><button id="undoBtn" class="small">Undo</button></div>
 <div id="sheet" hidden>
   <div class="box" role="dialog" aria-modal="true" aria-labelledby="sheetTitle">
     <div class="hd"><b id="sheetTitle"></b>
@@ -932,6 +993,8 @@ var CS = (function () {
   var CUT = {
     softRel: 0.35,      // sharpness below this share of the camera median
     softAbs: 6,         // Laplacian variance on the 768px copy: nothing in focus anywhere
+    softMinSpread: 0.22,// soft is only judged on frames with some tonal range (a blank wall scores low too)
+    twinTight: 6,       // hamming distance within which the weaker twin is a likely cut
     darkLum: 0.06, darkSpread: 0.18,   // pocket shot: almost black and almost flat
     blownAbs: 30, blownRel: 15,        // % pixels clipped
     crushAbs: 45,
@@ -941,7 +1004,7 @@ var CS = (function () {
   };
   function likelyCuts(frames) {
     var byId = {}, twinsKeep = {};
-    var cands = frames.filter(function (f) { return f.kind !== 'video' && f.status !== 'out' && f.status !== 'keep' && f.status !== 'lock' && f.metrics; });
+    var cands = frames.filter(function (f) { return f.kind !== 'video' && !f.status && f.metrics; });
     var bases = cameraBaselines(cands.filter(function (f) { return !f.raw; }));
     function add(f, key, text, conf) { (byId[f.id] = byId[f.id] || []).push({ key: key, text: text, conf: conf }); }
     // twins: keep the strongest of each stack
@@ -956,6 +1019,7 @@ var CS = (function () {
       });
       var keep = list[0];
       list.slice(1).forEach(function (f) {
+        if (hamming(f.metrics.dhash, keep.metrics.dhash) > CUT.twinTight) return;   // a loose stack member is not a cut
         twinsKeep[f.id] = keep.id;
         var why = (f.metrics.sharp || 0) < (keep.metrics.sharp || 0) * 0.9 ? 'softer twin of ' : (f.metrics.clipPct || 0) > (keep.metrics.clipPct || 0) + 0.5 ? 'more clipped twin of ' : 'twin of ';
         add(f, 'twin', why + (keep.num || keep.id), 0.9);
@@ -966,7 +1030,7 @@ var CS = (function () {
       var m = f.metrics, base = bases.byCamera[(f.device && f.device.key) || ''];
       var judged = base && base.n >= MIN_GROUP;
       var conf = 0;
-      if (m.sharp != null) {
+      if (m.sharp != null && m.lumSpread >= CUT.softMinSpread) {
         if (m.sharp < CUT.softAbs) { add(f, 'soft', 'nothing in focus', 0.95); conf = Math.max(conf, 0.95); }
         else if (judged && base.sharp > 0 && m.sharp < CUT.softRel * base.sharp) {
           var c = 0.5 + 0.4 * (1 - m.sharp / (CUT.softRel * base.sharp));
@@ -974,9 +1038,10 @@ var CS = (function () {
         }
       }
       if (m.lumMedian < CUT.darkLum && m.lumSpread < CUT.darkSpread) { add(f, 'dark', 'almost black and flat: a pocket shot?', 0.9); conf = Math.max(conf, 0.9); }
-      if (m.clipPct > CUT.blownAbs) { add(f, 'blown', Math.round(m.clipPct) + '% blown out', 0.8); conf = Math.max(conf, 0.8); }
-      else if (judged && m.clipPct > base.clipPct + CUT.blownRel) { add(f, 'blown', Math.round(m.clipPct) + '% clipped, against ' + Math.round(base.clipPct) + '% for its camera', 0.6); conf = Math.max(conf, 0.6); }
-      if (m.crushPct > CUT.crushAbs) { add(f, 'crushed', Math.round(m.crushPct) + '% crushed to black', 0.7); conf = Math.max(conf, 0.7); }
+      // exposure alone never makes the list (low-key and high-key are looks): it is shown as a reason
+      // only when it is extreme AND the frame is also off its camera, and even then at low confidence
+      if (m.clipPct > CUT.blownAbs && judged && m.clipPct > base.clipPct + CUT.blownRel) { add(f, 'blown', Math.round(m.clipPct) + '% blown out, against ' + Math.round(base.clipPct) + '% for its camera', 0.4); conf = Math.max(conf, 0.4); }
+      if (m.crushPct > CUT.crushAbs && judged && m.crushPct > base.crushPct + CUT.blownRel) { add(f, 'crushed', Math.round(m.crushPct) + '% crushed to black, against ' + Math.round(base.crushPct) + '% for its camera', 0.4); conf = Math.max(conf, 0.4); }
       if (m.lumSpread < CUT.flatSpread && m.lumMedian >= CUT.darkLum) { add(f, 'flat', 'almost no tonal range', 0.45); conf = Math.max(conf, 0.45); }
       if (f.width && f.height) {
         var asp = Math.max(f.width, f.height) / Math.min(f.width, f.height);
@@ -992,8 +1057,12 @@ var CS = (function () {
     scored.sort(function (a, b) { return b.conf - a.conf; });
     var cap = Math.max(3, Math.round(CUT_FLAG_SHARE * cands.length));
     var ranked = Object.keys(twinsKeep);
-    scored.forEach(function (x) { if (ranked.length < cap + Object.keys(twinsKeep).length && ranked.indexOf(x.id) < 0 && x.conf >= 0.45) ranked.push(x.id); });
-    return { byId: byId, ranked: ranked, twins: twinsKeep, cap: cap };
+    var borderline = [];
+    scored.forEach(function (x) {
+      if (ranked.indexOf(x.id) >= 0) return;
+      if (ranked.length < cap + Object.keys(twinsKeep).length && x.conf >= 0.45) ranked.push(x.id); else borderline.push(x.id);
+    });
+    return { byId: byId, ranked: ranked, borderline: borderline, twins: twinsKeep, cap: cap };
   }
   function cutReasons(res, id) {
     return (res.byId[id] || []).slice().sort(function (a, b) { return b.conf - a.conf; });
@@ -1490,9 +1559,11 @@ self.onmessage = async function (e) {
   var S = {
     title: '', frames: [], byId: new Map(), slides: [], example: false,
     filter: 'todo', cam: null, stack: true, tab: 'cut',
-    aspect: '4:5', gridAspect: '3:4', sheetSort: 'fit', renamed: [], measured: 0
+    aspect: '4:5', gridAspect: '3:4', sheetSort: 'added', renamed: [], measured: 0,
+    target: 20, statusVersion: 0, undo: []
   };
-  var D = { twins: { groupOf: {}, groups: {} }, rhymes: {}, at: -1, bases: null, slideOf: {}, camOrder: [] };
+  function isKept(f) { return f.status === 'keep' || f.status === 'hero'; }
+  var D = { twins: { groupOf: {}, groups: {} }, rhymes: {}, bursts: { groupOf: {}, groups: {} }, cuts: { byId: {}, ranked: [], borderline: [], twins: {}, cap: 0 }, at: -1, bases: null, slideOf: {}, camOrder: [] };
 
   function $(s) { return document.querySelector(s); }
   function h(tag, attrs) {
@@ -1559,7 +1630,7 @@ self.onmessage = async function (e) {
   function projectJSON() {
     return {
       tool: 'carousel-sequencer', version: 2, savedAt: new Date().toISOString(),
-      title: S.title, aspect: S.aspect, gridAspect: S.gridAspect,
+      title: S.title, aspect: S.aspect, gridAspect: S.gridAspect, target: S.target,
       frames: S.frames.map(function (f) {
         return { id: f.id, name: f.name, size: f.size, raw: f.raw, exif: f.exif, status: f.status, tags: f.tags, crop: f.crop };
       }),
@@ -1576,6 +1647,7 @@ self.onmessage = async function (e) {
     var p; try { p = JSON.parse(raw); } catch (e) { return false; }
     if (!p.frames || !p.frames.length) return false;
     S.title = p.title || ''; S.aspect = CS.ASPECTS[p.aspect] ? p.aspect : '4:5'; S.gridAspect = p.gridAspect === '1:1' ? '1:1' : '3:4';
+    S.target = Math.min(CS.MAX_SLIDES, Math.max(1, +p.target || 20));
     for (var i = 0; i < p.frames.length; i++) {
       var x = p.frames[i];
       var f = newFrame(null, x.name, x.size, x.exif || {});
@@ -1674,7 +1746,7 @@ self.onmessage = async function (e) {
     S.frames.forEach(function (f) { if (f.thumbUrl) URL.revokeObjectURL(f.thumbUrl); if (f.previewUrl) URL.revokeObjectURL(f.previewUrl); });
     stopWorkers();
     S.frames = []; S.byId = new Map(); S.slides = []; S.title = ''; S.example = false; S.renamed = []; S.measured = 0;
-    S.cam = null; S.filter = 'todo';
+    S.cam = null; S.filter = 'todo'; S.undo = []; S.target = 20;
     D.at = -1; cards = new Map(); $('#grid').textContent = '';
     if (!silent) { idb('proj', 'readwrite', function (st) { return st.delete('current'); }); changed(); }
   }
@@ -1756,12 +1828,47 @@ self.onmessage = async function (e) {
   var raf = false;
   function scheduleRender() { if (raf) return; raf = true; requestAnimationFrame(function () { raf = false; render(); }); }
 
+  /* ---------- decisions: every status change goes through here, so it can be undone ---------- */
+  function decide(ids, status, label) {
+    var changes = [];
+    ids.forEach(function (id) {
+      var f = S.byId.get(id); if (!f || f.status === status) return;
+      changes.push({ id: id, from: f.status });
+      f.status = status;
+      if (status === 'out' && D.slideOf[id] != null) removeSlide(D.slideOf[id]);
+    });
+    if (!changes.length) return false;
+    S.undo.push({ label: label, changes: changes });
+    if (S.undo.length > 50) S.undo.shift();
+    S.statusVersion++;
+    showUndo(label);
+    return true;
+  }
+  function undo() {
+    var u = S.undo.pop(); if (!u) return;
+    u.changes.forEach(function (c) { var f = S.byId.get(c.id); if (f) f.status = c.from; });
+    S.statusVersion++;
+    $('#undo').hidden = true;
+    changed();
+    toast('Undone: ' + u.label);
+  }
+  var undoTimer = null;
+  function showUndo(label) {
+    $('#undoText').textContent = label;
+    $('#undo').hidden = false;
+    clearTimeout(undoTimer);
+    undoTimer = setTimeout(function () { $('#undo').hidden = true; }, 6000);
+  }
+  $('#undoBtn').onclick = undo;
+
   /* ---------- derived: twins, rhymes, per-camera baselines ---------- */
   function derive() {
     if (D.at !== S.measured || D.n !== S.frames.length) {
       D.twins = CS.twins(S.frames);
       D.rhymes = CS.rhymes(S.frames);
+      D.bursts = CS.bursts(S.frames);
       D.at = S.measured; D.n = S.frames.length;
+      D.cutsAt = -1;
       var seen = {};
       D.camOrder = [];
       S.frames.forEach(function (f) { var k = f.device.key; if (!(k in seen)) { seen[k] = D.camOrder.length; D.camOrder.push(k); } });
@@ -1769,6 +1876,8 @@ self.onmessage = async function (e) {
     }
     D.slideOf = {};
     S.slides.forEach(function (s, i) { if (s.kind === 'photo') D.slideOf[s.id] = i; });
+    var cutKey = S.measured + ':' + S.statusVersion + ':' + S.frames.length;
+    if (D.cutsAt !== cutKey) { D.cuts = CS.likelyCuts(S.frames); D.cutsAt = cutKey; }
     var inCar = CS.cameraBaselines(S.frames, function (f) { return D.slideOf[f.id] != null; });
     var pool = CS.cameraBaselines(S.frames, function (f) { return f.status !== 'out'; });
     D.bases = { car: inCar, pool: pool, set: pool.set };
@@ -1801,11 +1910,11 @@ self.onmessage = async function (e) {
   function render() {
     derive();
     var n = S.frames.length, kept = 0, out = 0;
-    S.frames.forEach(function (f) { if (f.status === 'keep') kept++; else if (f.status === 'out') out++; });
+    S.frames.forEach(function (f) { if (isKept(f)) kept++; else if (f.status === 'out') out++; });
     if (document.activeElement !== $('#titleIn')) $('#titleIn').value = S.title;
     $('#counts').textContent = n ? plural(n, 'frame') + ' · ' + kept + ' kept · ' + out + ' out · ' + S.slides.length + ' of 20 in the carousel' +
       (S.example ? ' · example frames' : '') : 'Add photos to start cutting.';
-    $('#nCut').textContent = n ? ' ' + (n - kept - out) : '';
+    $('#nCut').textContent = n ? ' ' + kept + '/' + S.target : '';
     $('#nSeq').textContent = ' ' + S.slides.length + '/20';
     document.querySelectorAll('nav .tabs button').forEach(function (b) { b.setAttribute('aria-selected', String(b.dataset.tab === S.tab)); });
     renderNotices();
@@ -1835,8 +1944,9 @@ self.onmessage = async function (e) {
   var cards = new Map();
   function visibleInCut(f) {
     if (S.cam != null && f.device.key !== S.cam) return false;
+    if (S.filter === 'flag') return !f.status && D.cuts.ranked.indexOf(f.id) >= 0;
     if (S.filter === 'todo') return !f.status;
-    if (S.filter === 'keep') return f.status === 'keep';
+    if (S.filter === 'keep') return isKept(f);
     if (S.filter === 'out') return f.status === 'out';
     return true;
   }
@@ -1856,8 +1966,50 @@ self.onmessage = async function (e) {
     });
     return out;
   }
+  function counts() {
+    var c = { n: S.frames.length, kept: 0, hero: 0, out: 0, todo: 0, flagged: 0 };
+    S.frames.forEach(function (f) { if (f.status === 'hero') { c.kept++; c.hero++; } else if (f.status === 'keep') c.kept++; else if (f.status === 'out') c.out++; else c.todo++; });
+    c.flagged = D.cuts.ranked.filter(function (id) { var f = S.byId.get(id); return f && !f.status; }).length;
+    return c;
+  }
+  function renderPasses() {
+    var c = counts(), box = $('#passes'); box.textContent = '';
+    if (!c.n) return;
+    var over = c.kept - S.target;
+    var stage = c.flagged ? 0 : c.todo ? (c.kept ? 2 : 1) : over > 0 ? 3 : 4;
+    var passes = [
+      ['1 · Flags', c.flagged ? c.flagged + ' likely cuts to review' : 'nothing flagged', 'flag'],
+      ['2 · Sweep', c.todo ? c.todo + ' to decide · swipe ↓ out, ↑ keep' : 'all decided', 'todo'],
+      ['3 · Keep', c.kept + ' kept' + (c.hero ? ' · ' + c.hero + ' hero' : ''), 'keep'],
+      ['4 · Narrow', over > 0 ? 'cut ' + over + ' more to reach ' + S.target : c.kept ? 'at ' + c.kept + ' of ' + S.target : 'keep some frames first', 'narrow']
+    ];
+    passes.forEach(function (pz, i) {
+      box.appendChild(h('button', { class: 'pass' + (i === stage ? ' now' : '') + (i < stage ? ' done' : ''), type: 'button', onclick: function () {
+        if (pz[2] === 'narrow') { openSurvey(); return; }
+        S.filter = pz[2]; render();
+        var first = $('#grid .card'); if (first && pz[2] !== 'keep') openLoupe(first.dataset.id);
+      } }, h('b', { text: pz[0] }), h('span', { text: pz[1] })));
+    });
+    var ro = h('div', { class: 'readout' });
+    ro.appendChild(h('b', { text: c.kept + ' kept' }));
+    ro.appendChild(h('span', { class: 'muted', text: 'target' }));
+    var ti = h('input', { type: 'number', min: '1', max: String(CS.MAX_SLIDES), value: String(S.target), 'aria-label': 'Target number of slides' });
+    ti.addEventListener('change', function () { S.target = Math.min(CS.MAX_SLIDES, Math.max(1, +ti.value || 20)); changed(); });
+    ro.appendChild(ti);
+    var bar = h('div', { class: 'bar' }), fill = h('i', { class: over > 0 ? 'over' : '' });
+    fill.style.width = Math.min(100, 100 * c.kept / Math.max(S.target, c.kept)) + '%';
+    bar.appendChild(fill); ro.appendChild(bar);
+    ro.appendChild(h('span', { class: 'muted', text: over > 0 ? over + ' over' : c.kept === S.target ? 'on target' : (S.target - c.kept) + ' short' }));
+    if (c.kept > 1) ro.appendChild(h('button', { class: 'small', text: 'Survey', onclick: openSurvey }));
+    if (c.kept > 1) ro.appendChild(h('button', { class: 'small', text: 'Compare', onclick: function () { openCompare(); } }));
+    box.appendChild(ro);
+  }
   function renderCut() {
+    renderPasses();
     document.querySelectorAll('#filterSeg button').forEach(function (b) { b.setAttribute('aria-pressed', String(b.dataset.f === S.filter)); });
+    var c = counts(), ob = $('#outFlagsBtn');
+    ob.hidden = !(S.filter === 'flag' && c.flagged);
+    ob.textContent = 'Out all ' + c.flagged + ' flagged';
     $('#stackBtn').setAttribute('aria-pressed', String(S.stack));
     $('#folderLabel').hidden = isIOS || inFrame || !('webkitdirectory' in document.createElement('input'));
     // camera chips
@@ -1884,6 +2036,7 @@ self.onmessage = async function (e) {
     var empty = $('#gridEmpty');
     empty.hidden = list.length > 0;
     if (!list.length) empty.textContent = !S.frames.length ? 'Add photos from your library or files, or one .zip of the whole pool. You will cut it down here.'
+      : S.filter === 'flag' ? 'Nothing flagged' + (S.cam != null ? ' for this camera' : '') + '. Flags are mechanical only: the weaker of a tight twin pair, pocket shots, nothing in focus, much softer than its camera, screenshots.'
       : S.filter === 'todo' ? 'Nothing left to decide' + (S.cam != null ? ' for this camera' : '') + '.' : 'Nothing here.';
   }
   function makeCard(f) {
@@ -1899,21 +2052,29 @@ self.onmessage = async function (e) {
   function updateCard(c, f) {
     var g = D.twins.groupOf[f.id], nTw = g ? D.twins.groups[g].length : 0, slide = D.slideOf[f.id];
     var words = flagWords(f), rh = D.rhymes[f.id];
-    var sig = [f.thumbUrl, f.status, slide, nTw, words.join(), rh ? rh.length : 0, f.measure, S.stack].join('|');
+    var reasons = !f.status ? CS.cutReasons(D.cuts, f.id) : [], flagged = !f.status && D.cuts.ranked.indexOf(f.id) >= 0;
+    var bu = D.bursts.groupOf[f.id], nBu = bu ? D.bursts.groups[bu].length : 0;
+    var sig = [f.thumbUrl, f.status, slide, nTw, words.join(), rh ? rh.length : 0, f.measure, S.stack, flagged, reasons.length ? reasons[0].text : '', nBu].join('|');
     if (c.sig === sig) return;
     c.sig = sig;
     if (f.thumbUrl && c.img.src !== f.thumbUrl) c.img.src = f.thumbUrl;
     c.el.classList.toggle('out', f.status === 'out');
     c.el.classList.toggle('kept', f.status === 'keep');
-    c.el.setAttribute('aria-label', f.name + (f.status ? ', ' + (f.status === 'keep' ? 'kept' : 'out') : ''));
+    c.el.classList.toggle('hero', f.status === 'hero');
+    c.el.setAttribute('aria-label', f.name + (f.status ? ', ' + (f.status === 'out' ? 'out' : f.status) : flagged ? ', flagged' : ''));
     c.fn.textContent = f.num;
     c.fn.title = f.name;
     c.sub.textContent = '';
     c.sub.appendChild(h('span', { class: 'camdot', style: 'background:' + camColor(f) }));
     c.sub.appendChild(document.createTextNode(camLabel(f) + (f.raw ? ' · RAW' : '')));
-    c.fl.textContent = f.measure === 'error' ? 'could not open' : f.measure !== 'done' ? (f.measure === 'needs file' ? 'add again to measure' : '…') : words.join(' · ');
+    c.fl.className = 'fl' + (flagged ? ' reason' : '');
+    c.fl.textContent = f.measure === 'error' ? 'could not open' : f.measure !== 'done' ? (f.measure === 'needs file' ? 'add again to measure' : '…')
+      : flagged ? reasons[0].text : words.join(' · ');
     Array.prototype.slice.call(c.ph.querySelectorAll('.badge')).forEach(function (b) { b.remove(); });
     if (f.status === 'keep') c.ph.appendChild(h('span', { class: 'badge tl keep', text: 'Kept' }));
+    if (f.status === 'hero') c.ph.appendChild(h('span', { class: 'badge tl hero', text: '★ Hero' }));
+    if (flagged) c.ph.appendChild(h('span', { class: 'badge tl flagb', text: 'likely cut' }));
+    if (!S.stack && nBu > 1 && !flagged) c.ph.appendChild(h('span', { class: 'badge tr', text: 'burst ' + nBu }));
     if (slide != null) c.ph.appendChild(h('span', { class: 'badge tr', text: '#' + (slide + 1) }));
     if (S.stack && nTw > 1) c.ph.appendChild(h('span', { class: 'badge bl', text: '×' + nTw + ' twins' }));
     else if (nTw > 1) c.ph.appendChild(h('span', { class: 'badge bl', text: 'twin' }));
@@ -1952,6 +2113,7 @@ self.onmessage = async function (e) {
     if (pic.getAttribute('src') !== src) pic.src = src;
     pic.alt = f.name;
     $('#lKeep').setAttribute('aria-pressed', String(f.status === 'keep'));
+    $('#lHero').setAttribute('aria-pressed', String(f.status === 'hero'));
     $('#lOut').setAttribute('aria-pressed', String(f.status === 'out'));
     var slide = D.slideOf[f.id];
     $('#lAdd').textContent = slide != null ? 'In carousel · #' + (slide + 1) + ' (remove)' : 'Add to carousel';
@@ -1960,6 +2122,11 @@ self.onmessage = async function (e) {
     info.appendChild(h('div', null, h('span', { class: 'camdot', style: 'background:' + camColor(f) }), camLabel(f) +
       (f.width ? ' · ' + f.width + '×' + f.height : '') + (f.raw ? ' · RAW: camera preview, colour not checked' : '')));
     var base = baseFor(f), flags = flagsOf(f);
+    var reasons = CS.cutReasons(D.cuts, f.id), flagged = !f.status && D.cuts.ranked.indexOf(f.id) >= 0;
+    if (flagged) info.appendChild(h('div', { class: 'lFlag', text: 'Likely cut: ' + reasons.map(function (r) { return r.text; }).join('; ') + '. Yours to decide.' }));
+    else if (reasons.length && !f.status) info.appendChild(h('div', { style: 'color:#999', text: 'Borderline: ' + reasons.map(function (r) { return r.text; }).join('; ') }));
+    var bu = D.bursts.groupOf[f.id];
+    if (bu) info.appendChild(h('div', { style: 'color:#999', text: 'Burst of ' + D.bursts.groups[bu].length + ' within a few seconds: ' + D.bursts.groups[bu].map(function (id) { var g = S.byId.get(id); return g ? g.num : id; }).join(', ') }));
     if (f.metrics && !f.raw) {
       if (!base || base.n < CS.MIN_GROUP) info.appendChild(h('div', { text: 'Fewer than ' + CS.MIN_GROUP + ' frames from this camera, so nothing to compare against yet.' }));
       else if (!flags.length) info.appendChild(h('div', { text: 'In line with the other ' + camLabel(f) + ' frames.' }));
@@ -2022,8 +2189,8 @@ self.onmessage = async function (e) {
   function setStatus(st) {
     var f = S.byId.get(L.id); if (!f) return;
     var before = L.list.slice(), i = before.indexOf(f);
-    f.status = f.status === st ? null : st;
-    if (f.status === 'out' && D.slideOf[f.id] != null) removeSlide(D.slideOf[f.id]);
+    var to = f.status === st ? null : st;
+    decide([f.id], to, f.num + (to ? ' → ' + (to === 'out' ? 'out' : to) : ' → undecided'));
     changed();
     // move on to the next frame, like a culling loupe
     if (f.status) {
@@ -2038,23 +2205,113 @@ self.onmessage = async function (e) {
   $('#lPrev').onclick = function () { loupeStep(-1); };
   $('#lNext').onclick = function () { loupeStep(1); };
   $('#lKeep').onclick = function () { setStatus('keep'); };
+  $('#lHero').onclick = function () { setStatus('hero'); };
   $('#lOut').onclick = function () { setStatus('out'); };
   $('#lAdd').onclick = function () {
     var f = S.byId.get(L.id); if (!f) return;
     if (D.slideOf[f.id] != null) removeSlide(D.slideOf[f.id]);
-    else { if (!addSlide({ kind: 'photo', id: f.id })) return; if (!f.status) f.status = 'keep'; toast('Added as slide ' + S.slides.length); }
+    else { if (!addSlide({ kind: 'photo', id: f.id })) return; if (!f.status) decide([f.id], 'keep', f.num + ' → kept'); toast('Added as slide ' + S.slides.length); }
     changed();
   };
+  /* Swipes, one meaning per axis: left/right = next/previous, up = keep, down = out.
+     A high threshold and a hint that appears during the drag keep accidental swipes rare. */
   (function swipe() {
-    var el = $('#lImg'), x0 = null, y0 = 0;
-    el.addEventListener('pointerdown', function (e) { if (e.target.tagName === 'BUTTON') return; x0 = e.clientX; y0 = e.clientY; });
-    el.addEventListener('pointerup', function (e) {
+    var el = $('#lImg'), hint = $('#lHint'), x0 = null, y0 = 0, pid = null;
+    var TH = 70;
+    el.addEventListener('pointerdown', function (e) { if (e.target.tagName === 'BUTTON') return; x0 = e.clientX; y0 = e.clientY; pid = e.pointerId; try { el.setPointerCapture(pid); } catch (er) {} });
+    el.addEventListener('pointermove', function (e) {
       if (x0 == null) return;
-      var dx = e.clientX - x0, dy = e.clientY - y0; x0 = null;
-      if (Math.abs(dx) > 40 && Math.abs(dx) > Math.abs(dy)) loupeStep(dx < 0 ? 1 : -1);
+      var dx = e.clientX - x0, dy = e.clientY - y0, vert = Math.abs(dy) > Math.abs(dx) * 1.3;
+      var t = vert && dy <= -TH ? 'Keep ↑' : vert && dy >= TH ? 'Out ↓' : !vert && dx <= -TH ? 'Next ›' : !vert && dx >= TH ? '‹ Previous' : '';
+      hint.textContent = t; hint.classList.toggle('show', !!t);
     });
-    el.addEventListener('pointercancel', function () { x0 = null; });
+    function end(e) {
+      if (x0 == null) return;
+      var dx = e.clientX - x0, dy = e.clientY - y0, vert = Math.abs(dy) > Math.abs(dx) * 1.3; x0 = null;
+      hint.classList.remove('show');
+      if (vert && dy <= -TH) setStatus('keep');
+      else if (vert && dy >= TH) setStatus('out');
+      else if (!vert && Math.abs(dx) >= TH) loupeStep(dx < 0 ? 1 : -1);
+    }
+    el.addEventListener('pointerup', end);
+    el.addEventListener('pointercancel', function () { x0 = null; hint.classList.remove('show'); });
   })();
+
+  /* ----- Survey: the kept set at a glance, tap to drop back to undecided ----- */
+  var SV = { gridSize: false };
+  function openSurvey() {
+    if (!S.frames.some(isKept)) { toast('Keep some frames first'); return; }
+    $('#survey').hidden = false; document.body.style.overflow = 'hidden'; renderSurvey();
+  }
+  function closeSurvey() { $('#survey').hidden = true; document.body.style.overflow = ''; render(); }
+  function renderSurvey() {
+    var kept = S.frames.filter(isKept), over = kept.length - S.target;
+    $('#svTitle').textContent = kept.length + ' kept · target ' + S.target + (over > 0 ? ' · drop ' + over : over === 0 ? ' · on target' : '');
+    $('#svHelp').textContent = SV.gridSize ? 'At profile-grid size (' + S.gridAspect + ', centred crop): a cover has to read at this size.' : 'Tap a frame to drop it back to undecided; tap again to keep it. Long-press for Hero. Nothing goes to Out from here.';
+    $('#svSize').setAttribute('aria-pressed', String(SV.gridSize));
+    var g = $('#svGrid'); g.textContent = ''; g.classList.toggle('gridSize', SV.gridSize);
+    kept.forEach(function (f) {
+      var el = h('button', { class: 'sv', type: 'button', 'aria-label': f.name },
+        h('img', { src: f.thumbUrl || '', alt: '' }), h('span', { class: 'n', text: f.num }), f.status === 'hero' ? h('span', { class: 'h', text: '★' }) : null);
+      var t0 = 0, held = false;
+      el.addEventListener('pointerdown', function () { t0 = Date.now(); held = false; });
+      el.addEventListener('click', function () {
+        if (held) return;
+        if (isKept(f)) { decide([f.id], null, f.num + ' → undecided'); el.classList.add('dropped'); }
+        else { decide([f.id], 'keep', f.num + ' → kept'); el.classList.remove('dropped'); }
+        dirty(); $('#svTitle').textContent = S.frames.filter(isKept).length + ' kept · target ' + S.target;
+      });
+      el.addEventListener('contextmenu', function (e) { e.preventDefault(); held = true; decide([f.id], 'hero', f.num + ' → hero'); dirty(); renderSurvey(); });
+      g.appendChild(el);
+    });
+  }
+  $('#svClose').onclick = closeSurvey;
+  $('#svSize').onclick = function () { SV.gridSize = !SV.gridSize; renderSurvey(); };
+  $('#svCompare').onclick = function () { closeSurvey(); openCompare(); };
+
+  /* ----- Compare: kept pairs, nearest twins first; keep one, drop one, or keep both ----- */
+  var CP = { pairs: [], i: 0, solo: null };
+  function openCompare(pairs) {
+    var kept = S.frames.filter(function (f) { return isKept(f) && f.metrics && f.metrics.dhash; });
+    if (!pairs) {
+      pairs = [];
+      for (var i = 0; i < kept.length; i++) for (var j = i + 1; j < kept.length; j++) {
+        var d = CS.hamming(kept[i].metrics.dhash, kept[j].metrics.dhash);
+        if (d <= CS.RHYME_MAX_DIST + 4) pairs.push({ a: kept[i].id, b: kept[j].id, d: d });
+      }
+      pairs.sort(function (x, y) { return x.d - y.d; });
+      if (!pairs.length) { toast('No look-alike pairs among the kept frames'); return; }
+    }
+    CP.pairs = pairs; CP.i = 0; CP.solo = null;
+    $('#compare').hidden = false; document.body.style.overflow = 'hidden'; renderCompare();
+  }
+  function closeCompare() { $('#compare').hidden = true; document.body.style.overflow = ''; render(); }
+  function renderCompare() {
+    var pr = CP.pairs[CP.i];
+    if (!pr) { closeCompare(); toast('No more pairs'); return; }
+    var a = S.byId.get(pr.a), b = S.byId.get(pr.b);
+    $('#cpTitle').textContent = 'Look-alikes: ' + a.num + ' and ' + b.num;
+    $('#cpPos').textContent = (CP.i + 1) + ' / ' + CP.pairs.length;
+    var box = $('#cpPair'); box.textContent = ''; box.classList.toggle('solo', !!CP.solo);
+    [a, b].forEach(function (f) {
+      if (CP.solo && CP.solo !== f.id) return;
+      box.appendChild(h('button', { class: 'cp', type: 'button', 'aria-label': f.name, onclick: function () { CP.solo = CP.solo ? null : f.id; renderCompare(); } },
+        h('img', { src: f.previewUrl || f.thumbUrl || '', alt: '' }),
+        h('div', { class: 'cap', text: f.num + ' · ' + camLabel(f) + (f.metrics ? ' · sharp ' + Math.round(f.metrics.sharp) + ' · clip ' + fmt(f.metrics.clipPct, 1) + '%' : '') + (f.status === 'hero' ? ' · ★' : '') })));
+    });
+  }
+  function compareDecide(dropId) {
+    var pr = CP.pairs[CP.i];
+    if (dropId) decide([dropId], null, S.byId.get(dropId).num + ' → undecided');
+    CP.solo = null;
+    // skip pairs that no longer have both frames kept
+    do { CP.i++; } while (CP.pairs[CP.i] && !(isKept(S.byId.get(CP.pairs[CP.i].a)) && isKept(S.byId.get(CP.pairs[CP.i].b))));
+    dirty(); renderCompare();
+  }
+  $('#cpClose').onclick = closeCompare;
+  $('#cpLeft').onclick = function () { compareDecide(CP.pairs[CP.i].b); };
+  $('#cpRight').onclick = function () { compareDecide(CP.pairs[CP.i].a); };
+  $('#cpBoth').onclick = function () { compareDecide(null); };
 
   /* ----- Sequence ----- */
   function addSlide(s, at) {
@@ -2335,7 +2592,7 @@ self.onmessage = async function (e) {
     var s0 = S.slides[i];
     if (s0.pinned) { toast('Slide ' + (i + 1) + ' is pinned'); return; }
     S.slides.splice(i, 1);
-    if (s0.kind === 'photo') S.byId.get(s0.id).status = 'out';
+    if (s0.kind === 'photo') decide([s0.id], 'out', S.byId.get(s0.id).num + ' → out');
     P.cutsDone[id] = true;
     applying = true; changed(); applying = false;
   }
@@ -2386,7 +2643,7 @@ self.onmessage = async function (e) {
             if (at != null) S.slides.splice(at, 1);
             else if (S.slides.length >= CS.MAX_SLIDES) { toast('The carousel is full: cut a slide first'); return; }
             S.slides.unshift({ kind: 'photo', id: f.id });
-            if (!f.status) f.status = 'keep';
+            if (!f.status) decide([f.id], 'keep', f.num + ' → kept');
             changed();
           } })));
     });
@@ -2499,7 +2756,7 @@ self.onmessage = async function (e) {
     else if (stale) box.appendChild(h('div', { class: 'faint', text: 'The carousel changed since this proposal. Ask again to apply an order.' }));
     else box.appendChild(h('div', { class: 'row' }, h('button', { class: 'primary', text: 'Use this order and cuts', onclick: function () {
       var byId = {}; S.slides.forEach(function (sl) { byId[sl.id] = sl; });
-      pr.cuts.forEach(function (c) { var sl = byId[pr.ids[c.slot - 1]]; if (sl.kind === 'photo') S.byId.get(sl.id).status = 'out'; });
+      decide(pr.cuts.map(function (c) { return byId[pr.ids[c.slot - 1]]; }).filter(function (sl) { return sl.kind === 'photo'; }).map(function (sl) { return sl.id; }), 'out', 'proposed cuts');
       S.slides = pr.order.map(function (k) { return byId[pr.ids[k - 1]]; });
       P.proposal = null; changed(); toast('Order applied');
     } })));
@@ -2572,7 +2829,7 @@ self.onmessage = async function (e) {
       found.forEach(function (c) { list.appendChild(card(S.byId.get(c.id), c.reasons)); });
       return;
     }
-    var cands = S.frames.filter(function (f) { return f.status === 'keep' && free(f); });
+    var cands = S.frames.filter(function (f) { return isKept(f) && free(f); });
     var rest = S.frames.filter(function (f) { return !f.status && free(f); });
     function section(title, fs) {
       if (!fs.length) return;
@@ -2589,7 +2846,7 @@ self.onmessage = async function (e) {
     var f = S.byId.get(id);
     if (SH.mode === 'replace') { S.slides[SH.at] = { kind: 'photo', id: id, pinned: !!S.slides[SH.at].pinned }; derive(); }
     else if (!addSlide({ kind: 'photo', id: id }, SH.at)) return;
-    if (!f.status) f.status = 'keep';
+    if (!f.status) decide([f.id], 'keep', f.num + ' → kept');
     closeSheet(); changed();
   }
 
@@ -2795,6 +3052,10 @@ self.onmessage = async function (e) {
   document.querySelectorAll('nav .tabs button').forEach(function (b) { b.onclick = function () { setTab(b.dataset.tab); }; });
   document.querySelectorAll('#filterSeg button').forEach(function (b) { b.onclick = function () { S.filter = b.dataset.f; render(); }; });
   $('#stackBtn').onclick = function () { S.stack = !S.stack; cards.forEach(function (c) { c.sig = ''; }); render(); };
+  $('#outFlagsBtn').onclick = function () {
+    var ids = D.cuts.ranked.filter(function (id) { var f = S.byId.get(id); return f && !f.status; });
+    if (decide(ids, 'out', ids.length + ' flagged frames out')) changed();
+  };
   $('#titleIn').addEventListener('input', function () { S.title = this.value; dirty(); });
   $('#photosIn').onchange = function (e) { var fs = e.target.files; addFiles(fs).then(function () { e.target.value = ''; }); };
   $('#filesIn').onchange = function (e) { var fs = e.target.files; addFiles(fs).then(function () { e.target.value = ''; }); };
@@ -2816,17 +3077,22 @@ self.onmessage = async function (e) {
   document.addEventListener('keydown', function (e) {
     var tag = (e.target.tagName || '').toLowerCase();
     if (tag === 'input' || tag === 'select' || tag === 'textarea' || e.metaKey || e.ctrlKey) return;
+    var k = e.key.toLowerCase();
     if (!$('#loupe').hidden) {
-      var k = e.key.toLowerCase();
       if (e.key === 'ArrowLeft') loupeStep(-1); else if (e.key === 'ArrowRight') loupeStep(1);
       else if (e.key === 'Escape') closeLoupe();
-      else if (k === 'p' || k === 'k') setStatus('keep');
-      else if (k === 'x') setStatus('out');
-      else if (k === 'u') { var f = S.byId.get(L.id); if (f) { f.status = null; changed(); } }
+      else if (k === 'p' || k === 'k' || e.key === 'ArrowUp') setStatus('keep');
+      else if (k === 'x' || e.key === 'ArrowDown') setStatus('out');
+      else if (k === 'h' || e.key === '1') setStatus('hero');
+      else if (k === 'u') { var f = S.byId.get(L.id); if (f && f.status) { decide([f.id], null, f.num + ' → undecided'); changed(); } }
+      else if (k === 'z') undo();
       else if (k === 'a') $('#lAdd').click();
       else return;
       e.preventDefault();
-    } else if (!$('#sheet').hidden && e.key === 'Escape') closeSheet();
+    } else if (!$('#survey').hidden && e.key === 'Escape') closeSurvey();
+    else if (!$('#compare').hidden) { if (e.key === 'Escape') closeCompare(); else if (e.key === 'ArrowLeft') compareDecide(CP.pairs[CP.i].b); else if (e.key === 'ArrowRight') compareDecide(CP.pairs[CP.i].a); else if (e.key === ' ') compareDecide(null); }
+    else if (!$('#sheet').hidden && e.key === 'Escape') closeSheet();
+    else if (k === 'z' && S.tab === 'cut') undo();
     else if (S.tab === 'pv' && (e.key === 'ArrowLeft' || e.key === 'ArrowRight')) go(e.key === 'ArrowLeft' ? -1 : 1);
   });
 

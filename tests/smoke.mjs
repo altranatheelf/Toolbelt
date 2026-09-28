@@ -82,7 +82,61 @@ try {
   const cardText = (num) => page.$$eval('#grid .card', (cs, n) => (cs.find((c) => c.querySelector('.fn').textContent === n) || {}).textContent || '', num);
   assert.match(await cardText('9764'), /magenta/);
   assert.match(await cardText('103_0213'), /clipped highlights/);
-  assert.match(await cardText('9767'), /soft/);
+  assert.match(await cardText('9767'), /soft|focus/);
+  // flags are a badge, never a state; tiny (≤ ~10% + twins); every flag has a one-phrase reason
+  const flagged = await page.evaluate(() => window.__cs.derived.cuts.ranked.map((id) => window.__cs.state.byId.get(id).num));
+  assert.ok(flagged.length >= 2 && flagged.length <= 5, JSON.stringify(flagged));
+  assert.ok(flagged.includes('9767') && flagged.includes('9762'), JSON.stringify(flagged));
+  assert.equal(await page.evaluate(() => window.__cs.state.frames.filter((f) => f.status).length), 0, 'nothing is decided by the tool');
+  assert.match(await page.textContent('#passes'), /1 · Flags\s*\d+ likely cuts to review/);
+  // pass 1: Out all flagged, then undo
+  await page.click('#filterSeg [data-f="flag"]');
+  const nFlag = await page.$$eval('#grid .card', (els) => els.length);
+  assert.equal(nFlag, flagged.length);
+  await page.click('#outFlagsBtn');
+  assert.equal(await page.evaluate(() => window.__cs.state.frames.filter((f) => f.status === 'out').length), flagged.length);
+  await page.click('#undoBtn');
+  assert.equal(await page.evaluate(() => window.__cs.state.frames.filter((f) => f.status).length), 0, 'undo restores');
+  // swipes in the loupe: up = keep, down = out, left = next; hero via button
+  await page.click('#filterSeg [data-f="todo"]');
+  await page.click('#grid .card');
+  const img = await page.$eval('#lImg', (e) => { const r = e.getBoundingClientRect(); return { x: r.x + r.width / 2, y: r.y + r.height / 2 }; });
+  const swipe = async (dx, dy) => { await page.mouse.move(img.x, img.y); await page.mouse.down(); await page.mouse.move(img.x + dx, img.y + dy, { steps: 6 }); await page.mouse.up(); };
+  const firstName = await page.textContent('#lName');
+  await swipe(0, -120);
+  assert.equal(await page.evaluate((n) => window.__cs.state.frames.find((f) => f.name === n).status, firstName), 'keep', 'swipe up keeps');
+  const second = await page.textContent('#lName');
+  assert.notEqual(second, firstName, 'auto-advance after a decision');
+  await swipe(0, 120);
+  assert.equal(await page.evaluate((n) => window.__cs.state.frames.find((f) => f.name === n).status, second), 'out', 'swipe down outs');
+  const third = await page.textContent('#lName');
+  await swipe(-120, 0);
+  assert.notEqual(await page.textContent('#lName'), third, 'swipe left advances without deciding');
+  assert.equal(await page.evaluate((n) => window.__cs.state.frames.find((f) => f.name === n).status, third), null);
+  await page.click('#lHero');
+  await page.keyboard.press('Escape');
+  assert.equal(await page.evaluate(() => window.__cs.state.frames.filter((f) => f.status === 'hero').length), 1);
+  assert.match(await page.textContent('#passes'), /2 kept · 1 hero/);
+  // survey: drop back to undecided (never to out); compare pairs among kept look-alikes
+  await page.evaluate(() => { const s = window.__cs.state; s.frames.slice(0, 6).forEach((f) => { if (!f.status) f.status = 'keep'; }); s.statusVersion++; s.target = 3; window.__cs.render(); });
+  assert.match(await page.textContent('#passes'), /cut \d+ more to reach 3/);
+  await page.click('#passes button:has-text("Survey")');
+  await page.waitForSelector('#survey:not([hidden])');
+  const keptBefore = await page.evaluate(() => window.__cs.state.frames.filter((f) => f.status === 'keep' || f.status === 'hero').length);
+  await page.click('#svGrid .sv >> nth=1');
+  assert.equal(await page.evaluate(() => window.__cs.state.frames.filter((f) => f.status === 'keep' || f.status === 'hero').length), keptBefore - 1);
+  assert.equal(await page.evaluate(() => window.__cs.state.frames.filter((f) => f.status === 'out').length), 1, 'survey drops to undecided, not out');
+  await page.click('#svSize');
+  assert.ok(await page.$eval('#svGrid', (g) => g.classList.contains('gridSize')));
+  await page.click('#svClose');
+  await page.click('#passes button:has-text("Compare")');
+  if (await page.isVisible('#compare')) {
+    const before = await page.evaluate(() => window.__cs.state.frames.filter((f) => f.status === 'keep' || f.status === 'hero').length);
+    await page.click('#cpLeft');
+    await page.waitForFunction((b) => window.__cs.state.frames.filter((f) => f.status === 'keep' || f.status === 'hero').length === b - 1, before);
+    if (await page.isVisible('#compare')) await page.click('#cpClose');
+  }
+  await page.evaluate(() => { const s = window.__cs.state; s.frames.forEach((f) => { f.status = null; }); s.statusVersion++; s.target = 20; s.undo = []; window.__cs.render(); });
   assert.match(await cardText('9761'), /×2 twins/);
   if (shots) await page.screenshot({ path: join(shots, 'cut-example.png'), fullPage: true });
 

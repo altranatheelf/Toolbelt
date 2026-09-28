@@ -8,7 +8,14 @@
 
 ### The three tabs
 
-1. **Cut.** Add the whole pool from Photos or Files, dozens to a couple hundred frames, in any number of batches, or as one **.zip**. A zip keeps the original filenames and works where a picker allows only one pick: in Photos, select them → Share → Save to Files; in Files, long-press the folder → Compress. Frames stay in the order you added them, labelled by file number (`9774`, `103_0216`) and camera. Tap a frame to open it full screen, then **Keep** or **Out**; the next frame comes up by itself. Near-identical frames from the same camera stack as **twins** and come one after another. Similar framing across different cameras is marked as a **rhyme**. Filters: To decide, Kept, Out, All, and one chip per camera.
+1. **Cut.** Add the whole pool from Photos or Files, dozens to a couple hundred frames, in any number of batches, or as one **.zip**. A zip keeps the original filenames and works where a picker allows only one pick: in Photos, select them → Share → Save to Files; in Files, long-press the folder → Compress. Frames stay in the order you added them, labelled by file number (`9774`, `103_0216`) and camera.
+
+   Cutting runs as four passes, one decision each, with the count always visible as **kept / target** (default 20, editable):
+   - **1 · Flags.** The tool flags a tiny set of *likely cuts*: about 10% of the pool at most, plus the weaker of each tight twin pair. Only compound mechanical signals count: a pocket shot (near-black and flat), nothing in focus on a textured frame, much softer than the other frames from the same camera, screenshot-shaped, a tiny file. Exposure or colour alone never flags. Each flag is a badge with a one-phrase reason; nothing is decided for you. **Out all N flagged** is one tap, with Undo.
+   - **2 · Sweep.** Open a frame and swipe: **↑ keep**, **↓ out**, **← →** next and previous. A decision auto-advances. Twins (same camera, near-identical) come one after another; bursts (same camera within 4 s) are noted. **Undo** stays on screen after every decision.
+   - **3 · Keep.** Kept frames, with **★ Hero** for the strongest.
+   - **4 · Narrow.** When kept > target: **Survey** shows the kept set as a grid (tap to drop back to undecided, never to Out; long-press for Hero; **Grid size** shows them at profile-grid thumbnail size), and **Compare** walks kept look-alike pairs two-up, nearest first: keep left, keep right, or keep both; tap a frame to see it full-size.
+
 2. **Sequence.** The carousel as a storyboard. Each row shows the slide's role (Cover; Second cover, where Instagram re-shows the post to people who didn't swipe; Closer), the file number, the camera, and plain-word tags (Scale: Wide, Close, Face, Texture; You: Not in it, Face hidden, Face shown). Reorder with the handle or ↑ ↓. **Pin** a slide to keep it where it is. **Swap** replaces a slide from your kept frames in one tap. **Video slides** count toward the 20 and hold the slot. Between rows you see the brightness change, the colour shift and any camera change (a label, never a warning).
 
    Every proposal is given by slot number with one reason. Nothing applies until you tap, and pinned slides never move:
@@ -44,7 +51,7 @@ Safari 17+ renames picked photos to `tempImage….heic` (and converts them) when
 ### Tests
 
 ```
-npm test            # core: metrics, per-camera flags, twins/rhymes, file numbers, EXIF, RAW, crop maths
+npm test            # core: metrics, per-camera flags, likely cuts, bursts, twins/rhymes, file numbers, EXIF, RAW, zip, crop maths
 npm run smoke       # drives the page in Chromium: cut → sequence (video, swap, pin, fix, cuts, bridge, cover, propose) → export → reload
 npm run scale       # 200 full-size frames on an emulated iPhone: load, measure and tap timings
 npm run calibrate   # radar station set: put the exports in tests/fixtures/radar-station/

@@ -8,7 +8,10 @@
   - a full order only from Claude (Propose, artifact `sample` capability): never from an optimizer
 - pacing rules are pivots and movement, not smoothness: never warn on a big jump; warn on flat runs (3+ slides within 0.06 median luma) and on a 1→2 with no pivot
 - phone-frames epilogue is a per-post switch inside the fix proposals, not a preset
-- workflow is cutting: load a pool of dozens to a couple hundred frames, keep/out, then sequence up to 20; late swaps must be one tap
+- workflow is cutting: load a pool of dozens to a couple hundred frames, then four passes with one decision each: Flags → Sweep (out) → Keep → Narrow to the target; late swaps must be one tap
+- likely cuts are flagged, never applied: a badge on undecided frames only, ranked by confidence and capped at ~10% of the pool plus tight twins; only compound mechanical signals (weaker of a tight twin pair, pocket shot = near-black and flat, nothing in focus on a textured frame, much softer than its own camera, screenshot-shaped, tiny file); exposure and colour alone never flag; every flag carries a one-phrase reason and is dismissable
+- tiers: Out / undecided / Keep / Hero; one gesture meaning per axis (↑ keep, ↓ out, ←→ next/prev), auto-advance after a decision, a persistent Undo; Survey and Compare drop back to undecided, never to Out
+- a target count (default 20) is always visible as "kept / target"; never zoom to 100% during culling
 - default order = the order frames were added (carousels mix days, places and cameras; capture time is not a meaningful order)
 - cameras (digicam 102_/103_, main camera IMG_, phone) are mixed on purpose: device is a label, never a warning
 - colour/tone flags compare each frame with its own camera's median (carousel frames of that camera if 3+, else that camera's kept/undecided frames); set-wide numbers are shown, never flagged
