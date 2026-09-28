@@ -395,3 +395,43 @@ test('zip: a whole pool in one file, original names kept, stored and deflated en
   assert.equal(new Date(out[0].lastModified).getUTCFullYear(), 2026);
   await assert.rejects(CS.unzip(new Blob([enc.encode('not a zip at all')])), /not a zip/);
 });
+
+test('likely cuts: tiny, ranked, mechanical; the weaker twin, pocket shots, soft, blown, screenshots', () => {
+  const m = (o = {}) => ({ sat: 0.27, lumSpread: 0.7, lumMedian: 0.45, clipPct: 2, crushPct: 0.5, rb: 0.01, tint: 0, sharp: 400, dhash: null, ...o });
+  const fuji = { key: 'fuji', label: 'X-T5' };
+  const frames = [];
+  for (let i = 0; i < 40; i++) frames.push({ id: 'f' + i, num: String(9700 + i), device: fuji, width: 6000, height: 4000, metrics: m({ sharp: 350 + i * 3 }) });
+  frames.push({ id: 'pocket', num: 'p', device: fuji, width: 6000, height: 4000, metrics: m({ lumMedian: 0.02, lumSpread: 0.05, sharp: 40 }) });
+  frames.push({ id: 'blur', num: 'b', device: fuji, width: 6000, height: 4000, metrics: m({ sharp: 3 }) });
+  frames.push({ id: 'softish', num: 's', device: fuji, width: 6000, height: 4000, metrics: m({ sharp: 90 }) });
+  frames.push({ id: 'blown', num: 'w', device: fuji, width: 6000, height: 4000, metrics: m({ clipPct: 45 }) });
+  frames.push({ id: 'shot', num: 'sc', device: { key: 'phone', label: 'iPhone' }, width: 1179, height: 2556, metrics: m() });
+  frames.push({ id: 'magenta', num: 'mg', device: fuji, width: 6000, height: 4000, metrics: m({ tint: -0.05 }) });
+  frames.push({ id: 'kept', num: 'k', device: fuji, width: 6000, height: 4000, status: 'keep', metrics: m({ sharp: 2 }) });
+  // a twin pair via identical hashes
+  frames.push({ id: 'twA', num: 'ta', device: fuji, width: 6000, height: 4000, metrics: m({ dhash: 'ffff0000ffff0000', sharp: 500 }) });
+  frames.push({ id: 'twB', num: 'tb', device: fuji, width: 6000, height: 4000, metrics: m({ dhash: 'ffff0000ffff0001', sharp: 300 }) });
+  const r = CS.likelyCuts(frames);
+  assert.ok(r.ranked.includes('twB') && !r.ranked.includes('twA'), 'weaker twin flagged, stronger not');
+  assert.equal(r.twins.twB, 'twA');
+  for (const id of ['pocket', 'blur', 'softish', 'blown', 'shot']) assert.ok(r.ranked.includes(id), id + ' should be flagged: ' + JSON.stringify(r.ranked));
+  assert.ok(!r.ranked.includes('kept'), 'decided frames are never flagged');
+  assert.ok(!r.ranked.includes('magenta'), 'a colour cast alone is too weak to make the list');
+  assert.ok(r.ranked.length <= r.cap + 1, 'tiny: at most ~10% plus twins');
+  assert.equal(r.ranked[0], 'twB');
+  assert.match(CS.cutReasons(r, 'pocket')[0].text, /pocket shot/);
+  assert.match(CS.cutReasons(r, 'twB')[0].text, /softer twin of ta/);
+  assert.match(CS.cutReasons(r, 'shot')[0].text, /screenshot-shaped/);
+  // a deliberately dark set is not flagged wholesale: darkness is judged absolutely only when flat
+  const lowKey = Array.from({ length: 10 }, (_, i) => ({ id: 'lk' + i, device: fuji, width: 6000, height: 4000, metrics: m({ lumMedian: 0.08, lumSpread: 0.5 }) }));
+  assert.deepEqual(CS.likelyCuts(lowKey).ranked, []);
+});
+
+test('bursts: same camera within 4 s chain into a stack, in time order', () => {
+  const f = (id, key, sec) => ({ id, device: { key }, capture: { ms: sec == null ? null : Date.UTC(2026, 0, 1, 0, 0, 0) + sec * 1000 } });
+  const r = CS.bursts([f('a', 'fuji', 0), f('b', 'fuji', 3), f('c', 'fuji', 6), f('d', 'fuji', 30), f('p', 'phone', 4), f('q', 'phone', 5), f('x', 'fuji', null)]);
+  assert.deepEqual(r.groups[r.groupOf.a], ['a', 'b', 'c']);
+  assert.equal(r.groupOf.d, undefined);
+  assert.deepEqual(r.groups[r.groupOf.p], ['p', 'q']);
+  assert.equal(r.groupOf.x, undefined);
+});

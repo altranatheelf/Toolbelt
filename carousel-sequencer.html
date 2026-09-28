@@ -894,6 +894,111 @@ var CS = (function () {
   }
   function ordinal(n) { return ['zeroth', 'first', 'second', 'third', 'fourth', 'fifth', 'sixth', 'seventh', 'eighth', 'ninth', 'tenth'][n] || n + 'th'; }
 
+  /* ---------- bursts ----------
+     Frames from the same camera shot within BURST_GAP_MS of the previous one form a burst, the
+     way a culling tool stacks by capture time. Twins are about looks; bursts are about time.
+     frames: [{id, device:{key}, capture:{ms}}] -> { groupOf: {id: label}, groups: {label: [ids in time order]} } */
+  var BURST_GAP_MS = 4000;
+  function bursts(frames) {
+    var byCam = {};
+    frames.forEach(function (f) {
+      if (!f.capture || f.capture.ms == null) return;
+      (byCam[(f.device && f.device.key) || ''] = byCam[(f.device && f.device.key) || ''] || []).push(f);
+    });
+    var groupOf = {}, groups = {}, n = 0;
+    Object.keys(byCam).forEach(function (k) {
+      var list = byCam[k].slice().sort(function (a, b) { return a.capture.ms - b.capture.ms; });
+      var run = [list[0]];
+      function flush() {
+        if (run.length > 1) { var label = 'b' + (++n); groups[label] = run.map(function (f) { return f.id; }); run.forEach(function (f) { groupOf[f.id] = label; }); }
+      }
+      for (var i = 1; i < list.length; i++) {
+        if (list[i].capture.ms - list[i - 1].capture.ms <= BURST_GAP_MS) run.push(list[i]);
+        else { flush(); run = [list[i]]; }
+      }
+      flush();
+    });
+    return { groupOf: groupOf, groups: groups };
+  }
+
+  /* ---------- likely cuts (auto-flag, never auto-cut) ----------
+     Frames a first pass would reject on mechanical grounds. Kept tiny: the weaker frame of each
+     twin stack, plus the most confident of the other signals up to CUT_FLAG_SHARE of the pool.
+     Signals are judged against the frame's own camera where a look could be deliberate, and
+     against absolute floors only where no edit lands (a pocket shot, a screenshot).
+     frames: [{id, raw, kind, device:{key}, width, height, metrics, status}] (status 'out'/'keep' excluded)
+     -> { byId: {id: [{key, text, conf}]}, ranked: [id...], twins: {id: keptId} } */
+  var CUT_FLAG_SHARE = 0.10;
+  var CUT = {
+    softRel: 0.35,      // sharpness below this share of the camera median
+    softAbs: 6,         // Laplacian variance on the 768px copy: nothing in focus anywhere
+    darkLum: 0.06, darkSpread: 0.18,   // pocket shot: almost black and almost flat
+    blownAbs: 30, blownRel: 15,        // % pixels clipped
+    crushAbs: 45,
+    flatSpread: 0.08,   // near-uniform frame
+    screenAspect: 1.95, // 19.5:9 phone screenshots and beyond
+    smallEdge: 900
+  };
+  function likelyCuts(frames) {
+    var byId = {}, twinsKeep = {};
+    var cands = frames.filter(function (f) { return f.kind !== 'video' && f.status !== 'out' && f.status !== 'keep' && f.status !== 'lock' && f.metrics; });
+    var bases = cameraBaselines(cands.filter(function (f) { return !f.raw; }));
+    function add(f, key, text, conf) { (byId[f.id] = byId[f.id] || []).push({ key: key, text: text, conf: conf }); }
+    // twins: keep the strongest of each stack
+    var tw = twins(cands);
+    Object.keys(tw.groups).forEach(function (g) {
+      var list = tw.groups[g].map(function (id) { return cands.filter(function (f) { return f.id === id; })[0]; }).filter(Boolean);
+      if (list.length < 2) return;
+      list.sort(function (a, b) {
+        var ds = (b.metrics.sharp || 0) - (a.metrics.sharp || 0);
+        if (Math.abs(ds) > 0.1 * Math.max(a.metrics.sharp || 0, b.metrics.sharp || 0)) return ds;
+        return (a.metrics.clipPct || 0) - (b.metrics.clipPct || 0);
+      });
+      var keep = list[0];
+      list.slice(1).forEach(function (f) {
+        twinsKeep[f.id] = keep.id;
+        var why = (f.metrics.sharp || 0) < (keep.metrics.sharp || 0) * 0.9 ? 'softer twin of ' : (f.metrics.clipPct || 0) > (keep.metrics.clipPct || 0) + 0.5 ? 'more clipped twin of ' : 'twin of ';
+        add(f, 'twin', why + (keep.num || keep.id), 0.9);
+      });
+    });
+    var scored = [];
+    cands.forEach(function (f) {
+      var m = f.metrics, base = bases.byCamera[(f.device && f.device.key) || ''];
+      var judged = base && base.n >= MIN_GROUP;
+      var conf = 0;
+      if (m.sharp != null) {
+        if (m.sharp < CUT.softAbs) { add(f, 'soft', 'nothing in focus', 0.95); conf = Math.max(conf, 0.95); }
+        else if (judged && base.sharp > 0 && m.sharp < CUT.softRel * base.sharp) {
+          var c = 0.5 + 0.4 * (1 - m.sharp / (CUT.softRel * base.sharp));
+          add(f, 'soft', 'much softer than the other ' + (f.device.label || 'frames') + ' (' + Math.round(m.sharp) + ' vs ' + Math.round(base.sharp) + ')', c); conf = Math.max(conf, c);
+        }
+      }
+      if (m.lumMedian < CUT.darkLum && m.lumSpread < CUT.darkSpread) { add(f, 'dark', 'almost black and flat: a pocket shot?', 0.9); conf = Math.max(conf, 0.9); }
+      if (m.clipPct > CUT.blownAbs) { add(f, 'blown', Math.round(m.clipPct) + '% blown out', 0.8); conf = Math.max(conf, 0.8); }
+      else if (judged && m.clipPct > base.clipPct + CUT.blownRel) { add(f, 'blown', Math.round(m.clipPct) + '% clipped, against ' + Math.round(base.clipPct) + '% for its camera', 0.6); conf = Math.max(conf, 0.6); }
+      if (m.crushPct > CUT.crushAbs) { add(f, 'crushed', Math.round(m.crushPct) + '% crushed to black', 0.7); conf = Math.max(conf, 0.7); }
+      if (m.lumSpread < CUT.flatSpread && m.lumMedian >= CUT.darkLum) { add(f, 'flat', 'almost no tonal range', 0.45); conf = Math.max(conf, 0.45); }
+      if (f.width && f.height) {
+        var asp = Math.max(f.width, f.height) / Math.min(f.width, f.height);
+        if (asp >= CUT.screenAspect) { add(f, 'screen', 'screenshot-shaped (' + f.width + '×' + f.height + ')', 0.7); conf = Math.max(conf, 0.7); }
+        if (Math.max(f.width, f.height) < CUT.smallEdge) { add(f, 'small', 'small file (' + f.width + '×' + f.height + ')', 0.5); conf = Math.max(conf, 0.5); }
+      }
+      if (judged && !f.raw) {
+        var fl = frameFlags(m, base).filter(function (x) { return x.key !== 'sharp' && x.key !== 'clipPct' && x.key !== 'crushPct'; });
+        if (fl.length) { add(f, 'camera', fl.map(function (x) { return x.text; }).join(', ') + ' against its camera', 0.35); conf = Math.max(conf, 0.35); }
+      }
+      if (conf > 0) scored.push({ id: f.id, conf: conf });
+    });
+    scored.sort(function (a, b) { return b.conf - a.conf; });
+    var cap = Math.max(3, Math.round(CUT_FLAG_SHARE * cands.length));
+    var ranked = Object.keys(twinsKeep);
+    scored.forEach(function (x) { if (ranked.length < cap + Object.keys(twinsKeep).length && ranked.indexOf(x.id) < 0 && x.conf >= 0.45) ranked.push(x.id); });
+    return { byId: byId, ranked: ranked, twins: twinsKeep, cap: cap };
+  }
+  function cutReasons(res, id) {
+    return (res.byId[id] || []).slice().sort(function (a, b) { return b.conf - a.conf; });
+  }
+
   /* ---------- bridge finder ----------
      Pool frames that could sit between a and b: tone between the two sides, a scale unlike both,
      a camera matching one side. Returns [{id, score, reasons}] best first (score >= 1). */
@@ -1339,7 +1444,7 @@ var CS = (function () {
     MIN_GROUP: MIN_GROUP, RHYME_MAX_DIST: RHYME_MAX_DIST,
     twins: twins, rhymes: rhymes, cameraBaselines: cameraBaselines, baselineFor: baselineFor,
     isPivot: isPivot, flatRuns: flatRuns, fixWarning: fixWarning, applyOp: applyOp, epilogueMoves: epilogueMoves,
-    cutList: cutList, bridgeCandidates: bridgeCandidates, unzip: unzip,
+    cutList: cutList, bridgeCandidates: bridgeCandidates, unzip: unzip, likelyCuts: likelyCuts, bursts: bursts, BURST_GAP_MS: BURST_GAP_MS, cutReasons: cutReasons, CUT: CUT,
     looksRenamed: looksRenamed, frameNumber: frameNumber,
     median: median, measurePixels: measurePixels, dhash: dhash, hamming: hamming,
     groupDuplicates: groupDuplicates, baseline: baseline, frameFlags: frameFlags,
