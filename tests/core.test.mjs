@@ -364,3 +364,34 @@ test('bridge finder: tone between, a scale unlike both, a camera from one side',
   assert.deepEqual(r.map((c) => c.id), ['x', 'z']);
   assert.deepEqual(r[0].reasons, ['tone between the two', 'a close, unlike both', 'same camera as the left']);
 });
+
+test('zip: a whole pool in one file, original names kept, stored and deflated entries', async () => {
+  const enc = new TextEncoder();
+  const deflate = async (u8) => new Uint8Array(await new Response(new Blob([u8]).stream().pipeThrough(new CompressionStream('deflate-raw'))).arrayBuffer());
+  const crcT = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = (u8) => { let c = 0xFFFFFFFF; for (const b of u8) c = crcT[(c ^ b) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  const files = [['pool/IMG_9774.JPG', new Uint8Array([0xFF, 0xD8, 1, 2, 3, 0xFF, 0xD9]), 0], ['pool/103_0216.JPG', enc.encode('x'.repeat(500)), 8],
+    ['__MACOSX/pool/._IMG_9774.JPG', enc.encode('junk'), 0], ['pool/.DS_Store', enc.encode('junk'), 0], ['pool/', new Uint8Array(0), 0]];
+  const parts = [], central = []; let off = 0;
+  for (const [name, data, method] of files) {
+    const nm = enc.encode(name), body = method ? await deflate(data) : data;
+    const lh = new DataView(new ArrayBuffer(30));
+    lh.setUint32(0, 0x04034b50, true); lh.setUint16(8, method, true); lh.setUint32(14, crc(data), true);
+    lh.setUint32(18, body.length, true); lh.setUint32(22, data.length, true); lh.setUint16(26, nm.length, true);
+    const ch = new DataView(new ArrayBuffer(46));
+    ch.setUint32(0, 0x02014b50, true); ch.setUint16(10, method, true); ch.setUint16(12, (12 << 11) | (30 << 5), true); ch.setUint16(14, ((2026 - 1980) << 9) | (9 << 5) | 12, true);
+    ch.setUint32(16, crc(data), true); ch.setUint32(20, body.length, true); ch.setUint32(24, data.length, true); ch.setUint16(28, nm.length, true); ch.setUint32(42, off, true);
+    parts.push(new Uint8Array(lh.buffer), nm, body); central.push(new Uint8Array(ch.buffer), nm);
+    off += 30 + nm.length + body.length;
+  }
+  const cdSize = central.reduce((a, b) => a + b.length, 0);
+  const end = new DataView(new ArrayBuffer(22));
+  end.setUint32(0, 0x06054b50, true); end.setUint16(8, files.length, true); end.setUint16(10, files.length, true); end.setUint32(12, cdSize, true); end.setUint32(16, off, true);
+  const zip = new Blob([...parts, ...central, new Uint8Array(end.buffer)]);
+  const out = await CS.unzip(zip);
+  assert.deepEqual(out.map((f) => f.name), ['IMG_9774.JPG', '103_0216.JPG']);
+  assert.deepEqual([...new Uint8Array(await out[0].arrayBuffer())], [0xFF, 0xD8, 1, 2, 3, 0xFF, 0xD9]);
+  assert.equal(await out[1].text(), 'x'.repeat(500));
+  assert.equal(new Date(out[0].lastModified).getUTCFullYear(), 2026);
+  await assert.rejects(CS.unzip(new Blob([enc.encode('not a zip at all')])), /not a zip/);
+});

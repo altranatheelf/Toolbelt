@@ -33,6 +33,23 @@ const CAMS = {
   phone: { make: 'Apple', model: 'iPhone 15 Pro' }, raw: { make: 'NIKON CORPORATION', model: 'NIKON Z 6', orientation: 6 }
 };
 
+// minimal stored (uncompressed) zip writer for the zip route
+function makeZip(entries) {
+  const crcT = Array.from({ length: 256 }, (_, n) => { let c = n; for (let k = 0; k < 8; k++) c = c & 1 ? 0xEDB88320 ^ (c >>> 1) : c >>> 1; return c >>> 0; });
+  const crc = (u8) => { let c = 0xFFFFFFFF; for (const b of u8) c = crcT[(c ^ b) & 255] ^ (c >>> 8); return (c ^ 0xFFFFFFFF) >>> 0; };
+  const parts = [], central = []; let off = 0;
+  for (const [name, data] of entries) {
+    const nm = Buffer.from(name), lh = Buffer.alloc(30), ch = Buffer.alloc(46);
+    lh.writeUInt32LE(0x04034b50, 0); lh.writeUInt32LE(crc(data), 14); lh.writeUInt32LE(data.length, 18); lh.writeUInt32LE(data.length, 22); lh.writeUInt16LE(nm.length, 26);
+    ch.writeUInt32LE(0x02014b50, 0); ch.writeUInt16LE(0x5b2c, 14); ch.writeUInt32LE(crc(data), 16); ch.writeUInt32LE(data.length, 20); ch.writeUInt32LE(data.length, 24);
+    ch.writeUInt16LE(nm.length, 28); ch.writeUInt32LE(off, 42);
+    parts.push(lh, nm, data); central.push(ch, nm); off += 30 + nm.length + data.length;
+  }
+  const cd = Buffer.concat(central), end = Buffer.alloc(22);
+  end.writeUInt32LE(0x06054b50, 0); end.writeUInt16LE(entries.length, 8); end.writeUInt16LE(entries.length, 10); end.writeUInt32LE(cd.length, 12); end.writeUInt32LE(off, 16);
+  return Buffer.concat([...parts, cd, end]);
+}
+
 const dir = mkdtempSync(join(tmpdir(), 'carousel-smoke-'));
 const browser = await chromium.launch();
 const errors = [];
@@ -114,6 +131,14 @@ try {
   const flagLine = (num) => page.$$eval('#grid .card', (cs, n) => (cs.find((c) => c.querySelector('.fn').textContent === n) || {}).querySelector('.fl').textContent, num);
   for (const n of ['4411', '4412', '4415', '103_0216', '103_0219', '103_0224'])
     assert.doesNotMatch(await flagLine(n), /phone|camera|device/i, 'device is a label, not a warning');
+
+  // 2b. one photo per pick, twice: the page explains the single-select picker and the .zip route
+  //     (re-adding frames already in the pool doesn't duplicate them)
+  await page.setInputFiles('#photosIn', [paths[0]]);
+  await page.setInputFiles('#photosIn', [paths[1]]);
+  await page.waitForFunction(() => /Only one photo per pick\?/.test(document.querySelector('#notices').textContent));
+  assert.equal(await page.evaluate(() => window.__cs.state.frames.length), 13);
+  await page.click('#notices button:has-text("Dismiss")');
 
   // 3. cut in the loupe: keep advances to the next frame; out hides it from "to decide"
   await page.click('#grid .card');
@@ -261,6 +286,18 @@ try {
   await page.click('#exportBtn');
   assert.match(await page.textContent('#exportLog'), /originals of .* are not loaded/);
   assert.equal(await page.isVisible('#saveRow button:has-text("Export from stored copies")'), true);
+
+  // 7. the whole pool as one .zip (stored entries, folder inside, macOS junk skipped): names kept, order kept
+  const zipPath = join(dir, 'pool.zip');
+  writeFileSync(zipPath, makeZip(paths.slice(0, 4).map((p) => ['radar/' + p.split('/').pop(), readFileSync(p)]).concat([['__MACOSX/radar/._x.JPG', Buffer.from('junk')]])));
+  const page2 = await ctx.newPage();
+  page2.on('pageerror', (e) => errors.push(String(e)));
+  await page2.goto(pathToFileURL(HTML_PATH).href);
+  await page2.click('#newBtn'); await page2.click('#newBtn');
+  await page2.setInputFiles('#filesIn', [zipPath]);
+  await page2.waitForFunction(() => window.__cs.state.frames.length === 4 && window.__cs.state.frames.every((f) => f.measure === 'done'), null, { timeout: 30000 });
+  assert.deepEqual(await page2.$$eval('#grid .card .fn', (els) => els.map((e) => e.textContent)), ['9774', '103_0216', '4411']);
+  assert.deepEqual(await page2.evaluate(() => window.__cs.state.frames.map((f) => f.name)), ['IMG_9774.JPG', '103_0216.JPG', 'IMG_9775.JPG', 'IMG_4411.JPG']);
 
   assert.deepEqual(errors, [], 'no page errors');
   console.log('smoke ok: example, add pool, cut, sequence, swap, video slot, preview, export, reload');

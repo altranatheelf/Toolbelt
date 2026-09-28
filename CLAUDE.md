@@ -14,6 +14,7 @@
 - colour/tone flags compare each frame with its own camera's median (carousel frames of that camera if 3+, else that camera's kept/undecided frames); set-wide numbers are shown, never flagged
 - RAW previews are the camera's look, not the edit: excluded from colour checks and baselines
 - video slides count toward the 20: placeholder slots, never measured
+- a whole pool must go in with one pick: multi-select pickers, and a .zip (streamed, original names kept) for pickers limited to one
 - filename (file number) visible on every card; never trust a picker's name without checking (Safari 17+ renames to tempImage….heic when accept lists HEIC: keep HEIC out of accept)
 - everything local, images never leave the machine — one exception, on an explicit tap: Propose sends a small numbered contact sheet, the title and the tags to Claude
 - ships as one self-contained html file; must work on iPhone Safari with a couple hundred frames

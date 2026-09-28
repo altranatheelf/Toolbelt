@@ -252,7 +252,7 @@
     <div class="row">
       <label class="filebtn"><button type="button" class="primary" tabindex="-1">Add from Photos</button>
         <input id="photosIn" type="file" multiple accept="image/*" aria-label="Add from Photos"></label>
-      <label class="filebtn"><button type="button" tabindex="-1">Add from Files</button>
+      <label class="filebtn"><button type="button" tabindex="-1">Add from Files or .zip</button>
         <input id="filesIn" type="file" multiple aria-label="Add from Files"></label>
       <label class="filebtn" id="folderLabel" hidden><button type="button" tabindex="-1">Add folder</button>
         <input id="folderIn" type="file" webkitdirectory multiple aria-label="Add a folder"></label>
@@ -1195,6 +1195,66 @@ var CS = (function () {
     return found;
   }
 
+  /* ---------- ZIP (read) ----------
+     A whole pool as one file: pickers that allow only one pick still take a .zip, and a zip keeps
+     the original filenames. Reads the central directory from the end, then decompresses one entry
+     at a time from Blob slices (stored or deflate; ZIP64 sizes/offsets), so a large archive is
+     never held in memory whole. Returns File objects in archive order. */
+  async function unzip(blob, keep) {
+    var tailLen = Math.min(blob.size, 65557 + 20);
+    var tail = new DataView(await blob.slice(blob.size - tailLen).arrayBuffer());
+    var eocd = -1;
+    for (var i = tail.byteLength - 22; i >= 0; i--) if (tail.getUint32(i, true) === 0x06054b50) { eocd = i; break; }
+    if (eocd < 0) throw new Error('not a zip file');
+    var count = tail.getUint16(eocd + 10, true), cdSize = tail.getUint32(eocd + 12, true), cdOff = tail.getUint32(eocd + 16, true);
+    if (cdOff === 0xFFFFFFFF || count === 0xFFFF) {                       // ZIP64
+      var loc = eocd - 20;
+      if (loc < 0 || tail.getUint32(loc, true) !== 0x07064b50) throw new Error('unsupported zip');
+      var z64 = Number(tail.getBigUint64(loc + 8, true));
+      var rec = new DataView(await blob.slice(z64, z64 + 56).arrayBuffer());
+      count = Number(rec.getBigUint64(32, true)); cdSize = Number(rec.getBigUint64(40, true)); cdOff = Number(rec.getBigUint64(48, true));
+    }
+    var cd = new DataView(await blob.slice(cdOff, cdOff + cdSize).arrayBuffer());
+    var entries = [], p = 0;
+    for (var e = 0; e < count && p + 46 <= cd.byteLength; e++) {
+      if (cd.getUint32(p, true) !== 0x02014b50) break;
+      var method = cd.getUint16(p + 10, true), time = cd.getUint16(p + 12, true), date = cd.getUint16(p + 14, true);
+      var csize = cd.getUint32(p + 20, true), usize = cd.getUint32(p + 24, true);
+      var nlen = cd.getUint16(p + 28, true), xlen = cd.getUint16(p + 30, true), clen = cd.getUint16(p + 32, true);
+      var off = cd.getUint32(p + 42, true);
+      var name = new TextDecoder().decode(new Uint8Array(cd.buffer, p + 46, nlen));
+      var x = p + 46 + nlen, xend = x + xlen;
+      while (x + 4 <= xend) {
+        var id = cd.getUint16(x, true), sz = cd.getUint16(x + 2, true), q = x + 4;
+        if (id === 0x0001) {
+          if (usize === 0xFFFFFFFF) { usize = Number(cd.getBigUint64(q, true)); q += 8; }
+          if (csize === 0xFFFFFFFF) { csize = Number(cd.getBigUint64(q, true)); q += 8; }
+          if (off === 0xFFFFFFFF) { off = Number(cd.getBigUint64(q, true)); }
+        }
+        x += 4 + sz;
+      }
+      p += 46 + nlen + xlen + clen;
+      var base = name.split('/').pop();
+      if (!base || name.slice(-1) === '/' || /(^|\/)__MACOSX\//.test(name) || base[0] === '.') continue;
+      if (keep && !keep(base)) continue;
+      var ms = Date.UTC(1980 + (date >> 9), ((date >> 5) & 15) - 1, date & 31, time >> 11, (time >> 5) & 63, (time & 31) * 2);
+      entries.push({ name: base, method: method, csize: csize, off: off, ms: ms });
+    }
+    var out = [];
+    for (var k = 0; k < entries.length; k++) {
+      var en = entries[k];
+      var lh = new DataView(await blob.slice(en.off, en.off + 30).arrayBuffer());
+      if (lh.getUint32(0, true) !== 0x04034b50) continue;
+      var start = en.off + 30 + lh.getUint16(26, true) + lh.getUint16(28, true);
+      var raw = blob.slice(start, start + en.csize), data;
+      if (en.method === 0) data = raw;
+      else if (en.method === 8) data = await new Response(raw.stream().pipeThrough(new DecompressionStream('deflate-raw'))).blob();
+      else continue;
+      out.push(new File([data], en.name, { type: /\.jpe?g$/i.test(en.name) ? 'image/jpeg' : '', lastModified: en.ms }));
+    }
+    return out;
+  }
+
   /* ---------- crop geometry ---------- */
   var ASPECTS = {
     '1:1':    { w: 1080, h: 1080 },
@@ -1279,7 +1339,7 @@ var CS = (function () {
     MIN_GROUP: MIN_GROUP, RHYME_MAX_DIST: RHYME_MAX_DIST,
     twins: twins, rhymes: rhymes, cameraBaselines: cameraBaselines, baselineFor: baselineFor,
     isPivot: isPivot, flatRuns: flatRuns, fixWarning: fixWarning, applyOp: applyOp, epilogueMoves: epilogueMoves,
-    cutList: cutList, bridgeCandidates: bridgeCandidates,
+    cutList: cutList, bridgeCandidates: bridgeCandidates, unzip: unzip,
     looksRenamed: looksRenamed, frameNumber: frameNumber,
     median: median, measurePixels: measurePixels, dhash: dhash, hamming: hamming,
     groupDuplicates: groupDuplicates, baseline: baseline, frameFlags: frameFlags,
@@ -1446,6 +1506,24 @@ self.onmessage = async function (e) {
   async function addFiles(list, opt) {
     var files = Array.prototype.slice.call(list);
     if (!files.length) return;
+    // a .zip is a whole pool in one pick (and keeps the original filenames)
+    var expanded = [];
+    for (var z = 0; z < files.length; z++) {
+      if (!/\.zip$/i.test(files[z].name)) { expanded.push(files[z]); continue; }
+      $('#measureNote').textContent = 'unpacking ' + files[z].name + '…';
+      try {
+        var inner = await CS.unzip(files[z], function (n) { return IMG_RE.test(n) || CS.isRaw(n) || /\.json$/i.test(n); });
+        expanded = expanded.concat(inner);
+        if (!inner.length) toast('No photos inside ' + files[z].name);
+      } catch (e) { toast(files[z].name + ' could not be opened as a zip'); }
+    }
+    files = expanded;
+    if (!files.length) { $('#measureNote').textContent = ''; return; }
+    // one photo per pick, twice running: the picker is probably limited to single selection
+    if (!(opt && opt.example)) {
+      S.singles = files.length === 1 ? (S.singles || 0) + 1 : 0;
+      S.singleHint = S.singles >= 2;
+    }
     if (S.example && !(opt && opt.example)) clearAll(true);   // your photos replace the generated ones
     var added = 0, relinked = 0, skipped = 0, fresh = [], jsons = [];
     for (var i = 0; i < files.length; i++) {
@@ -1639,6 +1717,11 @@ self.onmessage = async function (e) {
     if (S.renamed.length) box.appendChild(h('div', { class: 'notice warn' },
       h('b', { text: plural(S.renamed.length, 'photo') + ' arrived renamed' }), ' (for example ' + S.renamed[0] + '), so their file numbers are lost. ' +
       'Remove them (Out), then add them again with Add from Photos → Options (top of the picker) → Format: Current, or use Add from Files.'));
+    if (S.singleHint) box.appendChild(h('div', { class: 'notice warn' },
+      h('b', { text: 'Only one photo per pick? ' }), 'Some in-app browsers (including the Claude app’s) limit the photo picker to one. ' +
+      'Open this page in Safari to select many at once, or put the photos in one .zip and add that: in Photos, select them → Share → Save to Files; ' +
+      'then in Files, long-press the folder → Compress, and add the .zip with Add from Files. A zip keeps the original filenames.',
+      h('button', { class: 'small', style: 'margin-left:8px', text: 'Dismiss', onclick: function () { S.singleHint = false; S.singles = -99; render(); } })));
     var needFile = S.frames.filter(function (f) { return !f.file && !f.metrics; }).length;
     if (needFile) box.appendChild(h('div', { class: 'notice' }, plural(needFile, 'frame') + ' still need measuring. Add the same photos again to link them.'));
   }
@@ -1695,7 +1778,7 @@ self.onmessage = async function (e) {
     while (grid.children.length > list.length) grid.removeChild(grid.lastChild);
     var empty = $('#gridEmpty');
     empty.hidden = list.length > 0;
-    if (!list.length) empty.textContent = !S.frames.length ? 'Add photos from your library or files. Load the whole pool; you will cut it down here.'
+    if (!list.length) empty.textContent = !S.frames.length ? 'Add photos from your library or files, or one .zip of the whole pool. You will cut it down here.'
       : S.filter === 'todo' ? 'Nothing left to decide' + (S.cam != null ? ' for this camera' : '') + '.' : 'Nothing here.';
   }
   function makeCard(f) {
