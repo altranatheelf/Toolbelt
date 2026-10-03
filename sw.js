@@ -2,10 +2,10 @@
    offline. The version is stamped by tools/stamp-sw.mjs on each build; a new version installs
    in the background and the launcher offers a reload. Nothing here talks to any server but
    this site's own files. */
-const VERSION = '8209bc68db94';
+const VERSION = '1df6bacaefb1';
 const CACHE = 'toolbelt-' + VERSION;
 const FILES = ['./', './index.html', './manifest.webmanifest', './icons/icon-192.png', './icons/icon-512.png', './icons/icon-512-maskable.png', './icons/icon-180.png',
-  './modules/carousel-sequencer.html'];
+  './modules/carousel-sequencer.html', './modules/ripper.html'];
 self.addEventListener('install', (e) => {
   e.waitUntil(caches.open(CACHE).then((c) => c.addAll(FILES)));
 });

@@ -1,0 +1,197 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Ripper</title>
+<!-- Toolbelt module. The page is the UI; captures run in `ripper serve` on this computer at 127.0.0.1. Nothing is hosted. -->
+<!-- toolbelt:begin -->
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<!-- toolbelt:end -->
+<style>
+  :root { --bg: #e8e8e8; --panel: #f4f4f4; --raise: #fff; --line: #cdcdcd; --well: #d6d6d6; --text: #181818; --muted: #525252; --faint: #7c7c7c;
+    --flag: #8a4f00; --keep: #1f7a45; --bad: #b3261e; --on: #181818; --onText: #fff; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1b1b1b; --panel: #232323; --raise: #2b2b2b; --line: #393939; --well: #141414; --text: #e6e6e6; --muted: #a0a0a0; --faint: #707070;
+    --flag: #e8a948; --keep: #62c98b; --bad: #e0685a; --on: #e6e6e6; --onText: #111; color-scheme: dark; } }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { padding: env(safe-area-inset-top, 0px) 16px calc(24px + env(safe-area-inset-bottom, 0px)); max-width: 980px; margin: 0 auto; }
+  header { padding-block: 12px 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  header b { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  header a { color: var(--muted); text-decoration: none; }
+  .spacer { flex: 1; }
+  .pill { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; color: var(--muted); }
+  .pill.on { border-color: var(--keep); color: var(--keep); } .pill.off { border-color: var(--bad); color: var(--bad); }
+  button, input, select { font: inherit; color: inherit; }
+  button { background: var(--raise); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; min-height: 38px; cursor: pointer; }
+  button.primary { background: var(--on); color: var(--onText); border-color: var(--on); } button:disabled { opacity: .4; }
+  input[type=text], input[type=number], select { background: var(--raise); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-height: 38px; min-width: 0; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .card h2 { margin: 0; font-size: 15px; } .muted { color: var(--muted); } .faint { color: var(--faint); font-size: 13px; }
+  .warn { color: var(--flag); } .bad { color: var(--bad); } .good { color: var(--keep); }
+  #url { flex: 1 1 320px; }
+  table { width: 100%; border-collapse: collapse; font-size: 13px; }
+  th, td { text-align: left; padding: 5px 6px; border-bottom: 1px solid var(--line); white-space: nowrap; }
+  th { color: var(--faint); font-weight: 600; font-size: 12px; text-transform: uppercase; letter-spacing: .05em; }
+  td.num { font-family: var(--mono); text-align: right; } th.num { text-align: right; }
+  tr.chosen td { font-weight: 650; } tr.chosen td:first-child::before { content: '→ '; color: var(--keep); }
+  tr.drc td { color: var(--faint); }
+  .tbl { overflow-x: auto; }
+  .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 8px; }
+  label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  pre { background: var(--well); border-radius: 8px; padding: 10px; font: 12px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 40vh; overflow: auto; }
+  .cap { display: grid; grid-template-columns: 64px minmax(0, 1fr); gap: 10px; align-items: start; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .cap img { width: 64px; height: 64px; object-fit: cover; border-radius: 6px; background: var(--well); }
+  .cap .t { font-weight: 600; overflow-wrap: anywhere; } .cap .q { font: 12px var(--mono); color: var(--muted); } .q b { color: var(--text); }
+  code { font: 13px var(--mono); background: var(--well); padding: 1px 5px; border-radius: 4px; }
+  .steps { margin: 0; padding-left: 20px; } .steps li { margin: 4px 0; }
+</style>
+</head>
+<body>
+<header><a href="../index.html">‹ Toolbelt</a><b>Ripper</b><span class="spacer"></span><span id="engine" class="pill">looking for the engine…</span></header>
+
+<section class="card" id="setup" hidden>
+  <h2>The engine isn't running on this computer</h2>
+  <p class="muted" style="margin:0">Ripper pulls audio and video with yt-dlp and ffmpeg, which a browser can't do by itself. This page is the controls; the work runs in a small local engine, on this computer only, at <code>127.0.0.1:8765</code>. Nothing is hosted and nothing leaves the machine.</p>
+  <ol class="steps muted">
+    <li>Once: <code>brew install ffmpeg deno</code>, then in the Toolbelt checkout <code>cd modules/ripper && python3 -m venv .venv && . .venv/bin/activate && pip install -e .</code></li>
+    <li>Each session: <code>ripper serve</code> (keep that terminal open). It opens this page from the engine itself; the app page here connects to it too.</li>
+    <li>On a phone, this module can't run the engine. Use it on the computer.</li>
+  </ol>
+  <div class="row"><button id="retry">Check again</button><a href="http://127.0.0.1:8765/" class="muted" style="font-size:13px">open from the engine</a></div>
+</section>
+
+<section class="card" id="look">
+  <div class="row"><input id="url" type="text" placeholder="Paste a URL (YouTube, SoundCloud, Bandcamp, Internet Archive…)" autocomplete="off" spellcheck="false">
+    <select id="cookies" title="Your own signed-in browser. YouTube needs this today; Premium accounts expose higher-bitrate audio."><option value="">no cookies</option><option value="safari">cookies: Safari</option><option value="chrome">cookies: Chrome</option><option value="firefox">cookies: Firefox</option><option value="brave">cookies: Brave</option></select>
+    <button id="lookBtn" class="primary">Look</button></div>
+  <div id="lookOut" class="faint"></div>
+</section>
+
+<section class="card" id="result" hidden>
+  <h2 id="title"></h2>
+  <div class="muted" id="meta"></div>
+  <div id="better"></div>
+  <div class="tbl"><table id="fmt"><thead><tr><th>id</th><th>codec</th><th class="num">kbps</th><th class="num">rate</th><th class="num">ch</th><th>DRC</th><th>ext</th><th>note</th></tr></thead><tbody></tbody></table></div>
+  <div id="why" class="faint"></div>
+  <div id="warn" class="warn"></div>
+  <div class="opts">
+    <label class="f">Output<select id="mode"><option value="native">native (stream as is, zero loss)</option><option value="wav">wav (float, source rate)</option><option value="flac">flac</option><option value="mp3">mp3 (LAME V0, lossy-to-lossy)</option><option value="video">video (MKV remux)</option></select></label>
+    <label class="f">Bits<select id="bits"><option value="float">float32</option><option value="24">24 (warns on overs)</option><option value="16">16 (TPDF dither)</option></select></label>
+    <label class="f">Rate<select id="rate"><option value="">keep source</option><option value="48000">48000 (soxr)</option><option value="44100">44100 (soxr)</option><option value="96000">96000 (soxr)</option></select></label>
+    <label class="f">Sections <span class="faint">1:23-2:10, comma-separated</span><input id="sections" type="text" placeholder="whole file"></label>
+    <label class="f">Handles ms<input id="handles" type="number" value="10" min="0" step="1"></label>
+  </div>
+  <div id="chapters" class="faint"></div>
+  <div class="row"><button id="ripBtn" class="primary">Capture</button><span id="ripState" class="muted"></span></div>
+  <pre id="log" hidden></pre>
+</section>
+
+<section class="card" id="past">
+  <h2>Captures on this computer</h2>
+  <div id="caps" class="faint">—</div>
+</section>
+
+<script>
+(function () {
+  var API = 'http://127.0.0.1:8765';
+  var $ = function (s) { return document.querySelector(s); };
+  var state = { ok: false, last: null };
+  function h(tag, attrs) {
+    var e = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) { if (k === 'text') e.textContent = attrs[k]; else if (k === 'class') e.className = attrs[k]; else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), attrs[k]); else e.setAttribute(k, attrs[k]); });
+    for (var i = 2; i < arguments.length; i++) { var c = arguments[i]; if (c == null) continue; e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); }
+    return e;
+  }
+  async function api(path, body) {
+    var r = await fetch(API + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+    var j = await r.json();
+    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    return j;
+  }
+  async function health() {
+    var pill = $('#engine');
+    try {
+      var hh = await api('/api/health');
+      state.ok = true;
+      pill.textContent = 'engine running · yt-dlp ' + hh.yt_dlp; pill.className = 'pill on';
+      $('#setup').hidden = true; $('#look').hidden = false;
+      loadCaptures();
+    } catch (e) {
+      state.ok = false;
+      pill.textContent = 'engine not found'; pill.className = 'pill off';
+      $('#setup').hidden = false; $('#look').hidden = true; $('#result').hidden = true;
+      $('#caps').textContent = 'Start the engine to see captures.';
+    }
+  }
+  $('#retry').onclick = health;
+  $('#lookBtn').onclick = async function () {
+    var url = $('#url').value.trim(); if (!url) return;
+    $('#lookOut').textContent = 'Reading the source… (YouTube takes a few seconds)'; $('#lookBtn').disabled = true;
+    try {
+      var r = await api('/api/formats', { url: url, cookies: $('#cookies').value });
+      state.last = r; renderResult(r); $('#lookOut').textContent = '';
+    } catch (e) { $('#lookOut').textContent = ''; $('#lookOut').appendChild(h('span', { class: 'bad', text: String(e.message || e) })); }
+    finally { $('#lookBtn').disabled = false; }
+  };
+  function renderResult(r) {
+    $('#result').hidden = false;
+    $('#title').textContent = r.title || '(untitled)';
+    $('#meta').textContent = (r.uploader || '?') + ' · ' + (r.extractor || '') + ' ' + (r.id || '') + (r.duration ? ' · ' + Math.round(r.duration / 60) + ' min' : '') + ' · LICENSE: ' + r.license;
+    var b = $('#better'); b.textContent = '';
+    (r.better || []).forEach(function (t) { b.appendChild(h('div', { class: 'good', text: 'Better source? ' + t })); });
+    var tb = $('#fmt tbody'); tb.textContent = '';
+    r.formats.slice().sort(function (a, c) { return (a.muxed - c.muxed) || (c.kbps - a.kbps); }).forEach(function (f) {
+      tb.appendChild(h('tr', { class: (f.chosen ? 'chosen ' : '') + (f.drc ? 'drc' : '') },
+        h('td', { text: f.id }), h('td', { text: f.codec }), h('td', { class: 'num', text: f.kbps ? Math.round(f.kbps) : '?' }), h('td', { class: 'num', text: f.rate || '?' }),
+        h('td', { class: 'num', text: f.ch || '?' }), h('td', { text: f.drc ? 'DRC' : '' }), h('td', { text: f.ext || '' }), h('td', { text: (f.muxed ? 'muxed · ' : '') + (f.note || '') + (f.lang ? ' · ' + f.lang : '') })));
+    });
+    $('#why').textContent = (r.why || []).map(function (w) { return 'because ' + w; }).join(' · ');
+    $('#warn').textContent = (r.warnings || []).join(' · ');
+    var ch = $('#chapters'); ch.textContent = '';
+    if (r.chapters && r.chapters.length) ch.appendChild(h('span', { text: r.chapters.length + ' chapters: ' + r.chapters.slice(0, 8).map(function (c) { return fmtT(c.start) + ' ' + (c.title || ''); }).join(' · ') + (r.chapters.length > 8 ? ' …' : '') }));
+    $('#log').hidden = true; $('#ripState').textContent = '';
+  }
+  function fmtT(s) { s = Math.round(s || 0); return Math.floor(s / 60) + ':' + ('0' + (s % 60)).slice(-2); }
+  $('#ripBtn').onclick = async function () {
+    if (!state.last) return;
+    var secs = $('#sections').value.split(',').map(function (x) { return x.trim(); }).filter(Boolean);
+    var body = { url: $('#url').value.trim(), mode: $('#mode').value, bits: $('#bits').value, rate: $('#rate').value ? +$('#rate').value : null,
+      sections: secs, handles: +$('#handles').value || 0, cookies: $('#cookies').value, analyze: true };
+    $('#ripBtn').disabled = true; $('#ripState').textContent = 'capturing…'; $('#ripState').className = 'muted'; $('#log').hidden = false; $('#log').textContent = '';
+    try {
+      var j = await api('/api/rip', body);
+      var job;
+      do { await new Promise(function (r) { setTimeout(r, 1200); }); job = await api('/api/jobs/' + j.job); $('#log').textContent = job.log || '…'; } while (job.status === 'running');
+      $('#ripState').textContent = job.status === 'done' ? 'done' : 'failed'; $('#ripState').className = job.status === 'done' ? 'good' : 'bad';
+      loadCaptures();
+    } catch (e) { $('#ripState').textContent = String(e.message || e); $('#ripState').className = 'bad'; }
+    finally { $('#ripBtn').disabled = false; }
+  };
+  async function loadCaptures() {
+    var box = $('#caps');
+    try {
+      var list = await api('/api/captures');
+      box.textContent = ''; box.className = '';
+      if (!list.length) { box.textContent = 'No captures yet.'; box.className = 'faint'; return; }
+      list.forEach(function (c) {
+        var q = c.quality || {};
+        box.appendChild(h('div', { class: 'cap' }, c.thumbnail ? h('img', { src: API + '/captures/' + encodeURIComponent(c.thumbnail), alt: '' }) : h('div'),
+          h('div', null, h('div', { class: 't', text: (c.title || c.file) }), h('div', { class: 'faint', text: (c.uploader || '') + ' · ' + c.mode + ' · ' + (c.format || '') + (c.drc ? ' · DRC!' : '') + ' · ' + (c.retrieved || '') + ' · ' + c.file }),
+            q.integrated_lufs != null ? h('div', { class: 'q' }, h('b', { text: q.integrated_lufs + ' LUFS' }), ' · TP ' + q.true_peak_dbtp + ' dBTP · peak ' + q.sample_peak_dbfs + ' dBFS · overs ' + q.samples_over_0dbfs + ' · bw ~' + q.bandwidth_hz + ' Hz · ' + (q.stereo_note || '')) : null,
+            q.bandwidth_note ? h('div', { class: 'faint', text: q.bandwidth_note }) : null,
+            (c.warnings || []).length ? h('div', { class: 'warn', text: c.warnings.join(' · ') }) : null,
+            h('div', { class: 'faint', text: 'license: ' + (c.license || '?') + ' · ' + (c.url || '') }))));
+      });
+    } catch (e) { box.textContent = 'Could not list captures.'; }
+  }
+  health();
+})();
+</script>
+</body>
+</html>

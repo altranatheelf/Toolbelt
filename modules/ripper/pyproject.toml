@@ -20,5 +20,8 @@ ripper = "ripper.cli:main"
 [tool.setuptools.packages.find]
 include = ["ripper*"]
 
+[tool.setuptools.package-data]
+ripper = ["ui.html"]
+
 [tool.pytest.ini_options]
 testpaths = ["tests"]

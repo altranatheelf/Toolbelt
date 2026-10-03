@@ -29,3 +29,13 @@
 - ships as one self-contained html file (modules/carousel-sequencer.html); must work on iPhone Safari with a couple hundred frames
 - max 20 slides
 - fixtures: radar station set, expected flags in tests/expected.json
+
+# ripper
+- a Toolbelt module (modules/ripper.html, on the launcher) whose work runs in a local engine, `ripper serve` (modules/ripper, Python, AGPL-3.0), bound to 127.0.0.1 only; the page is the controls, nothing is hosted, nothing leaves the machine
+- the module page and ripper/ui.html are the same file: edit modules/ripper.html and copy it over
+- goals in order: the highest-fidelity stream that exists (audio-only over muxed; never DRC unless it is all there is, and say so; original track over auto-dubs; Opus over AAC at comparable bitrate; highest bitrate within a codec; original/lossless uploads win outright), then provenance (sidecar json+txt per output file, thumbnail, sha256, license shown prominently, verify)
+- native = the chosen stream's bytes, container fixed only if needed; wav/flac = float32 at the source rate, 24-bit warns on overs, 16-bit TPDF dither noted, resample only on request with soxr precision 28; sections cut on decoded samples with handles; never normalise or limit
+- quality report measures only: LUFS, LRA, true peak, sample peak, overs, bandwidth as a shelf relative to the mid-band, near-mono
+- YouTube refuses data-centre IPs: live tests use Creative Commons items on the Internet Archive; YouTube specifics are verified on the person's machine with --cookies-from-browser
+- no commercial music URLs in the repo; tests use synthetic audio and CC items
+

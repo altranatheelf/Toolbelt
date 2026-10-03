@@ -10,7 +10,7 @@ The site is published from this repository by GitHub Pages (`.github/workflows/p
 ## Layout
 
 - `index.html` — the launcher: lists the modules, registers the offline cache, offers Install.
-- `modules/<name>.html` — one self-contained file per module. Add a module: drop the file in `modules/`, add a card to `index.html` and a line to `FILES` in `sw.js`.
+- `modules/<name>.html` — one self-contained file per module. Ripper's page drives a local engine, `modules/ripper` (`ripper serve`, see its README). Add a module: drop the file in `modules/`, add a card to `index.html` and a line to `FILES` in `sw.js`.
 - `manifest.webmanifest`, `sw.js`, `icons/` — the app shell. `tools/stamp-sw.mjs` versions the cache from the files' content; `tools/make-icons.mjs` renders the icons.
 
 ## Carousel Sequencer

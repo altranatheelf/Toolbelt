@@ -256,6 +256,11 @@ def build_parser() -> argparse.ArgumentParser:
     v.set_defaults(fn=cmd_verify)
     sub.add_parser("check", help="check ffmpeg/ffprobe/libsoxr and yt-dlp").set_defaults(fn=cmd_check)
     sub.add_parser("update", help="upgrade yt-dlp in place and smoke-test it").set_defaults(fn=cmd_update)
+    sv = sub.add_parser("serve", help="run the local engine for the Toolbelt Ripper module (127.0.0.1 only)")
+    sv.add_argument("--port", type=int, default=8765)
+    sv.add_argument("--captures", default="captures")
+    sv.add_argument("--no-open", dest="open_browser", action="store_false")
+    sv.set_defaults(fn=lambda a: (__import__("ripper.serve", fromlist=["serve"]).serve(a.port, a.captures, a.open_browser), 0)[1])
     r = sub.add_parser("rip", help="capture (default command: `ripper <url> [mode]`)")
     _rip_args(r)
     r.set_defaults(fn=cmd_rip)
@@ -278,7 +283,7 @@ def _rip_args(r: argparse.ArgumentParser) -> None:
 
 def main(argv: list[str] | None = None) -> int:
     argv = list(sys.argv[1:] if argv is None else argv)
-    if argv and argv[0] not in ("formats", "verify", "check", "update", "rip", "-h", "--help"):
+    if argv and argv[0] not in ("formats", "verify", "check", "update", "serve", "rip", "-h", "--help"):
         argv = ["rip"] + argv
     p = build_parser()
     args = p.parse_args(argv)

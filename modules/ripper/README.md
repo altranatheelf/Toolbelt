@@ -14,7 +14,17 @@ pip install -e .
 ripper check                        # ffmpeg/ffprobe/libsoxr and yt-dlp versions
 ```
 
-## Use
+## In the Toolbelt app
+
+Ripper is a module on the Toolbelt launcher. Its page is the controls; the work runs in the engine on your computer:
+
+```
+ripper serve            # 127.0.0.1:8765, local only; opens the page and keeps running until Ctrl-C
+```
+
+Open Ripper from the Toolbelt launcher (or at http://127.0.0.1:8765/). Paste a URL, **Look** to see every format with DRC flagged and the pick explained, choose the output, **Capture**. Past captures with their quality reports are listed below. The phone app shows the module but cannot run the engine.
+
+## Use (command line)
 
 ```
 ripper formats <url>                               # every audio format, DRC flagged, and which one the rules pick, with reasons
