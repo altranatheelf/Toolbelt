@@ -1068,6 +1068,60 @@ var CS = (function () {
     return (res.byId[id] || []).slice().sort(function (a, b) { return b.conf - a.conf; });
   }
 
+  /* ---------- overlap sets ----------
+     Among frames the person likes, the ones that say the same thing: similar framing (hash),
+     same scale, same tone and dominant hue, from any camera. Each set is a "choose one" prompt,
+     never a flag. items: [{id, num, dhash, scale, lum, hue, hueStrength, camKey}]
+     -> [{ids, why}] largest first. */
+  var OVERLAP = { hash: 16, tone: 0.12, hue: 30, minScore: 2 };
+  function overlapScore(a, b) {
+    var score = 0, why = [];
+    if (a.dhash && b.dhash && hamming(a.dhash, b.dhash) <= OVERLAP.hash) { score += 2; why.push('similar framing'); }
+    if (a.scale && b.scale && a.scale === b.scale) { score += 1; why.push('both ' + a.scale); }
+    if (a.lum != null && b.lum != null && Math.abs(a.lum - b.lum) <= OVERLAP.tone) { score += 0.5; why.push('same tone'); }
+    if (a.hue != null && b.hue != null && a.hueStrength >= THRESH.hueMinStrength && b.hueStrength >= THRESH.hueMinStrength &&
+        hueDistance(a.hue, b.hue) <= OVERLAP.hue) { score += 0.5; why.push('same colour'); }
+    return { score: score, why: why };
+  }
+  function overlapSets(items) {
+    var n = items.length, parent = items.map(function (_, i) { return i; }), whyOf = {};
+    function find(i) { while (parent[i] !== i) { parent[i] = parent[parent[i]]; i = parent[i]; } return i; }
+    for (var i = 0; i < n; i++) for (var j = i + 1; j < n; j++) {
+      var r = overlapScore(items[i], items[j]);
+      if (r.score >= OVERLAP.minScore) { parent[find(i)] = find(j); r.why.forEach(function (w) { whyOf[w] = (whyOf[w] || 0) + 1; }); }
+    }
+    var buckets = {};
+    items.forEach(function (it, i) { var k = find(i); (buckets[k] = buckets[k] || []).push(it); });
+    var sets = Object.keys(buckets).map(function (k) { return buckets[k]; }).filter(function (b) { return b.length > 1; });
+    sets.sort(function (a, b) { return b.length - a.length; });
+    return sets.map(function (list) {
+      var counts = {};
+      for (var a = 0; a < list.length; a++) for (var b = a + 1; b < list.length; b++)
+        overlapScore(list[a], list[b]).why.forEach(function (w) { counts[w] = (counts[w] || 0) + 1; });
+      var why = Object.keys(counts).sort(function (x, y) { return counts[y] - counts[x]; }).slice(0, 2).join(', ');
+      return { ids: list.map(function (x) { return x.id; }), why: why };
+    });
+  }
+  /* What the kept set has and lacks: counts by scale, you-in-frame, camera, and tone spread. */
+  function roleCensus(items) {
+    var c = { n: items.length, scale: {}, presence: {}, camera: {}, untaggedScale: 0, dark: 0, mid: 0, light: 0 };
+    items.forEach(function (it) {
+      if (it.scale) c.scale[it.scale] = (c.scale[it.scale] || 0) + 1; else c.untaggedScale++;
+      if (it.presence && it.presence !== 'out') c.presence[it.presence] = (c.presence[it.presence] || 0) + 1;
+      if (it.camLabel) c.camera[it.camLabel] = (c.camera[it.camLabel] || 0) + 1;
+      if (it.lum != null) { if (it.lum < 0.3) c.dark++; else if (it.lum > 0.6) c.light++; else c.mid++; }
+    });
+    var notes = [];
+    Object.keys(SCALE_WORDS).forEach(function (sc) { if (!c.scale[sc] && c.untaggedScale < c.n) notes.push('no ' + sc + ' frames'); });
+    if (c.n >= 6 && c.dark + c.light === 0) notes.push('all mid-tone');
+    if (c.n >= 6) {
+      var top = Object.keys(c.scale).sort(function (a, b) { return c.scale[b] - c.scale[a]; })[0];
+      if (top && c.scale[top] >= 0.6 * (c.n - c.untaggedScale) && c.n - c.untaggedScale >= 5) notes.push('mostly ' + SCALE_WORDS[top]);
+    }
+    c.notes = notes;
+    return c;
+  }
+
   /* ---------- bridge finder ----------
      Pool frames that could sit between a and b: tone between the two sides, a scale unlike both,
      a camera matching one side. Returns [{id, score, reasons}] best first (score >= 1). */
@@ -1513,7 +1567,7 @@ var CS = (function () {
     MIN_GROUP: MIN_GROUP, RHYME_MAX_DIST: RHYME_MAX_DIST,
     twins: twins, rhymes: rhymes, cameraBaselines: cameraBaselines, baselineFor: baselineFor,
     isPivot: isPivot, flatRuns: flatRuns, fixWarning: fixWarning, applyOp: applyOp, epilogueMoves: epilogueMoves,
-    cutList: cutList, bridgeCandidates: bridgeCandidates, unzip: unzip, likelyCuts: likelyCuts, bursts: bursts, BURST_GAP_MS: BURST_GAP_MS, cutReasons: cutReasons, CUT: CUT,
+    cutList: cutList, bridgeCandidates: bridgeCandidates, unzip: unzip, likelyCuts: likelyCuts, overlapSets: overlapSets, roleCensus: roleCensus, OVERLAP: OVERLAP, bursts: bursts, BURST_GAP_MS: BURST_GAP_MS, cutReasons: cutReasons, CUT: CUT,
     looksRenamed: looksRenamed, frameNumber: frameNumber,
     median: median, measurePixels: measurePixels, dhash: dhash, hamming: hamming,
     groupDuplicates: groupDuplicates, baseline: baseline, frameFlags: frameFlags,

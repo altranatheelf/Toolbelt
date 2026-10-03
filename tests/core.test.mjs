@@ -440,3 +440,20 @@ test('bursts: same camera within 4 s chain into a stack, in time order', () => {
   assert.deepEqual(r.groups[r.groupOf.p], ['p', 'q']);
   assert.equal(r.groupOf.x, undefined);
 });
+
+test('overlap sets: frames that say the same thing, from any camera; the census names gaps', () => {
+  const it = (id, o) => ({ id, num: id, dhash: 'ffff0000ffff0000', scale: 'wide', lum: 0.5, hue: 30, hueStrength: 0.5, camKey: 'fuji', camLabel: 'X-T5', presence: 'out', ...o });
+  const items = [
+    it('a'), it('b', { camKey: 'digi', camLabel: 'PowerShot', dhash: 'ffff0000ffff00f0' }), it('c', { dhash: 'ffff0000ffff0f00', scale: 'close' }),
+    it('d', { dhash: '0f0f0f0f0f0f0f0f', scale: 'texture', lum: 0.2, hue: 200 }),
+    it('e', { dhash: '00ff00ff00ff00ff', scale: 'close', lum: 0.8, hue: null }),
+    it('f', { dhash: '00ff00ff00ff00f0', scale: 'close', lum: 0.78, hue: null })
+  ];
+  const sets = CS.overlapSets(items);
+  assert.deepEqual(sets.map((s) => s.ids.sort()), [['a', 'b', 'c'], ['e', 'f']]);
+  assert.match(sets[0].why, /similar framing/);
+  assert.ok(!sets.some((s) => s.ids.includes('d')), 'a frame that adds something stands alone');
+  const census = CS.roleCensus(items.concat([it('g', { scale: 'wide' }), it('h', { scale: 'wide' })]));
+  assert.equal(census.scale.wide, 4);
+  assert.ok(census.notes.includes('no face frames'), JSON.stringify(census.notes));
+});
