@@ -42,7 +42,8 @@
   * { box-sizing: border-box; }
   [hidden] { display: none !important; }
   html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.4 var(--sans); -webkit-text-size-adjust: 100%; }
-  body { padding-bottom: env(safe-area-inset-bottom, 0px); }
+  /* installed full-screen on a phone, the page runs under the status bar: keep the header clear of it */
+  body { padding-top: env(safe-area-inset-top, 0px); padding-bottom: env(safe-area-inset-bottom, 0px); }
   button, select, input { font: inherit; color: inherit; }
   button { -webkit-tap-highlight-color: transparent; background: var(--raise); border: 1px solid var(--line); border-radius: 8px;
     padding: 7px 12px; min-height: 38px; cursor: pointer; }
@@ -69,7 +70,7 @@
   #titleIn { font-size: 22px; font-weight: 650; border: 0; border-bottom: 1px dashed var(--line); border-radius: 0; background: transparent; padding: 4px 0; width: 100%; }
   #titleIn::placeholder { color: var(--faint); font-weight: 500; }
   #counts { font-size: 13px; }
-  nav { position: sticky; top: env(safe-area-inset-top, 0px); z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); }
+  nav { position: sticky; top: 0; z-index: 20; background: var(--bg); border-bottom: 1px solid var(--line); }
   nav .tabs { display: flex; gap: 4px; padding-block: 6px; }
   nav .tabs button { flex: 1; border-radius: 999px; border-color: transparent; background: transparent; font-weight: 600; }
   nav .tabs button[aria-selected="true"] { background: var(--on); color: var(--onText); }
