@@ -1,5 +1,7 @@
 # Publishes the Toolbelt (launcher + modules) to GitHub Pages as a static site.
-# One-time setup in the repo: Settings → Pages → Source: "GitHub Actions".
+# One-time setup in the repo: make it public (Pages is free for public repos), then
+# Settings → Pages → Source: "GitHub Actions". Private alternative: Cloudflare Pages, free,
+# build command `node tools/stamp-sw.mjs`, output directory `/`.
 name: pages
 on:
   push:
@@ -14,6 +16,8 @@ concurrency:
   cancel-in-progress: true
 jobs:
   deploy:
+    # GitHub Pages is free only for public repositories: skip (don't fail) while this one is private
+    if: ${{ !github.event.repository.private }}
     runs-on: ubuntu-latest
     environment:
       name: github-pages

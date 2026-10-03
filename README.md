@@ -5,7 +5,7 @@ Local tools for a photographer, as one installable web app. Everything runs on t
 **Install on an iPhone:** open the Toolbelt site in Safari, tap Share → **Add to Home Screen**. It opens full-screen and works offline.
 **Install on a computer:** Chrome or Edge show an install icon in the address bar on the Toolbelt page.
 
-The site is published from this repository by GitHub Pages (`.github/workflows/pages.yml`). One-time setup: repo **Settings → Pages → Source: GitHub Actions**. The site is then at `https://<owner>.github.io/Toolbelt/`. Each push rebuilds it; installed apps pick the new version up on their next open and offer a reload.
+The site is published from this repository by GitHub Pages (`.github/workflows/pages.yml`). One-time setup: make the repo public (GitHub Pages is free only for public repos), then **Settings → Pages → Source: GitHub Actions**. To keep the repo private, use Cloudflare Pages instead (free for private repos): connect the repo, build command `node tools/stamp-sw.mjs`, output directory `/`. The site is then at `https://<owner>.github.io/Toolbelt/`. Each push rebuilds it; installed apps pick the new version up on their next open and offer a reload.
 
 ## Layout
 
