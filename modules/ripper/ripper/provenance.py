@@ -135,8 +135,9 @@ def sidecar_text(sc: dict) -> str:
 
 
 def write_sidecars(sc: dict, output: Path) -> tuple[Path, Path]:
-    j = output.with_suffix(".json")
-    t = output.with_suffix(".txt")
+    # named after the full media filename, so a .wav and a .flac of the same item keep separate records
+    j = output.with_name(output.name + ".json")
+    t = output.with_name(output.name + ".txt")
     j.write_text(json.dumps(sc, indent=2, ensure_ascii=False) + "\n", encoding="utf-8")
     t.write_text(sidecar_text(sc), encoding="utf-8")
     return j, t
