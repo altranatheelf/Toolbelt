@@ -52,6 +52,8 @@ try {
   const listed = t() - t0;
   await page.waitForFunction(() => window.__cs.state.frames.every((f) => f.measure === 'done' || f.measure === 'error'), null, { timeout: 30 * 60000, polling: 1000 });
   const measured = t() - t0;
+  await page.waitForFunction(() => window.__cs.state.frames.every((f) => f.ai), null, { timeout: 30 * 60000, polling: 1000 });
+  const read = t() - t0;
   const errs = await page.evaluate(() => window.__cs.state.frames.filter((f) => f.measure === 'error').map((f) => f.name + ': ' + f.error));
   assert.deepEqual(errs, []);
   const order = await page.evaluate(() => window.__cs.state.frames.map((f) => f.name));
@@ -75,7 +77,7 @@ try {
   const cards = await page.$$eval('#grid .card', (els) => els.length);
   const heap = await page.evaluate(() => performance.memory ? Math.round(performance.memory.usedJSHeapSize / 1e6) : null);
   console.log(JSON.stringify({
-    frames: N, size: `${W}x${H}`, listedMs: Math.round(listed), measuredSec: +(measured / 1000).toFixed(1),
+    frames: N, size: `${W}x${H}`, listedMs: Math.round(listed), measuredSec: +(measured / 1000).toFixed(1), scenesReadSec: +(read / 1000).toFixed(1), aiBackend: await page.evaluate(() => window.__cs.state.frames[0].ai.backend),
     perFrameMs: Math.round(measured / N), tapToNextMs: { median: Math.round(taps[20]), p90: Math.round(taps[36]), max: Math.round(taps[39]) },
     cardsInAllView: cards, jsHeapMB: heap, pageErrors: errors
   }, null, 1));

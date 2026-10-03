@@ -12,6 +12,9 @@
 - likely cuts are flagged, never applied: a badge on undecided frames only, ranked by confidence and capped at ~10% of the pool plus tight twins; only compound mechanical signals (weaker of a tight twin pair, pocket shot = near-black and flat, nothing in focus on a textured frame, much softer than its own camera, screenshot-shaped, tiny file); exposure and colour alone never flag; every flag carries a one-phrase reason and is dismissable
 - tiers: Out / undecided / Keep / Hero; one gesture meaning per axis (↑ keep, ↓ out, ←→ next/prev), auto-advance after a decision, a persistent Undo; Survey and Compare drop back to undecided, never to Out
 - a target count (default 20) is always visible as "kept / target"; never zoom to 100% during culling
+- the cutting brain is on-device and embedded (tools/embed-ai.mjs): TF.js inline, MobileNetV2-0.35 scene embeddings and BlazeFace loaded from memory, spectral-residual saliency in plain JS; nothing is fetched at runtime; no aesthetic scorer (weak on good frames)
+- narrowing a kept set proposes, never applies: scenes (one per scene is the rule), closest kept pairs by embedding similarity, and a farthest-first coverage pick to the target with heroes seeded and every drop naming the kept frame it is closest to; drops return to undecided
+- scene reading runs after measuring, one frame at a time from the thumbnail, and is cached with the metrics; the page must work when the models fail to load
 - default order = the order frames were added (carousels mix days, places and cameras; capture time is not a meaningful order)
 - cameras (digicam 102_/103_, main camera IMG_, phone) are mixed on purpose: device is a label, never a warning
 - colour/tone flags compare each frame with its own camera's median (carousel frames of that camera if 3+, else that camera's kept/undecided frames); set-wide numbers are shown, never flagged

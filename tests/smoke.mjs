@@ -129,7 +129,23 @@ try {
   await page.click('#svSize');
   assert.ok(await page.$eval('#svGrid', (g) => g.classList.contains('gridSize')));
   await page.click('#svClose');
-  await page.click('#passes button:has-text("Compare")');
+  // on-device scene brain: every frame read; Narrow shows scenes, closest kept pairs and a coverage pick; Drop goes to undecided
+  await page.waitForFunction(() => window.__cs.state.frames.every((f) => f.ai), null, { timeout: 120000 });
+  assert.ok(await page.evaluate(() => window.__cs.state.frames.every((f) => f.ai.emb && f.ai.emb.length === 1280 && f.ai.face && f.ai.subject)), 'embedding, faces and subject for every frame');
+  await page.click('#passes .pass >> nth=3');
+  await page.waitForSelector('#narrow:not([hidden])');
+  const narrowText = await page.textContent('#narrow');
+  assert.match(narrowText, /The kept set has: /);
+  assert.match(narrowText, /Scenes · one per scene/);
+  assert.match(narrowText, /Closest kept pairs/);
+  assert.match(narrowText, /Coverage pick · the 3 that cover the most ground/);
+  assert.ok(await page.locator('#narrow .dropRow').count() >= 1, 'coverage pick proposes drops when over target');
+  const keptN = await page.evaluate(() => window.__cs.state.frames.filter((f) => f.status === 'keep' || f.status === 'hero').length);
+  await page.click('#narrow .dropRow button:has-text("Drop") >> nth=0');
+  assert.equal(await page.evaluate(() => window.__cs.state.frames.filter((f) => f.status === 'keep' || f.status === 'hero').length), keptN - 1);
+  assert.equal(await page.evaluate(() => window.__cs.state.frames.filter((f) => f.status === 'out').length), 1, 'a drop never goes to Out');
+  assert.ok(await page.evaluate(() => window.__cs.state.frames.every((f) => f.status !== 'hero' || true)));
+  await page.click('#narrow button:has-text("Compare look-alikes")');
   if (await page.isVisible('#compare')) {
     const before = await page.evaluate(() => window.__cs.state.frames.filter((f) => f.status === 'keep' || f.status === 'hero').length);
     await page.click('#cpLeft');

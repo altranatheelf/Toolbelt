@@ -273,10 +273,18 @@ test('crop geometry', () => {
 });
 
 test('page ships as one self-contained file with no network access', () => {
-  assert.doesNotMatch(html, /\b(src|href)\s*=\s*["']?(https?:)?\/\//i);
-  assert.doesNotMatch(html, /url\(\s*["']?(https?:)?\/\//i);
-  assert.doesNotMatch(html, /@import/);
-  assert.doesNotMatch(html, /\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource/);
+  // the embedded TF.js library is scanned separately: it is inline, and the models load from memory
+  const ai = /<!-- AI:begin[\s\S]*?<!-- AI:end -->/.exec(html);
+  assert.ok(ai, 'AI block embedded');
+  assert.match(ai[0], /<script id="tfjs">/);
+  assert.match(ai[0], /<script id="ai-models" type="application\/json">/);
+  assert.doesNotMatch(ai[0], /<script[^>]*\ssrc=/i, 'TF.js is inline, not loaded from a CDN at runtime');
+  const page = html.replace(ai[0], '');
+  assert.doesNotMatch(page, /\b(src|href)\s*=\s*["']?(https?:)?\/\//i);
+  assert.doesNotMatch(page, /url\(\s*["']?(https?:)?\/\//i);
+  assert.doesNotMatch(page, /@import/);
+  assert.doesNotMatch(page, /\bfetch\s*\(|XMLHttpRequest|WebSocket|sendBeacon|EventSource/);
+  assert.match(page, /tf\.io\.fromMemory/, 'models are loaded from embedded bytes');
 });
 
 // ---------- proposals: pacing, smallest fix, cuts, bridges ----------
@@ -456,4 +464,73 @@ test('overlap sets: frames that say the same thing, from any camera; the census 
   const census = CS.roleCensus(items.concat([it('g', { scale: 'wide' }), it('h', { scale: 'wide' })]));
   assert.equal(census.scale.wide, 4);
   assert.ok(census.notes.includes('no face frames'), JSON.stringify(census.notes));
+});
+
+// ---------- scene brain ----------
+const vec = (...v) => Float32Array.from(v);
+test('scenes: average-link by cosine; closest pairs among kept; coverage pick drops the near-duplicates', () => {
+  const items = [
+    { id: 'tower1', num: '1', emb: vec(1, 0, 0, 0.1), kept: true },
+    { id: 'tower2', num: '2', emb: vec(0.95, 0.1, 0, 0.1), kept: true },
+    { id: 'tower3', num: '3', emb: vec(0.9, 0.2, 0.1, 0), kept: false },
+    { id: 'car1', num: '4', emb: vec(0, 1, 0, 0), kept: true, hero: true },
+    { id: 'road', num: '5', emb: vec(0, 0, 1, 0), kept: true },
+    { id: 'noemb', num: '6', emb: null, kept: true }
+  ];
+  const sc = CS.scenes(items);
+  assert.equal(sc.groupOf.tower1, sc.groupOf.tower2);
+  assert.equal(sc.groupOf.tower1, sc.groupOf.tower3);
+  assert.notEqual(sc.groupOf.tower1, sc.groupOf.car1);
+  assert.equal(sc.groups[0].ids.length, 3, 'largest scene first');
+  assert.equal(sc.groups[0].kept, 2);
+  const pairs = CS.closestPairs(items);
+  assert.deepEqual([pairs[0].a, pairs[0].b], ['tower1', 'tower2']);
+  assert.ok(pairs[0].sim > 0.95);
+  const pick = CS.coveragePick(items, 3);
+  assert.ok(pick.keep.includes('car1'), 'hero seeds the pick');
+  assert.equal(pick.keep.length, 3);
+  assert.equal(pick.drops.length, 1);
+  assert.ok(['tower1', 'tower2'].includes(pick.drops[0].id));
+  assert.ok(['1', '2'].includes(pick.drops[0].closestNum), 'a drop names the kept frame it is closest to');
+  assert.deepEqual(CS.coveragePick(items, 10).drops, [], 'under target: nothing to drop');
+  // a pool where everything looks alike: the threshold rises to the pool's own spread, so only the tightest pairs form scenes
+  const alike = Array.from({ length: 12 }, (_, i) => ({ id: 'a' + i, num: String(i), emb: vec(1, 0.3 + 0.02 * i, 0.1, 0.05 * (i % 3)), kept: false }));
+  alike.push({ id: 'tw', num: 'tw', emb: vec(1, 0.3, 0.1, 0.0001), kept: false });
+  const thr = CS.sceneThreshold(alike);
+  assert.ok(thr > CS.SCENE.sameScene, 'adaptive threshold above the floor: ' + thr.toFixed(3));
+  const sc2 = CS.scenes(alike);
+  assert.ok(sc2.groups.length > 1, 'not one giant scene');
+  assert.equal(sc2.groupOf.tw, sc2.groupOf.a0, 'the exact twin still shares a scene');
+});
+
+test('BlazeFace decoding: anchors, sigmoid score, NMS, letterbox mapping', () => {
+  const raw = new Float32Array(896 * 17);
+  // put a confident face at anchor 0 (grid 16, cell 0,0) and a near-copy at anchor 1 (same cell), plus one at the 8x8 grid centre
+  raw[0] = 4; raw[1] = 10; raw[2] = 10; raw[3] = 32; raw[4] = 32;
+  raw[17] = 3; raw[18] = 10; raw[19] = 10; raw[20] = 30; raw[21] = 30;
+  const i2 = 512 + (4 * 8 + 4) * 6, o2 = i2 * 17;
+  raw[o2] = 5; raw[o2 + 1] = 0; raw[o2 + 2] = 0; raw[o2 + 3] = 64; raw[o2 + 4] = 64;
+  const faces = CS.decodeBlazeFace(raw);
+  assert.equal(faces.length, 2, 'NMS merges the overlapping pair');
+  assert.ok(faces[0].score > 0.99);
+  const big = faces.find((f) => f.w > 0.4);
+  assert.ok(Math.abs(big.x + big.w / 2 - 0.5625) < 0.01 && Math.abs(big.w - 0.5) < 0.01);
+  const mapped = CS.unletterbox([{ x: 0.25, y: 0.375, w: 0.5, h: 0.25, score: 1 }], 400, 200);
+  assert.ok(Math.abs(mapped[0].y - 0.25) < 1e-9 && Math.abs(mapped[0].h - 0.5) < 1e-9);
+  assert.equal(CS.faceSummary(faces).size, 'large');
+  assert.equal(CS.faceSummary([]).count, 0);
+});
+
+test('saliency: a lone subject on a textured ground is found, with its position and size', () => {
+  const n = 64, g = new Float32Array(n * n);
+  let seed = 7; const rnd = () => ((seed = (seed * 9301 + 49297) % 233280) / 233280);
+  for (let i = 0; i < n * n; i++) g[i] = 0.45 + 0.08 * rnd();                       // grain, like a real ground
+  for (let y = 0; y < n; y++) for (let x = 0; x < n; x++) {                          // a soft blob at bottom-left
+    const d = Math.hypot(x - 16, y - 48) / 7; g[y * n + x] += 0.5 * Math.exp(-d * d);
+  }
+  const s = CS.saliency(g, n);
+  assert.ok(s.cx < 0.4 && s.cy > 0.6, `subject at bottom-left, got ${s.cx.toFixed(2)},${s.cy.toFixed(2)}`);
+  assert.ok(s.area > 0.01 && s.area < 0.3, 'area ' + s.area);
+  const flat = CS.saliency(new Float32Array(n * n).fill(0.5), n);
+  assert.ok(flat.area >= 0 && flat.area <= 1);
 });

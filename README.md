@@ -14,7 +14,13 @@
    - **1 · Flags.** The tool flags a tiny set of *likely cuts*: about 10% of the pool at most, plus the weaker of each tight twin pair. Only compound mechanical signals count: a pocket shot (near-black and flat), nothing in focus on a textured frame, much softer than the other frames from the same camera, screenshot-shaped, a tiny file. Exposure or colour alone never flags. Each flag is a badge with a one-phrase reason; nothing is decided for you. **Out all N flagged** is one tap, with Undo.
    - **2 · Sweep.** Open a frame and swipe: **↑ keep**, **↓ out**, **← →** next and previous. A decision auto-advances. Twins (same camera, near-identical) come one after another; bursts (same camera within 4 s) are noted. **Undo** stays on screen after every decision.
    - **3 · Keep.** Kept frames, with **★ Hero** for the strongest.
-   - **4 · Narrow.** When kept > target: **Survey** shows the kept set as a grid (tap to drop back to undecided, never to Out; long-press for Hero; **Grid size** shows them at profile-grid thumbnail size), and **Compare** walks kept look-alike pairs two-up, nearest first: keep left, keep right, or keep both; tap a frame to see it full-size.
+   - **4 · Narrow.** The hard part: choosing among frames you like. After measuring, the page reads every frame with a small on-device model (embedded in the file; nothing is fetched or uploaded) and the Narrow panel shows:
+     - **Scenes:** the pool grouped by subject, kept frames outlined. One per scene is the editor's rule.
+     - **Closest kept pairs:** the kept frames most alike, as a percentage, each with **Compare**. Near-twins by content, including the same subject from another angle.
+     - **Coverage pick:** when kept > target, the subset of your kept frames that covers the most ground (heroes always stay). Every proposed drop says which kept frame it is closest to; **Drop** returns it to undecided, never to Out.
+     - What the kept set has and lacks: counts by scale, you-in-frame and camera, and gaps such as "no close frames".
+     Also **Survey** (the kept set as a grid, tap to drop, long-press for Hero, **Grid size** for the cover test) and **Compare** (kept look-alike pairs two-up: keep left, keep right, or both).
+   - Faces are found on-device too (count, size, position). The photo view says "1 face, large" and suggests the You tag; cover candidates include untagged frames with a face and warn when the subject is small at grid size. The model can't tell who a face is; it only suggests.
 
 2. **Sequence.** The carousel as a storyboard. Each row shows the slide's role (Cover; Second cover, where Instagram re-shows the post to people who didn't swipe; Closer), the file number, the camera, and plain-word tags (Scale: Wide, Close, Face, Texture; You: Not in it, Face hidden, Face shown). Reorder with the handle or ↑ ↓. **Pin** a slide to keep it where it is. **Swap** replaces a slide from your kept frames in one tap. **Video slides** count toward the 20 and hold the slot. Between rows you see the brightness change, the colour shift and any camera change (a label, never a warning).
 
@@ -53,8 +59,12 @@ Safari 17+ renames picked photos to `tempImage….heic` (and converts them) when
 ```
 npm test            # core: metrics, per-camera flags, likely cuts, bursts, twins/rhymes, file numbers, EXIF, RAW, zip, crop maths
 npm run smoke       # drives the page in Chromium: cut → sequence (video, swap, pin, fix, cuts, bridge, cover, propose) → export → reload
-npm run scale       # 200 full-size frames on an emulated iPhone: load, measure and tap timings
+npm run scale       # 200 full-size frames on an emulated iPhone: load, measure, scene-reading and tap timings
 npm run calibrate   # radar station set: put the exports in tests/fixtures/radar-station/
 ```
+
+### On-device AI
+
+`tools/embed-ai.mjs` embeds TensorFlow.js (from cdnjs) and two small models from TF Hub, MobileNetV2-0.35 feature vectors (scene embeddings) and BlazeFace (faces), into the page as inline script and base64 weights: about 4.2 MB. They load from memory with `tf.io.fromMemory`, so the page never fetches anything at runtime and photos never leave the device. Subject size comes from spectral-residual saliency in plain JS. Scene reading starts once measuring has finished and is cached alongside the metrics. If the models fail to load (an old browser), everything else still works. Re-run the script to refresh the embedded files.
 
 Not in v1: exporting or measuring video, and the bridge to the zine site's JSON import.
