@@ -5,6 +5,12 @@
 <meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
 <title>Carousel Sequencer</title>
 <!-- Local tool: photos are decoded and measured on this device; nothing is uploaded. -->
+<!-- toolbelt:begin (site-only lines; the artifact copy drops them) -->
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<!-- toolbelt:end -->
 <style>
   /* Neutral greys with no hue bias on purpose: the chrome must not tint how photos read.
      Colour is reserved for state (kept, flagged) and the camera lane. */
@@ -289,7 +295,7 @@
 </head>
 <body>
 <header class="wrap">
-  <div class="brand"><b>Carousel Sequencer</b><span class="spacer"></span>
+  <div class="brand"><a id="homeLink" href="../index.html" class="small ghost" style="text-decoration:none;color:var(--muted);margin-right:4px" hidden>‹ Toolbelt</a><b>Carousel Sequencer</b><span class="spacer"></span>
     <button class="small ghost" id="saveSeqBtn">Save backup</button>
     <button class="small ghost" id="newBtn">New carousel</button></div>
   <input id="titleIn" type="text" placeholder="Carousel title or thesis" aria-label="Carousel title or thesis" autocomplete="off">
@@ -1840,6 +1846,11 @@ self.onmessage = async function (e) {
   var FLAG_SHORT = { sat: { 'more saturated': 'more saturated', 'less saturated': 'less saturated' } };
 
   var inFrame = (function () { try { return window.top !== window.self; } catch (e) { return true; } })();
+  // part of the Toolbelt site (not the artifact, not a lone file): show the way back, keep the offline cache fresh
+  if (!inFrame && /\/modules\/[^/]+\.html$/.test(location.pathname)) {
+    document.getElementById('homeLink').hidden = false;
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('../sw.js').catch(function () {});
+  }
   var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   var dlP = (window.claude && typeof window.claude.use === 'function')
     ? window.claude.use('downloads').catch(function () { return null; }) : Promise.resolve(null);

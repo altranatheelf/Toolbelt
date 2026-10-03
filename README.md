@@ -1,10 +1,23 @@
 # Toolbelt
 
+Local tools for a photographer, as one installable web app. Everything runs on the device; photos never leave it.
+
+**Install on an iPhone:** open the Toolbelt site in Safari, tap Share → **Add to Home Screen**. It opens full-screen and works offline.
+**Install on a computer:** Chrome or Edge show an install icon in the address bar on the Toolbelt page.
+
+The site is published from this repository by GitHub Pages (`.github/workflows/pages.yml`). One-time setup: repo **Settings → Pages → Source: GitHub Actions**. The site is then at `https://<owner>.github.io/Toolbelt/`. Each push rebuilds it; installed apps pick the new version up on their next open and offer a reload.
+
+## Layout
+
+- `index.html` — the launcher: lists the modules, registers the offline cache, offers Install.
+- `modules/<name>.html` — one self-contained file per module. Add a module: drop the file in `modules/`, add a card to `index.html` and a line to `FILES` in `sw.js`.
+- `manifest.webmanifest`, `sw.js`, `icons/` — the app shell. `tools/stamp-sw.mjs` versions the cache from the files' content; `tools/make-icons.mjs` renders the icons.
+
 ## Carousel Sequencer
 
-`carousel-sequencer.html` is one self-contained page for cutting a pool of photos down to an Instagram carousel of up to 20 slides. It measures and proposes; it never places, orders or cuts anything without a tap. Rules live in `CLAUDE.md`.
+`modules/carousel-sequencer.html` is one self-contained page for cutting a pool of photos down to an Instagram carousel of up to 20 slides. It measures and proposes; it never places, orders or cuts anything without a tap. Rules live in `CLAUDE.md`.
 
-**Open it:** on iPhone, use the published claude.ai link. On desktop, double-click the file. Photos never leave the device, except the contact sheet that Propose sends when you tap it.
+**Open it:** from the Toolbelt launcher (installed app or site), from the published claude.ai link, or by double-clicking the file on a desktop. Photos never leave the device, except the contact sheet that Propose sends when you tap it.
 
 ### The three tabs
 
@@ -65,6 +78,6 @@ npm run calibrate   # radar station set: put the exports in tests/fixtures/radar
 
 ### On-device AI
 
-`tools/embed-ai.mjs` embeds TensorFlow.js (from cdnjs) and two small models from TF Hub, MobileNetV2-0.35 feature vectors (scene embeddings) and BlazeFace (faces), into the page as inline script and base64 weights: about 4.2 MB. They load from memory with `tf.io.fromMemory`, so the page never fetches anything at runtime and photos never leave the device. Subject size comes from spectral-residual saliency in plain JS. Scene reading starts once measuring has finished and is cached alongside the metrics. If the models fail to load (an old browser), everything else still works. Re-run the script to refresh the embedded files.
+`tools/embed-ai.mjs` embeds TensorFlow.js (from cdnjs) and two small models from TF Hub into `modules/carousel-sequencer.html`, MobileNetV2-0.35 feature vectors (scene embeddings) and BlazeFace (faces), into the page as inline script and base64 weights: about 4.2 MB. They load from memory with `tf.io.fromMemory`, so the page never fetches anything at runtime and photos never leave the device. Subject size comes from spectral-residual saliency in plain JS. Scene reading starts once measuring has finished and is cached alongside the metrics. If the models fail to load (an old browser), everything else still works. Re-run the script to refresh the embedded files.
 
 Not in v1: exporting or measuring video, and the bridge to the zine site's JSON import.

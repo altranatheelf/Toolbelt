@@ -1,0 +1,77 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Toolbelt</title>
+<meta name="description" content="A set of local tools for a photographer. Everything runs on this device; photos never leave it.">
+<link rel="manifest" href="manifest.webmanifest">
+<meta name="theme-color" content="#1b1b1b" media="(prefers-color-scheme: dark)">
+<meta name="theme-color" content="#e8e8e8" media="(prefers-color-scheme: light)">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-title" content="Toolbelt">
+<link rel="apple-touch-icon" href="icons/icon-180.png">
+<link rel="icon" href="icons/icon-192.png">
+<style>
+  :root { --bg: #e8e8e8; --panel: #f4f4f4; --line: #cdcdcd; --text: #181818; --muted: #525252; --faint: #7c7c7c; --on: #181818; --onText: #fff; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1b1b1b; --panel: #232323; --line: #393939; --text: #e6e6e6; --muted: #a0a0a0; --faint: #707070; --on: #e6e6e6; --onText: #111; color-scheme: dark; } }
+  * { box-sizing: border-box; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { padding: calc(20px + env(safe-area-inset-top, 0px)) 16px calc(24px + env(safe-area-inset-bottom, 0px)); max-width: 720px; margin: 0 auto; }
+  h1 { font-size: 13px; letter-spacing: .1em; text-transform: uppercase; color: var(--muted); margin: 0 0 18px; font-weight: 650; }
+  .mod { display: block; color: inherit; text-decoration: none; background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 16px; margin-bottom: 12px; }
+  .mod b { font-size: 18px; display: block; margin-bottom: 4px; }
+  .mod p { margin: 0; color: var(--muted); }
+  .mod small { display: block; margin-top: 8px; color: var(--faint); font-family: ui-monospace, Menlo, monospace; font-size: 12px; }
+  .note { color: var(--muted); font-size: 14px; margin-top: 22px; border-top: 1px solid var(--line); padding-top: 14px; }
+  .note b { color: var(--text); }
+  button { font: inherit; color: var(--onText); background: var(--on); border: 0; border-radius: 8px; padding: 8px 14px; min-height: 38px; cursor: pointer; }
+  #install, #update { display: none; margin-top: 12px; }
+  #status { font-size: 13px; color: var(--faint); margin-top: 10px; }
+</style>
+</head>
+<body>
+<h1>Toolbelt</h1>
+<nav id="mods">
+  <a class="mod" href="modules/carousel-sequencer.html">
+    <b>Carousel Sequencer</b>
+    <p>Cut a pool of photos down to an Instagram carousel of up to 20 and sequence it. Scene reading, faces and colour checks run on this device.</p>
+    <small>modules/carousel-sequencer.html</small>
+  </a>
+</nav>
+<button id="install">Install Toolbelt</button>
+<button id="update">Update available · reload</button>
+<div id="status"></div>
+<div class="note">
+  <b>On an iPhone:</b> open this page in Safari, tap Share, then <b>Add to Home Screen</b>. It then opens full-screen and works offline.<br>
+  <b>On a computer:</b> Chrome or Edge show an install icon in the address bar, or use the button above.<br>
+  Everything runs on this device. Photos never leave it.
+</div>
+<script>
+  (function () {
+    var status = document.getElementById('status');
+    if ('serviceWorker' in navigator) {
+      navigator.serviceWorker.register('sw.js').then(function (reg) {
+        status.textContent = 'Ready offline.';
+        reg.addEventListener('updatefound', function () {
+          var nw = reg.installing;
+          nw && nw.addEventListener('statechange', function () {
+            if (nw.state === 'installed' && navigator.serviceWorker.controller) document.getElementById('update').style.display = 'inline-block';
+          });
+        });
+      }).catch(function () { status.textContent = 'Offline use needs https (or the installed app).'; });
+      var accepted = false;   // reload only after the person accepts an update, never on first install
+      navigator.serviceWorker.addEventListener('controllerchange', function () { if (accepted) location.reload(); });
+      document.getElementById('update').onclick = function () {
+        accepted = true;
+        navigator.serviceWorker.getRegistration().then(function (r) { if (r && r.waiting) r.waiting.postMessage('skip'); else location.reload(); });
+      };
+    }
+    var deferred = null;
+    window.addEventListener('beforeinstallprompt', function (e) { e.preventDefault(); deferred = e; document.getElementById('install').style.display = 'inline-block'; });
+    document.getElementById('install').onclick = function () { if (deferred) { deferred.prompt(); deferred = null; this.style.display = 'none'; } };
+  })();
+</script>
+</body>
+</html>

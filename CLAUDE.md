@@ -1,3 +1,6 @@
+# toolbelt
+- an installable PWA: index.html launcher + modules/<name>.html, each module one self-contained file; sw.js caches them for offline use, stamped by tools/stamp-sw.mjs; published by GitHub Pages from .github/workflows/pages.yml; adding a module = file in modules/, card in index.html, line in sw.js FILES
+
 # carousel sequencer
 - measure and propose, never apply: nothing is placed, ordered or cut without a tap; the tool writes no captions and no thesis text of its own
 - proposals come in the forms that get used, each by slot number with one reason, pinned slides never moved or cut:
@@ -23,6 +26,6 @@
 - a whole pool must go in with one pick: multi-select pickers, and a .zip (streamed, original names kept) for pickers limited to one
 - filename (file number) visible on every card; never trust a picker's name without checking (Safari 17+ renames to tempImage….heic when accept lists HEIC: keep HEIC out of accept)
 - everything local, images never leave the machine — one exception, on an explicit tap: Propose sends a small numbered contact sheet, the title and the tags to Claude
-- ships as one self-contained html file; must work on iPhone Safari with a couple hundred frames
+- ships as one self-contained html file (modules/carousel-sequencer.html); must work on iPhone Safari with a couple hundred frames
 - max 20 slides
 - fixtures: radar station set, expected flags in tests/expected.json

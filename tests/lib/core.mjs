@@ -3,12 +3,12 @@
 import { readFileSync } from 'node:fs';
 import { fileURLToPath } from 'node:url';
 
-export const HTML_PATH = fileURLToPath(new URL('../../carousel-sequencer.html', import.meta.url));
+export const HTML_PATH = fileURLToPath(new URL('../../modules/carousel-sequencer.html', import.meta.url));
 export const html = readFileSync(HTML_PATH, 'utf8');
 
 export function coreSource() {
   const m = /<script id="core">([\s\S]*?)<\/script>/.exec(html);
-  if (!m) throw new Error('no <script id="core"> in carousel-sequencer.html');
+  if (!m) throw new Error('no <script id="core"> in modules/carousel-sequencer.html');
   return m[1];
 }
 
