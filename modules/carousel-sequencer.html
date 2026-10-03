@@ -8,7 +8,7 @@
 <!-- toolbelt:begin (site-only lines; the artifact copy drops them) -->
 <link rel="manifest" href="../manifest.webmanifest">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <link rel="apple-touch-icon" href="../icons/icon-180.png">
 <!-- toolbelt:end -->
 <style>
@@ -1850,7 +1850,10 @@ self.onmessage = async function (e) {
   // part of the Toolbelt site (not the artifact, not a lone file): show the way back, keep the offline cache fresh
   if (!inFrame && /\/modules\/[^/]+\.html$/.test(location.pathname)) {
     document.getElementById('homeLink').hidden = false;
-    if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('../sw.js').catch(function () {});
+    if ('serviceWorker' in navigator && location.protocol !== 'file:') navigator.serviceWorker.register('../sw.js').then(function (reg) {
+      reg.update();
+      document.addEventListener('visibilitychange', function () { if (!document.hidden) reg.update(); });
+    }).catch(function () {});
   }
   var isIOS = /iP(hone|ad|od)/.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   var dlP = (window.claude && typeof window.claude.use === 'function')

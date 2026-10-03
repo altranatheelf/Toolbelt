@@ -9,7 +9,7 @@
 <meta name="theme-color" content="#1b1b1b" media="(prefers-color-scheme: dark)">
 <meta name="theme-color" content="#e8e8e8" media="(prefers-color-scheme: light)">
 <meta name="apple-mobile-web-app-capable" content="yes">
-<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
 <meta name="apple-mobile-web-app-title" content="Toolbelt">
 <link rel="apple-touch-icon" href="icons/icon-180.png">
 <link rel="icon" href="icons/icon-192.png">
@@ -54,6 +54,7 @@
     if ('serviceWorker' in navigator) {
       navigator.serviceWorker.register('sw.js').then(function (reg) {
         status.textContent = 'Ready offline.';
+        document.addEventListener('visibilitychange', function () { if (!document.hidden) reg.update(); });   // check for a new version on every return
         reg.addEventListener('updatefound', function () {
           var nw = reg.installing;
           nw && nw.addEventListener('statechange', function () {
