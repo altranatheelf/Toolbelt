@@ -93,10 +93,12 @@ def sheet_dir(out_root: Path, source: Path) -> Path:
     return outdir
 
 
-def clear_outputs(outdir: Path) -> None:
-    """Drop ear and degraded files from an earlier run so the folder matches its sidecar."""
+def clear_outputs(outdir: Path, source: Path) -> None:
+    """Drop ear and degraded files from an earlier run so the folder matches its sidecar. Never the source."""
     for sub, pattern in (("ears", "*.txt"), ("ears", "*.json"), ("degraded", "*.wav")):
         for stale in (outdir / sub).glob(pattern):
+            if stale.resolve() == source.resolve():
+                raise RuntimeError(f"{source} is a file this run would replace; move it or use --out")
             stale.unlink()
 
 
@@ -131,9 +133,11 @@ def listen_source(
     info = probe(source)
     digest = sha256(source)
     outdir = sheet_dir(out_root, source)
+    if outdir == source.parent or outdir in source.parents:
+        raise RuntimeError(f"{source} sits inside its own sheet folder {outdir}; move it or use --out")
     ears_dir = outdir / "ears"
     ears_dir.mkdir(parents=True, exist_ok=True)
-    clear_outputs(outdir)
+    clear_outputs(outdir, source)
     settings = Settings(noise_db=config.noise_db, seed=config.seed)
     conditions = list(dict.fromkeys(ear.condition for ear in ears))
     models = list(dict.fromkeys(ear.model for ear in ears))

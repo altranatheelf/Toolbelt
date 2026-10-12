@@ -1,0 +1,575 @@
+{
+ "probe": {
+  "sample_rate": 16000,
+  "channels": 1,
+  "duration": 20.0
+ },
+ "lyrics": [
+  "This is a stand in.",
+  "The lighthouse keeper mends a broken radio while the kettle boils.",
+  "Count the gulls, then count them again."
+ ],
+ "hearings": [
+  {
+   "ear": {
+    "condition": "clean",
+    "model": "base",
+    "language": "en",
+    "task": "transcribe"
+   },
+   "note": null,
+   "lines": [
+    {
+     "start": 0.0,
+     "end": 5.52,
+     "text": " It's in a stand-in, the light has keeper men the broken radio.",
+     "words": [
+      {
+       "start": 0.0,
+       "end": 0.26,
+       "text": " It's",
+       "probability": 0.33
+      },
+      {
+       "start": 0.46,
+       "end": 0.48,
+       "text": " in",
+       "probability": 0.33
+      },
+      {
+       "start": 0.48,
+       "end": 0.6,
+       "text": " a",
+       "probability": 0.66
+      },
+      {
+       "start": 0.6,
+       "end": 0.92,
+       "text": " stand",
+       "probability": 0.14
+      },
+      {
+       "start": 0.92,
+       "end": 1.68,
+       "text": "-in,",
+       "probability": 0.67
+      },
+      {
+       "start": 1.68,
+       "end": 1.82,
+       "text": " the",
+       "probability": 0.56
+      },
+      {
+       "start": 1.82,
+       "end": 2.02,
+       "text": " light",
+       "probability": 0.76
+      },
+      {
+       "start": 2.02,
+       "end": 2.32,
+       "text": " has",
+       "probability": 0.18
+      },
+      {
+       "start": 2.32,
+       "end": 2.82,
+       "text": " keeper",
+       "probability": 0.6
+      },
+      {
+       "start": 2.82,
+       "end": 3.08,
+       "text": " men",
+       "probability": 0.44
+      },
+      {
+       "start": 3.08,
+       "end": 3.26,
+       "text": " the",
+       "probability": 0.5
+      },
+      {
+       "start": 3.26,
+       "end": 3.88,
+       "text": " broken",
+       "probability": 0.7
+      },
+      {
+       "start": 3.88,
+       "end": 4.4,
+       "text": " radio.",
+       "probability": 0.8
+      }
+     ]
+    },
+    {
+     "start": 6.08,
+     "end": 9.0,
+     "text": " Count the gold, man count.",
+     "words": [
+      {
+       "start": 6.08,
+       "end": 6.4,
+       "text": " Count",
+       "probability": 0.98
+      },
+      {
+       "start": 6.4,
+       "end": 6.6,
+       "text": " the",
+       "probability": 0.9
+      },
+      {
+       "start": 6.6,
+       "end": 6.94,
+       "text": " gold,",
+       "probability": 0.5
+      },
+      {
+       "start": 6.94,
+       "end": 7.4,
+       "text": " man",
+       "probability": 0.45
+      },
+      {
+       "start": 7.4,
+       "end": 8.0,
+       "text": " count.",
+       "probability": 0.55
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "ear": {
+    "condition": "wall",
+    "model": "base",
+    "language": "en",
+    "task": "transcribe"
+   },
+   "note": null,
+   "lines": [
+    {
+     "start": 0.0,
+     "end": 3.98,
+     "text": " This is a family, the life of people, men of local radio,",
+     "words": [
+      {
+       "start": 0.0,
+       "end": 0.3,
+       "text": " This",
+       "probability": 0.45
+      },
+      {
+       "start": 0.3,
+       "end": 0.5,
+       "text": " is",
+       "probability": 0.6
+      },
+      {
+       "start": 0.5,
+       "end": 0.6,
+       "text": " a",
+       "probability": 0.6
+      },
+      {
+       "start": 0.6,
+       "end": 1.1,
+       "text": " family,",
+       "probability": 0.57
+      },
+      {
+       "start": 1.68,
+       "end": 1.8,
+       "text": " the",
+       "probability": 0.5
+      },
+      {
+       "start": 1.8,
+       "end": 2.0,
+       "text": " life",
+       "probability": 0.43
+      },
+      {
+       "start": 2.0,
+       "end": 2.2,
+       "text": " of",
+       "probability": 0.4
+      },
+      {
+       "start": 2.2,
+       "end": 2.6,
+       "text": " people,",
+       "probability": 0.63
+      },
+      {
+       "start": 2.82,
+       "end": 3.0,
+       "text": " men",
+       "probability": 0.73
+      },
+      {
+       "start": 3.0,
+       "end": 3.1,
+       "text": " of",
+       "probability": 0.4
+      },
+      {
+       "start": 3.1,
+       "end": 3.4,
+       "text": " local",
+       "probability": 0.59
+      },
+      {
+       "start": 3.4,
+       "end": 3.98,
+       "text": " radio,",
+       "probability": 0.6
+      }
+     ]
+    },
+    {
+     "start": 6.08,
+     "end": 9.68,
+     "text": " Count, number, men, men | pipe",
+     "words": [
+      {
+       "start": 6.08,
+       "end": 6.4,
+       "text": " Count,",
+       "probability": 0.54
+      },
+      {
+       "start": 6.4,
+       "end": 6.9,
+       "text": " number,",
+       "probability": 0.5
+      },
+      {
+       "start": 7.0,
+       "end": 7.2,
+       "text": " men,",
+       "probability": 0.73
+      },
+      {
+       "start": 7.2,
+       "end": 7.5,
+       "text": " men",
+       "probability": 0.7
+      },
+      {
+       "start": 7.5,
+       "end": 7.8,
+       "text": " |",
+       "probability": 0.2
+      },
+      {
+       "start": 7.8,
+       "end": 8.2,
+       "text": " pipe",
+       "probability": 0.3
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "ear": {
+    "condition": "backwards",
+    "model": "base",
+    "language": "en",
+    "task": "transcribe"
+   },
+   "note": null,
+   "lines": [
+    {
+     "start": 3.48,
+     "end": 19.98,
+     "text": " I'm in my own business",
+     "words": [
+      {
+       "start": 3.48,
+       "end": 3.9,
+       "text": " I'm",
+       "probability": 0.9
+      },
+      {
+       "start": 3.9,
+       "end": 4.1,
+       "text": " in",
+       "probability": 0.9
+      },
+      {
+       "start": 4.1,
+       "end": 4.3,
+       "text": " my",
+       "probability": 0.9
+      },
+      {
+       "start": 4.3,
+       "end": 4.5,
+       "text": " own",
+       "probability": 0.9
+      },
+      {
+       "start": 4.5,
+       "end": 5.0,
+       "text": " business",
+       "probability": 0.9
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "ear": {
+    "condition": "clean",
+    "model": "base",
+    "language": "el",
+    "task": "transcribe"
+   },
+   "note": null,
+   "lines": [
+    {
+     "start": 0.0,
+     "end": 19.98,
+     "text": " Δηλαδή, να φτέντε, ♪",
+     "words": [
+      {
+       "start": 0.0,
+       "end": 0.5,
+       "text": " Δηλαδή,",
+       "probability": 0.5
+      },
+      {
+       "start": 0.5,
+       "end": 1.0,
+       "text": " να",
+       "probability": 0.9
+      },
+      {
+       "start": 1.0,
+       "end": 1.5,
+       "text": " φτέντε,",
+       "probability": 0.3
+      },
+      {
+       "start": 2.0,
+       "end": 2.2,
+       "text": " ♪",
+       "probability": 0.2
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "ear": {
+    "condition": "clean",
+    "model": "base",
+    "language": "el",
+    "task": "translate"
+   },
+   "note": null,
+   "lines": [
+    {
+     "start": 0.0,
+     "end": 5.52,
+     "text": " It's in a stand-in, the light house keeper.",
+     "words": [
+      {
+       "start": 0.0,
+       "end": 0.26,
+       "text": " It's",
+       "probability": 0.33
+      },
+      {
+       "start": 0.46,
+       "end": 0.48,
+       "text": " in",
+       "probability": 0.33
+      },
+      {
+       "start": 0.48,
+       "end": 0.6,
+       "text": " a",
+       "probability": 0.66
+      },
+      {
+       "start": 0.6,
+       "end": 0.92,
+       "text": " stand",
+       "probability": 0.14
+      },
+      {
+       "start": 0.92,
+       "end": 1.68,
+       "text": "-in,",
+       "probability": 0.67
+      },
+      {
+       "start": 1.68,
+       "end": 1.82,
+       "text": " the",
+       "probability": 0.56
+      },
+      {
+       "start": 1.82,
+       "end": 2.02,
+       "text": " light",
+       "probability": 0.76
+      },
+      {
+       "start": 2.02,
+       "end": 2.32,
+       "text": " house",
+       "probability": 0.5
+      },
+      {
+       "start": 2.32,
+       "end": 2.82,
+       "text": " keeper.",
+       "probability": 0.6
+      }
+     ]
+    }
+   ]
+  },
+  {
+   "ear": {
+    "condition": "sideways",
+    "model": "base",
+    "language": "en",
+    "task": "transcribe"
+   },
+   "note": "mono source: no side channel (the side of a mono signal is zero)",
+   "lines": []
+  }
+ ],
+ "expected_sheet": "# standin.wav\n\n## Source\n\n- file: standin.wav\n- sha256: abababababababababababababababababababababababababababababababab\n- duration: 20.00 s · 16000 Hz · mono\n- ears: 6\n- lyrics: standin.txt\n\n| condition | base · en | base · el | base · el → en |\n|---|---|---|---|\n| clean | 2 | 1 | 1 |\n| wall | 2 | – | – |\n| backwards | 1 | – | – |\n| sideways | 0 | – | – |\n\n## Ears\n\n### clean · base · en\n\n- 0:00.00–0:05.52  It's in a stand-in, the light has keeper men the broken radio.\n- 0:06.08–0:09.00  Count the gold, man count.\n\n### wall · base · en\n\n- 0:00.00–0:03.98  This is a family, the life of people, men of local radio,\n- 0:06.08–0:09.68  Count, number, men, men | pipe\n\n### backwards · base · en\n\n- 0:03.48–0:19.98  I'm in my own business\n\n### clean · base · el\n\n- 0:00.00–0:19.98  Δηλαδή, να φτέντε, ♪\n\n### clean · base · el → en\n\n- 0:00.00–0:05.52  It's in a stand-in, the light house keeper.\n\n### sideways · base · en\n_mono source: no side channel (the side of a mono signal is zero)_\n\n\n## Dissent\n\nWords aligned on the source timeline (a word joins a window when it starts within 0.6 s of the window's first word; tape, helium and backwards ears are mapped back to source time). A row is a window where the English-output ears heard different things, surest dissent first; each cell shows what that ear heard and the mean word probability. A hearing whose words are not in the real line is marked ≠.\n\n| time | real line | clean · base · en | wall · base · en | clean · base · el | clean · base · el → en |\n|---|---|---|---|---|---|\n| 0:06.08 | Count the gulls, then count them again. | ≠ Count the gold, (0.79) | ≠ Count, number, (0.52) |  |  |\n| 0:02.32 | The lighthouse keeper mends a broken radio while the kettle boils. | ≠ keeper men (0.52) | ≠ men (0.73) |  | keeper. (0.60) |\n| 0:01.68 | The lighthouse keeper mends a broken radio while the kettle boils. | ≠ the light has (0.50) | ≠ the life of people, (0.49) | ♪ (0.20) | ≠ the light house (0.61) |\n| 0:03.00 | The lighthouse keeper mends a broken radio while the kettle boils. | ≠ the broken (0.60) | ≠ of local radio, (0.53) |  |  |\n| 0:00.00 | This is a stand in. | ≠ It's in a stand (0.36) | ≠ This is a family, (0.55) | Δηλαδή, να (0.70) | ≠ It's in a stand (0.36) |\n| 0:06.94 | Count the gulls, then count them again. | ≠ man count. (0.50) | ≠ men, men \\| (0.54) |  |  |\n\n## Pile\n\n- It's in a stand-in, the light has keeper men the broken radio.\n- Count the gold, man count.\n- This is a family, the life of people, men of local radio,\n- Count, number, men, men | pipe\n- I'm in my own business\n- Δηλαδή, να φτέντε, ♪\n- It's in a stand-in, the light house keeper.\n",
+ "expected_sheet_without_lyrics": "# standin.wav\n\n## Source\n\n- file: standin.wav\n- sha256: abababababababababababababababababababababababababababababababab\n- duration: 20.00 s · 16000 Hz · mono\n- ears: 6\n\n| condition | base · en | base · el | base · el → en |\n|---|---|---|---|\n| clean | 2 | 1 | 1 |\n| wall | 2 | – | – |\n| backwards | 1 | – | – |\n| sideways | 0 | – | – |\n\n## Ears\n\n### clean · base · en\n\n- 0:00.00–0:05.52  It's in a stand-in, the light has keeper men the broken radio.\n- 0:06.08–0:09.00  Count the gold, man count.\n\n### wall · base · en\n\n- 0:00.00–0:03.98  This is a family, the life of people, men of local radio,\n- 0:06.08–0:09.68  Count, number, men, men | pipe\n\n### backwards · base · en\n\n- 0:03.48–0:19.98  I'm in my own business\n\n### clean · base · el\n\n- 0:00.00–0:19.98  Δηλαδή, να φτέντε, ♪\n\n### clean · base · el → en\n\n- 0:00.00–0:05.52  It's in a stand-in, the light house keeper.\n\n### sideways · base · en\n_mono source: no side channel (the side of a mono signal is zero)_\n\n\n## Dissent\n\nWords aligned on the source timeline (a word joins a window when it starts within 0.6 s of the window's first word; tape, helium and backwards ears are mapped back to source time). A row is a window where the English-output ears heard different things, surest dissent first; each cell shows what that ear heard and the mean word probability.\n\n| time | clean · base · en | wall · base · en | clean · base · el | clean · base · el → en |\n|---|---|---|---|---|\n| 0:06.08 | Count the gold, (0.79) | Count, number, (0.52) |  |  |\n| 0:02.32 | keeper men (0.52) | men (0.73) |  | keeper. (0.60) |\n| 0:01.68 | the light has (0.50) | the life of people, (0.49) | ♪ (0.20) | the light house (0.61) |\n| 0:03.00 | the broken (0.60) | of local radio, (0.53) |  |  |\n| 0:00.00 | It's in a stand (0.36) | This is a family, (0.55) | Δηλαδή, να (0.70) | It's in a stand (0.36) |\n| 0:06.94 | man count. (0.50) | men, men \\| (0.54) |  |  |\n\n## Pile\n\n- It's in a stand-in, the light has keeper men the broken radio.\n- Count the gold, man count.\n- This is a family, the life of people, men of local radio,\n- Count, number, men, men | pipe\n- I'm in my own business\n- Δηλαδή, να φτέντε, ♪\n- It's in a stand-in, the light house keeper.\n",
+ "expected_dissent": [
+  {
+   "start": 6.08,
+   "probability": 0.7933333333333333,
+   "real": "Count the gulls, then count them again.",
+   "cells": {
+    "clean.base.en.transcribe": {
+     "text": " Count the gold,",
+     "probability": 0.7933333333333333
+    },
+    "wall.base.en.transcribe": {
+     "text": " Count, number,",
+     "probability": 0.52
+    }
+   }
+  },
+  {
+   "start": 2.32,
+   "probability": 0.73,
+   "real": "The lighthouse keeper mends a broken radio while the kettle boils.",
+   "cells": {
+    "clean.base.en.transcribe": {
+     "text": " keeper men",
+     "probability": 0.52
+    },
+    "wall.base.en.transcribe": {
+     "text": " men",
+     "probability": 0.73
+    },
+    "clean.base.el.translate": {
+     "text": " keeper.",
+     "probability": 0.6
+    }
+   }
+  },
+  {
+   "start": 1.68,
+   "probability": 0.6066666666666667,
+   "real": "The lighthouse keeper mends a broken radio while the kettle boils.",
+   "cells": {
+    "clean.base.en.transcribe": {
+     "text": " the light has",
+     "probability": 0.5
+    },
+    "wall.base.en.transcribe": {
+     "text": " the life of people,",
+     "probability": 0.49
+    },
+    "clean.base.el.transcribe": {
+     "text": " ♪",
+     "probability": 0.2
+    },
+    "clean.base.el.translate": {
+     "text": " the light house",
+     "probability": 0.6066666666666667
+    }
+   }
+  },
+  {
+   "start": 3.0,
+   "probability": 0.6,
+   "real": "The lighthouse keeper mends a broken radio while the kettle boils.",
+   "cells": {
+    "clean.base.en.transcribe": {
+     "text": " the broken",
+     "probability": 0.6
+    },
+    "wall.base.en.transcribe": {
+     "text": " of local radio,",
+     "probability": 0.5299999999999999
+    }
+   }
+  },
+  {
+   "start": 0.0,
+   "probability": 0.5549999999999999,
+   "real": "This is a stand in.",
+   "cells": {
+    "clean.base.en.transcribe": {
+     "text": " It's in a stand",
+     "probability": 0.365
+    },
+    "wall.base.en.transcribe": {
+     "text": " This is a family,",
+     "probability": 0.5549999999999999
+    },
+    "clean.base.el.transcribe": {
+     "text": " Δηλαδή, να",
+     "probability": 0.7
+    },
+    "clean.base.el.translate": {
+     "text": " It's in a stand",
+     "probability": 0.365
+    }
+   }
+  },
+  {
+   "start": 6.94,
+   "probability": 0.5433333333333333,
+   "real": "Count the gulls, then count them again.",
+   "cells": {
+    "clean.base.en.transcribe": {
+     "text": " man count.",
+     "probability": 0.5
+    },
+    "wall.base.en.transcribe": {
+     "text": " men, men |",
+     "probability": 0.5433333333333333
+    }
+   }
+  }
+ ],
+ "expected_pile": [
+  "It's in a stand-in, the light has keeper men the broken radio.",
+  "Count the gold, man count.",
+  "This is a family, the life of people, men of local radio,",
+  "Count, number, men, men | pipe",
+  "I'm in my own business",
+  "Δηλαδή, να φτέντε, ♪",
+  "It's in a stand-in, the light house keeper."
+ ]
+}

@@ -163,3 +163,14 @@ def test_contractions_match_lyric_tokens():
     from mishear.dissent import lyric_spans
     clean = hearing("clean", [(1.0, "It's", 0.9), (1.4, "in", 0.9), (1.6, "a", 0.9), (1.8, "stand", 0.9)])
     assert lyric_spans(clean, ["it's in a stand"], PROBE) == [(1.0, 1.8)]
+
+
+def test_source_inside_its_own_sheet_folder_is_refused_and_untouched(standin, tmp_path):
+    out = tmp_path / "sheets"
+    inside = out / "clean" / "degraded" / "clean.wav"
+    inside.parent.mkdir(parents=True)
+    shutil.copy(standin, inside)
+    before = inside.read_bytes()
+    assert main(["listen", str(inside), "--out", str(out), "--quick", "--keep"]) == 1
+    assert inside.read_bytes() == before
+    assert not (out / "clean" / "sidecar.json").exists()

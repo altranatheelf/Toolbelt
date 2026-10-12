@@ -1,0 +1,13 @@
+{
+  "name": "toolbelt-mishear-web",
+  "private": true,
+  "type": "module",
+  "description": "Mishear in the browser: the listening conditions, Whisper through transformers.js, the Dissent table and the Pile, all on the device.",
+  "scripts": {
+    "build": "node ../../tools/build-mishear-web.mjs",
+    "test": "node --test tests/*.test.mjs"
+  },
+  "devDependencies": {
+    "@huggingface/transformers": "4.3.1"
+  }
+}
