@@ -9,7 +9,8 @@ description = "A mondegreen generator: feeds audio to speech-recognition models 
 readme = "README.md"
 license = { text = "AGPL-3.0-or-later" }
 requires-python = ">=3.12"
-dependencies = ["faster-whisper>=1.1"]
+license = {text = "AGPL-3.0-or-later"}
+dependencies = ["faster-whisper>=1.1", "numpy>=1.26"]
 
 [project.optional-dependencies]
 dev = ["pytest>=8"]
