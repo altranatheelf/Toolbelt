@@ -14,6 +14,39 @@ pip install -e .
 ripper check                        # ffmpeg/ffprobe/libsoxr and yt-dlp versions
 ```
 
+## On an iPhone, without a Mac (untested here: needs a run on the phone)
+
+A browser cannot fetch YouTube streams and YouTube refuses every data-centre
+IP, so the only honest phone path runs yt-dlp on the phone itself, on its
+own residential or mobile IP. a-Shell (free, App Store) ships Python 3.13,
+pip for pure-Python packages, and a native ffmpeg + ffprobe. Ripper is pure
+Python apart from numpy, which a-Shell bundles. Since yt-dlp 2025.11.12
+YouTube needs a JavaScript runtime; on iOS the pure-Python plugin
+`yt-dlp-apple-webkit-jsi` solves the challenges inside WebKit (no deno).
+
+In a-Shell:
+
+```sh
+pip install "https://github.com/altranatheelf/Toolbelt/archive/refs/heads/claude/carousel-sequencer-xdhiiy.zip#subdirectory=modules/ripper"
+pip install yt-dlp-ejs yt-dlp-apple-webkit-jsi
+ripper check                       # ffmpeg, yt-dlp, the plugin
+ripper rip "https://…" --out ~/Documents/captures
+```
+
+Captures land in Files › a-Shell. The engine (`ripper serve`) does not fit a
+phone: iOS stops a-Shell's commands as soon as it leaves the foreground, so
+the page cannot talk to it; use the command, and keep a-Shell in front while
+it runs (it keeps the screen awake). An a-Shell Shortcut ("Execute Command"
+with the shared URL) turns this into a share-sheet action. What is not yet
+verified on a real phone: that a-Shell's Python can call its ffmpeg through
+`subprocess`, and that the numpy it bundles satisfies pip.
+
+The other way that keeps YouTube working is an always-on box at home (a
+Raspberry Pi or an old laptop, not the Mac) running `ripper serve`, reached
+from the phone over Tailscale's free plan: a residential IP, no cookies, no
+monthly cost. Any cloud VM, GitHub Actions runner or hosted downloader sits
+on a data-centre IP and gets "Sign in to confirm you're not a bot".
+
 ## In the Toolbelt app
 
 Ripper is a module on the Toolbelt launcher. Its page is the controls; the work runs in the engine on your computer:
