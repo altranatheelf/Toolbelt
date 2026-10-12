@@ -41,3 +41,11 @@ def test_tape_runs_slow_at_the_source_rate():
 
 def test_helium_runs_fast_at_the_source_rate():
     assert CONDITIONS["helium"](STEREO, Settings()) == "[0:a:0]asetrate=49392,aresample=44100[out]"
+
+def test_rain_uses_the_configured_level_and_seed():
+    assert CONDITIONS["rain"](STEREO, Settings()) == (
+        "anoisesrc=color=pink:seed=0:sample_rate=44100:amplitude=1,volume=-12dB[n];"
+        "[0:a:0][n]amix=inputs=2:duration=first:normalize=0[out]"
+    )
+    assert "seed=7" in CONDITIONS["rain"](STEREO, Settings(noise_db=-20, seed=7))
+    assert "volume=-20dB" in CONDITIONS["rain"](STEREO, Settings(noise_db=-20, seed=7))

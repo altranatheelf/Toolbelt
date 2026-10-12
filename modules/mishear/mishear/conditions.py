@@ -53,12 +53,22 @@ def helium(probe: Probe, settings: Settings) -> str | None:
     return chain(f"asetrate={round(probe.sample_rate * 1.12)},aresample={probe.sample_rate}")
 
 
+def rain(probe: Probe, settings: Settings) -> str | None:
+    """Pink noise mixed in at the configured level (default -12 dB), fixed seed."""
+    return (
+        f"anoisesrc=color=pink:seed={settings.seed}:sample_rate={probe.sample_rate}:amplitude=1,"
+        f"volume={settings.noise_db:g}dB[n];"
+        "[0:a:0][n]amix=inputs=2:duration=first:normalize=0[out]"
+    )
+
+
 CONDITIONS: dict[str, Condition] = {
     "clean": clean,
     "wall": wall,
     "radio": radio,
     "tape": tape,
     "helium": helium,
+    "rain": rain,
 }
 
 
