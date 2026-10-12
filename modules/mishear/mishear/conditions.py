@@ -21,6 +21,10 @@ class Settings:
 
 
 Condition = Callable[[Probe, Settings], "str | None"]
+TimeMap = Callable[[float, float], tuple[float, float]]
+
+TAPE_RATE = 0.93
+HELIUM_RATE = 1.12
 
 
 def chain(filters: str) -> str:
@@ -45,12 +49,12 @@ def radio(probe: Probe, settings: Settings) -> str | None:
 
 def tape(probe: Probe, settings: Settings) -> str | None:
     """Tape running slow: 7 % lower and longer, resampled back to the source rate."""
-    return chain(f"asetrate={round(probe.sample_rate * 0.93)},aresample={probe.sample_rate}")
+    return chain(f"asetrate={round(probe.sample_rate * TAPE_RATE)},aresample={probe.sample_rate}")
 
 
 def helium(probe: Probe, settings: Settings) -> str | None:
     """Helium: 12 % higher and shorter, resampled back to the source rate."""
-    return chain(f"asetrate={round(probe.sample_rate * 1.12)},aresample={probe.sample_rate}")
+    return chain(f"asetrate={round(probe.sample_rate * HELIUM_RATE)},aresample={probe.sample_rate}")
 
 
 def rain(probe: Probe, settings: Settings) -> str | None:
@@ -98,3 +102,18 @@ def note(name: str, probe: Probe) -> str | None:
     if name == "sideways" and probe.channels < 2:
         return "mono source: no side channel (the side of a mono signal is zero)"
     return None
+
+
+def time_map(name: str, probe: Probe) -> TimeMap:
+    """Map an ear's (start, end) back onto the source timeline.
+
+    Tape and helium stretch time by their rate; backwards runs it in reverse.
+    Every other condition keeps the source clock.
+    """
+    if name == "tape":
+        return lambda start, end: (start * TAPE_RATE, end * TAPE_RATE)
+    if name == "helium":
+        return lambda start, end: (start * HELIUM_RATE, end * HELIUM_RATE)
+    if name == "backwards":
+        return lambda start, end: (max(probe.duration - end, 0.0), max(probe.duration - start, 0.0))
+    return lambda start, end: (start, end)

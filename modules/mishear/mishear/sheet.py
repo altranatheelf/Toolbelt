@@ -3,7 +3,8 @@
 from __future__ import annotations
 
 from .audio import Probe
-from .ears import Hearing
+from .dissent import WINDOW, Window, differs_from, dissent, english_output, pile
+from .ears import Ear, Hearing
 
 
 def fmt_time(seconds: float) -> str:
@@ -69,6 +70,50 @@ def render_ear(hearing: Hearing) -> str:
     return "\n".join(parts)
 
 
+def cell_text(text: str) -> str:
+    return text.strip().replace("|", "\\|").replace("\n", " ")
+
+
+def render_dissent(rows: list[Window], ears: list[Ear], with_lyrics: bool) -> str:
+    parts = ["## Dissent"]
+    if not rows:
+        return "\n".join(parts)
+    parts += [
+        "",
+        f"Words aligned on the source timeline (a word joins a window when it starts within {WINDOW:g} s "
+        "of the window's first word; tape, helium and backwards ears are mapped back to source time). "
+        "A row is a window where the English-output ears heard different things, surest dissent first; "
+        "each cell shows what that ear heard and the mean word probability."
+        + (" A hearing whose words are not in the real line is marked ≠." if with_lyrics else ""),
+        "",
+    ]
+    columns = [e for e in ears if any(e in row.cells for row in rows)]
+    header = ["time"] + (["real line"] if with_lyrics else []) + [e.label for e in columns]
+    parts.append("| " + " | ".join(header) + " |")
+    parts.append("|" + "|".join("---" for _ in header) + "|")
+    for row in rows:
+        cells = [fmt_time(row.start)]
+        if with_lyrics:
+            cells.append(cell_text(row.real or ""))
+        for ear in columns:
+            cell = row.cells.get(ear)
+            if cell is None:
+                cells.append("")
+                continue
+            mark = "≠ " if with_lyrics and english_output(ear) and differs_from(row.real, cell.text) else ""
+            cells.append(f"{mark}{cell_text(cell.text)} ({cell.probability:.2f})")
+        parts.append("| " + " | ".join(cells) + " |")
+    return "\n".join(parts)
+
+
+def render_pile(lines: list[str]) -> str:
+    parts = ["## Pile"]
+    if lines:
+        parts.append("")
+        parts += [f"- {cell_text(line)}" for line in lines]
+    return "\n".join(parts)
+
+
 def render_sheet(
     name: str,
     probe: Probe,
@@ -79,4 +124,7 @@ def render_sheet(
 ) -> str:
     sections = [render_source(name, probe, digest, hearings, lyrics_name), "## Ears"]
     sections += [render_ear(h) for h in hearings]
+    rows = dissent(hearings, probe, lyrics)
+    sections.append(render_dissent(rows, [h.ear for h in hearings], bool(lyrics)))
+    sections.append(render_pile(pile(hearings)))
     return "\n\n".join(sections).rstrip() + "\n"

@@ -98,8 +98,29 @@ Per source, in `./sheets/<name>/` (or `--out DIR`):
 - `degraded/<condition>.wav`: only with `--keep`; otherwise the degraded
   versions are temp files and are deleted
 
-A `.txt` file with the same name next to the audio is read as the real lines
-and shown in the Dissent table.
+### Dissent
+
+Words are aligned across ears by time, never by string matching. Each word is
+placed on the source timeline (tape and helium words divided back by their
+rate, backwards words reversed), and a word joins a window when it starts
+within 0.6 s of the window's first word. A window is a Dissent row when the
+ears that output English (the `en` ears and every `translate` ear) heard
+different things there; native-script hearings are shown in the row but do
+not decide it. The most common hearing in a window is the reference when
+something was heard more than once; every other hearing dissents, and the
+row's probability is the surest dissenter's mean word probability. Rows are
+sorted by that, descending.
+
+A `.txt` file with the same name next to the audio is read as the real lines.
+Lyrics have no timestamps, so each lyric line gets a time span by matching its
+words once against the clean English ear that heard the most; the Dissent
+table then shows the real line for each window and marks with ≠ every
+English hearing whose words are not in it.
+
+### Pile
+
+Every distinct line any ear produced, once, in order of first occurrence
+(ears in grid order, lines in time order). No ranking.
 
 ## Commands
 

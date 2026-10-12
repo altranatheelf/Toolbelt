@@ -46,6 +46,8 @@
 - never paraphrase, clean up or fix model output: nonsense stays nonsense, empty stays empty; the only text edit is stripping Whisper's leading space when a line is printed in the sheet
 - deterministic: beam search (beam 5) at temperature 0, no fallback temperatures, condition_on_previous_text off, fixed noise seed, fixed cpu_threads; same input, same sheet; every parameter is recorded in sidecar.json (source path and sha256, duration, model repo + snapshot hash + library versions, exact ffmpeg argv and filter graph, language, task, seed, tool version, timestamp)
 - an ear is (condition, model, language, task); one pure function per condition returns the ffmpeg filter graph, one function runs one ear, the sheet writer takes a list of hearings
+- dissent aligns words across ears by time only (source timeline, tape/helium/backwards mapped back, a word joins a window when it starts within 0.6 s of its first word); a row needs two English-output ears hearing different things, native-script ears are shown but never decide; rows sort by the surest dissenter's mean word probability; lyrics (same-name .txt) are placed by matching their words once to the clean English ear and only mark ≠, never align
+- pile = every distinct line once in first-occurrence order, no ranking
 - source audio is never modified; degraded versions are 16 kHz mono temp files, deleted unless --keep
 - silence: the model's own no-speech gate (no_speech_threshold 0.6, log_prob_threshold off) decides; no VAD; no placeholder text in an empty sheet
 - test fixtures: only recordings the owner made; nothing commercial anywhere; tests/fixtures/standin.wav is a labelled synthetic stand-in (tools/make_standin.py) until a real 20-second recording replaces it
