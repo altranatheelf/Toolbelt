@@ -49,3 +49,18 @@ def test_rain_uses_the_configured_level_and_seed():
     )
     assert "seed=7" in CONDITIONS["rain"](STEREO, Settings(noise_db=-20, seed=7))
     assert "volume=-20dB" in CONDITIONS["rain"](STEREO, Settings(noise_db=-20, seed=7))
+
+def test_sideways_is_the_side_channel_or_zero_on_mono():
+    assert CONDITIONS["sideways"](STEREO, Settings()) == "[0:a:0]pan=mono|c0=0.5*c0-0.5*c1[out]"
+    assert CONDITIONS["sideways"](MONO16K, Settings()) == "[0:a:0]pan=mono|c0=0*c0[out]"
+    assert note("sideways", MONO16K) and "mono" in note("sideways", MONO16K)
+    assert note("sideways", STEREO) is None
+
+
+def test_sideways_on_mono_does_not_crash(standin, tmp_path):
+    assert probe(standin).channels == 1
+    outdir = run(standin, tmp_path / "sheets", "--quick")
+    assert (outdir / "ears" / "sideways.tiny.en.transcribe.txt").exists()
+    sidecar = json.loads((outdir / "sidecar.json").read_text(encoding="utf-8"))
+    ear = [e for e in sidecar["ears"] if e["condition"] == "sideways"][0]
+    assert "mono" in ear["note"]

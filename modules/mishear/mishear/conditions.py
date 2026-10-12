@@ -62,6 +62,14 @@ def rain(probe: Probe, settings: Settings) -> str | None:
     )
 
 
+def sideways(probe: Probe, settings: Settings) -> str | None:
+    """The side channel only. A mono file has no side channel, so the ear gets zero
+    (ffmpeg's pan would otherwise ignore the missing c1 and pass the mono at half level)."""
+    if probe.channels < 2:
+        return chain("pan=mono|c0=0*c0")
+    return chain("pan=mono|c0=0.5*c0-0.5*c1")
+
+
 CONDITIONS: dict[str, Condition] = {
     "clean": clean,
     "wall": wall,
@@ -69,9 +77,12 @@ CONDITIONS: dict[str, Condition] = {
     "tape": tape,
     "helium": helium,
     "rain": rain,
+    "sideways": sideways,
 }
 
 
 def note(name: str, probe: Probe) -> str | None:
     """A remark about how a condition applied to this source, if anything is unusual."""
+    if name == "sideways" and probe.channels < 2:
+        return "mono source: no side channel (the side of a mono signal is zero)"
     return None
