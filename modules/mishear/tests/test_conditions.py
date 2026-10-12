@@ -67,3 +67,6 @@ def test_sideways_on_mono_does_not_crash(standin, tmp_path):
 
 def test_backwards():
     assert CONDITIONS["backwards"](STEREO, Settings()) == "[0:a:0]areverse[out]"
+
+def test_crushed():
+    assert CONDITIONS["crushed"](STEREO, Settings()) == "[0:a:0]acrusher=bits=6:mix=1[out]"

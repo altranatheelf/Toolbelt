@@ -75,6 +75,11 @@ def backwards(probe: Probe, settings: Settings) -> str | None:
     return chain("areverse")
 
 
+def crushed(probe: Probe, settings: Settings) -> str | None:
+    """6-bit bit crusher, fully wet."""
+    return chain("acrusher=bits=6:mix=1")
+
+
 CONDITIONS: dict[str, Condition] = {
     "clean": clean,
     "wall": wall,
@@ -84,6 +89,7 @@ CONDITIONS: dict[str, Condition] = {
     "rain": rain,
     "sideways": sideways,
     "backwards": backwards,
+    "crushed": crushed,
 }
 
 
