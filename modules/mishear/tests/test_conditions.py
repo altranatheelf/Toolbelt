@@ -64,3 +64,6 @@ def test_sideways_on_mono_does_not_crash(standin, tmp_path):
     sidecar = json.loads((outdir / "sidecar.json").read_text(encoding="utf-8"))
     ear = [e for e in sidecar["ears"] if e["condition"] == "sideways"][0]
     assert "mono" in ear["note"]
+
+def test_backwards():
+    assert CONDITIONS["backwards"](STEREO, Settings()) == "[0:a:0]areverse[out]"

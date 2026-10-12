@@ -70,6 +70,11 @@ def sideways(probe: Probe, settings: Settings) -> str | None:
     return chain("pan=mono|c0=0.5*c0-0.5*c1")
 
 
+def backwards(probe: Probe, settings: Settings) -> str | None:
+    """Reversed."""
+    return chain("areverse")
+
+
 CONDITIONS: dict[str, Condition] = {
     "clean": clean,
     "wall": wall,
@@ -78,6 +83,7 @@ CONDITIONS: dict[str, Condition] = {
     "helium": helium,
     "rain": rain,
     "sideways": sideways,
+    "backwards": backwards,
 }
 
 
