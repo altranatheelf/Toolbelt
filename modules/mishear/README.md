@@ -122,12 +122,25 @@ English hearing whose words are not in it.
 Every distinct line any ear produced, once, in order of first occurrence
 (ears in grid order, lines in time order). No ranking.
 
+## In the Toolbelt app
+
+Mishear is also a card on the Toolbelt launcher (`modules/mishear.html`).
+That page is only the controls: it talks to `mishear serve`, a small engine on
+this computer bound to `127.0.0.1:8766`, which takes the uploaded audio into
+`./inbox`, listens, writes `./sheets/<name>/` as the command does, and hands
+the sheet back to the page to show. Nothing is hosted and nothing leaves the
+machine. Start it in the venv with `mishear serve` (keep the terminal open);
+it opens `http://127.0.0.1:8766/`, which serves the same page. The page and
+`mishear/ui.html` are the same file: edit `modules/mishear.html` and copy it
+over. A phone cannot run the engine.
+
 ## Commands
 
 ```sh
 mishear listen <file-or-folder> [--quick|--all] [--deep] [--keep] [--out DIR]
 mishear ears [--quick|--all] [--deep]     # list the ears a grid would use
 mishear sheet <file-or-sheet-folder>      # rewrite sheet.md from the saved ears
+mishear serve [--port 8766] [--out DIR] [--inbox DIR] [--no-open]   # the local engine for the app page
 ```
 
 Config lives in `~/.config/mishear/config.toml` (languages, models,

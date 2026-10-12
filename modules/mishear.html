@@ -1,0 +1,238 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mishear</title>
+<!-- Toolbelt module. The page is the UI; listening runs in `mishear serve` on this computer at 127.0.0.1. Nothing is hosted. -->
+<!-- toolbelt:begin -->
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<!-- toolbelt:end -->
+<style>
+  :root { --bg: #e8e8e8; --panel: #f4f4f4; --raise: #fff; --line: #cdcdcd; --well: #d6d6d6; --text: #181818; --muted: #525252; --faint: #7c7c7c;
+    --flag: #8a4f00; --keep: #1f7a45; --bad: #b3261e; --on: #181818; --onText: #fff; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1b1b1b; --panel: #232323; --raise: #2b2b2b; --line: #393939; --well: #141414; --text: #e6e6e6; --muted: #a0a0a0; --faint: #707070;
+    --flag: #e8a948; --keep: #62c98b; --bad: #e0685a; --on: #e6e6e6; --onText: #111; color-scheme: dark; } }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { padding: env(safe-area-inset-top, 0px) 16px calc(24px + env(safe-area-inset-bottom, 0px)); max-width: 1100px; margin: 0 auto; }
+  header { padding-block: 12px 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  header b { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  header a { color: var(--muted); text-decoration: none; }
+  .spacer { flex: 1; }
+  .pill { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; color: var(--muted); }
+  .pill.on { border-color: var(--keep); color: var(--keep); } .pill.off { border-color: var(--bad); color: var(--bad); }
+  button, input, select { font: inherit; color: inherit; }
+  button { background: var(--raise); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; min-height: 38px; cursor: pointer; }
+  button.primary { background: var(--on); color: var(--onText); border-color: var(--on); } button:disabled { opacity: .4; }
+  select, input[type=file] { background: var(--raise); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-height: 38px; min-width: 0; max-width: 100%; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .card h2 { margin: 0; font-size: 15px; } .muted { color: var(--muted); } .faint { color: var(--faint); font-size: 13px; }
+  .warn { color: var(--flag); } .bad { color: var(--bad); } .good { color: var(--keep); }
+  .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+  label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  label.c { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); min-height: 38px; }
+  pre { background: var(--well); border-radius: 8px; padding: 10px; font: 12px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 30vh; overflow: auto; }
+  code { font: 13px var(--mono); background: var(--well); padding: 1px 5px; border-radius: 4px; }
+  .steps { margin: 0; padding-left: 20px; } .steps li { margin: 4px 0; }
+  /* rendered sheet */
+  .sheet h2 { font-size: 20px; margin: 8px 0 4px; } .sheet h3 { font-size: 15px; margin: 18px 0 4px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .sheet h4 { font-size: 15px; margin: 14px 0 2px; } .sheet p { margin: 4px 0; } .sheet ul { margin: 4px 0; padding-left: 20px; } .sheet li { margin: 2px 0; overflow-wrap: anywhere; }
+  .sheet .tbl { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 6px 0; border: 1px solid var(--line); border-radius: 8px; }
+  .sheet table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+  .sheet th, .sheet td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; max-width: 320px; overflow-wrap: anywhere; }
+  .sheet th { color: var(--faint); font-weight: 600; font-size: 12px; white-space: nowrap; position: sticky; top: 0; background: var(--panel); }
+  .sheet td.t { font-family: var(--mono); white-space: nowrap; } .sheet td.ne { color: var(--flag); } .sheet td.real { font-weight: 600; min-width: 160px; }
+  .past { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .past .t { font-weight: 600; overflow-wrap: anywhere; }
+</style>
+</head>
+<body>
+<header><a href="../index.html">‹ Toolbelt</a><b>Mishear</b><span class="spacer"></span><span id="engine" class="pill">looking for the engine…</span></header>
+
+<section class="card" id="setup" hidden>
+  <h2>The engine isn't running on this computer</h2>
+  <p class="muted" style="margin:0">Mishear plays your audio to speech-recognition models under bad listening conditions and keeps what they heard. The models and ffmpeg run in a small local engine, on this computer only, at <code>127.0.0.1:8766</code>. This page is the controls. Nothing is hosted and nothing leaves the machine.</p>
+  <ol class="steps muted">
+    <li>Once: <code>brew install ffmpeg python@3.12</code>, then in the Toolbelt checkout <code>cd modules/mishear && python3.12 -m venv .venv && . .venv/bin/activate && pip install -e .</code></li>
+    <li>Each session: <code>mishear serve</code> (keep that terminal open). The first listen downloads the models once into <code>~/.cache</code>; after that it is offline.</li>
+    <li>On a phone, this module can't run the engine. Use it on the computer.</li>
+  </ol>
+  <div class="row"><button id="retry">Check again</button><a href="http://127.0.0.1:8766/" class="muted" style="font-size:13px">open from the engine</a></div>
+</section>
+
+<section class="card" id="listen" hidden>
+  <h2>Listen</h2>
+  <div class="opts">
+    <label class="f">Audio (one or more files)<input id="audio" type="file" multiple accept=".wav,.mp3,.m4a,.aac,.flac,.aiff,.aif,.ogg,.opus,.caf,.mp4,.mov,.m4v,.webm,audio/*"></label>
+    <label class="f">Real lines, optional (a .txt named like the audio)<input id="lyrics" type="file" multiple accept=".txt,text/plain"></label>
+    <label class="f">Grid<select id="mode"><option value="default">default · every condition × base, small · plus clean & wall in the forced languages</option><option value="quick">quick · clean, wall, sideways × base</option><option value="all">all · everything</option></select></label>
+    <label class="c"><input id="deep" type="checkbox"> add medium (slow)</label>
+    <label class="c"><input id="keep" type="checkbox"> keep degraded audio</label>
+  </div>
+  <div id="earsPreview" class="faint"></div>
+  <div class="row"><button id="go" class="primary">Listen</button><span id="state" class="muted"></span></div>
+  <pre id="log" hidden></pre>
+</section>
+
+<section class="card" id="result" hidden>
+  <div class="row"><h2 id="resultTitle">Sheet</h2><span class="spacer"></span><a id="rawLink" class="faint" href="#" target="_blank" rel="noopener">sheet.md</a><a id="sidecarLink" class="faint" href="#" target="_blank" rel="noopener">sidecar.json</a></div>
+  <div id="sheet" class="sheet"></div>
+</section>
+
+<section class="card" id="past">
+  <h2>Sheets on this computer</h2>
+  <div id="sheets" class="faint">—</div>
+</section>
+
+<script>
+(function () {
+  var API = 'http://127.0.0.1:8766';
+  var $ = function (s) { return document.querySelector(s); };
+  var state = { ok: false, health: null };
+  function h(tag, attrs) {
+    var e = document.createElement(tag);
+    if (attrs) Object.keys(attrs).forEach(function (k) { if (k === 'text') e.textContent = attrs[k]; else if (k === 'class') e.className = attrs[k]; else if (k.slice(0, 2) === 'on') e.addEventListener(k.slice(2), attrs[k]); else e.setAttribute(k, attrs[k]); });
+    for (var i = 2; i < arguments.length; i++) { var c = arguments[i]; if (c == null) continue; e.appendChild(typeof c === 'string' ? document.createTextNode(c) : c); }
+    return e;
+  }
+  async function api(path, body) {
+    var r = await fetch(API + path, body ? { method: 'POST', headers: { 'Content-Type': 'application/json' }, body: JSON.stringify(body) } : {});
+    var j = await r.json();
+    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    return j;
+  }
+  async function upload(file) {
+    var r = await fetch(API + '/api/upload?name=' + encodeURIComponent(file.name), { method: 'POST', body: file });
+    var j = await r.json();
+    if (!r.ok) throw new Error(j.error || ('HTTP ' + r.status));
+    return j;
+  }
+  async function health() {
+    var pill = $('#engine');
+    try {
+      var hh = await api('/api/health');
+      state.ok = true; state.health = hh;
+      var cached = Object.keys(hh.models || {}).filter(function (m) { return hh.models[m]; });
+      pill.textContent = 'engine running · ' + (hh.ffmpeg ? 'ffmpeg ok' : 'ffmpeg missing') + ' · models cached: ' + (cached.length ? cached.join(', ') : 'none yet');
+      pill.className = 'pill ' + (hh.ffmpeg ? 'on' : 'off');
+      $('#setup').hidden = true; $('#listen').hidden = false;
+      earsPreview(); loadSheets();
+    } catch (e) {
+      state.ok = false;
+      pill.textContent = 'engine not found'; pill.className = 'pill off';
+      $('#setup').hidden = false; $('#listen').hidden = true; $('#result').hidden = true;
+      $('#sheets').textContent = 'Start the engine to see sheets.';
+    }
+  }
+  async function earsPreview() {
+    try {
+      var ears = await api('/api/ears?mode=' + $('#mode').value + '&deep=' + ($('#deep').checked ? 1 : 0));
+      $('#earsPreview').textContent = ears.length + ' ears: ' + ears.join(' · ');
+    } catch (e) { $('#earsPreview').textContent = ''; }
+  }
+  $('#retry').onclick = health;
+  $('#mode').onchange = earsPreview; $('#deep').onchange = earsPreview;
+
+  $('#go').onclick = async function () {
+    var files = Array.prototype.slice.call($('#audio').files || []);
+    var txts = Array.prototype.slice.call($('#lyrics').files || []);
+    if (!files.length) { $('#state').textContent = 'pick an audio file first'; $('#state').className = 'warn'; return; }
+    $('#go').disabled = true; $('#state').className = 'muted'; $('#log').hidden = false; $('#log').textContent = '';
+    try {
+      var names = [];
+      for (var i = 0; i < files.length; i++) { $('#state').textContent = 'uploading ' + files[i].name + ' (' + (i + 1) + '/' + files.length + ')…'; names.push((await upload(files[i])).name); }
+      for (var k = 0; k < txts.length; k++) { $('#state').textContent = 'uploading ' + txts[k].name + '…'; await upload(txts[k]); }
+      $('#state').textContent = 'listening… (the first run downloads the models)';
+      var j = await api('/api/listen', { names: names, mode: $('#mode').value, deep: $('#deep').checked, keep: $('#keep').checked });
+      var job;
+      do { await new Promise(function (r) { setTimeout(r, 1500); }); job = await api('/api/jobs/' + j.job); $('#log').textContent = job.log || '…'; $('#log').scrollTop = $('#log').scrollHeight; } while (job.status === 'running');
+      $('#state').textContent = job.status === 'done' ? 'done' : 'failed'; $('#state').className = job.status === 'done' ? 'good' : 'bad';
+      if (job.results && job.results.length) showSheet(job.results[0].sheet, job.results[0].markdown);
+      loadSheets();
+    } catch (e) { $('#state').textContent = String(e.message || e); $('#state').className = 'bad'; }
+    finally { $('#go').disabled = false; }
+  };
+
+  function showSheet(name, markdown) {
+    $('#result').hidden = false;
+    $('#resultTitle').textContent = name;
+    $('#rawLink').href = API + '/api/sheets/' + encodeURIComponent(name) + '/sheet.md';
+    $('#sidecarLink').href = API + '/api/sheets/' + encodeURIComponent(name) + '/sidecar.json';
+    renderMarkdown(markdown, $('#sheet'));
+    $('#result').scrollIntoView({ behavior: 'smooth', block: 'start' });
+  }
+  async function openSheet(name) {
+    try {
+      var r = await fetch(API + '/api/sheets/' + encodeURIComponent(name) + '/sheet.md');
+      if (!r.ok) throw new Error('HTTP ' + r.status);
+      showSheet(name, await r.text());
+    } catch (e) { $('#state').textContent = String(e.message || e); $('#state').className = 'bad'; }
+  }
+  async function loadSheets() {
+    var box = $('#sheets');
+    try {
+      var list = await api('/api/sheets');
+      box.textContent = ''; box.className = '';
+      if (!list.length) { box.textContent = 'No sheets yet.'; box.className = 'faint'; return; }
+      list.forEach(function (s) {
+        box.appendChild(h('div', { class: 'past' },
+          h('div', null, h('div', { class: 't', text: s.name }), h('div', { class: 'faint', text: (s.source || '') + ' · ' + s.ears + ' ears · ' + s.lines + ' lines' + (s.lyrics ? ' · real lines' : '') + ' · ' + (s.timestamp || '') })),
+          h('button', { text: 'Open', onclick: function () { openSheet(s.name); } })));
+      });
+    } catch (e) { box.textContent = 'Could not list sheets.'; }
+  }
+
+  // The sheet is markdown written by the engine: headings, bullets, tables, one italic note line. Rendered into DOM nodes, never innerHTML.
+  function splitRow(row) {
+    var cells = [], cur = '', k = 1;
+    for (; k < row.length; k++) {
+      var c = row[k];
+      if (c === '\\' && row[k + 1] === '|') { cur += '|'; k++; }
+      else if (c === '|') { cells.push(cur.trim()); cur = ''; }
+      else cur += c;
+    }
+    if (cur.trim()) cells.push(cur.trim());
+    return cells;
+  }
+  function table(rows) {
+    var wrap = h('div', { class: 'tbl' }), t = h('table'), head = splitRow(rows[0]), body = rows.slice(1).filter(function (r) { return !/^\|\s*-{3}/.test(r); });
+    var thead = h('thead'), tr = h('tr'); head.forEach(function (c) { tr.appendChild(h('th', { text: c })); }); thead.appendChild(tr); t.appendChild(thead);
+    var tbody = h('tbody'); var realCol = head.indexOf('real line');
+    body.forEach(function (r) {
+      var cells = splitRow(r), tr2 = h('tr');
+      head.forEach(function (_, i) {
+        var v = cells[i] == null ? '' : cells[i];
+        var cls = i === 0 ? 't' : (i === realCol ? 'real' : (v.charAt(0) === '≠' ? 'ne' : ''));
+        tr2.appendChild(h('td', { class: cls, text: v }));
+      });
+      tbody.appendChild(tr2);
+    });
+    t.appendChild(tbody); wrap.appendChild(t); return wrap;
+  }
+  function renderMarkdown(md, into) {
+    into.textContent = '';
+    var lines = md.split('\n'), i = 0, list = null, para = [];
+    function flush() { if (para.length) { into.appendChild(h('p', { text: para.join(' ') })); para = []; } }
+    while (i < lines.length) {
+      var L = lines[i];
+      if (L.charAt(0) === '|') { flush(); list = null; var rows = []; while (i < lines.length && lines[i].charAt(0) === '|') { rows.push(lines[i]); i++; } into.appendChild(table(rows)); continue; }
+      var m = /^(#{1,6})\s+(.*)$/.exec(L);
+      if (m) { flush(); list = null; into.appendChild(h('h' + Math.min(m[1].length + 1, 6), { text: m[2] })); i++; continue; }
+      if (L.slice(0, 2) === '- ') { flush(); if (!list) { list = h('ul'); into.appendChild(list); } list.appendChild(h('li', { text: L.slice(2) })); i++; continue; }
+      if (/^_.*_$/.test(L)) { flush(); list = null; into.appendChild(h('p', { class: 'faint', text: L.slice(1, -1) })); i++; continue; }
+      if (!L.trim()) { flush(); list = null; i++; continue; }
+      para.push(L); i++;
+    }
+    flush();
+  }
+  health();
+})();
+</script>
+</body>
+</html>

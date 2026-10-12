@@ -44,6 +44,12 @@ def build_parser() -> argparse.ArgumentParser:
     sheet = sub.add_parser("sheet", help="rewrite sheet.md for a source from its saved ears")
     sheet.add_argument("path", type=Path, help="the source file, or its sheets/<name> folder")
     sheet.add_argument("--out", type=Path, default=Path("sheets"))
+
+    serve = sub.add_parser("serve", help="run the local engine for the Toolbelt Mishear module (127.0.0.1 only)")
+    serve.add_argument("--port", type=int, default=8766)
+    serve.add_argument("--out", type=Path, default=Path("sheets"), help="sheets root (default ./sheets)")
+    serve.add_argument("--inbox", type=Path, default=Path("inbox"), help="where uploaded files land (default ./inbox)")
+    serve.add_argument("--no-open", action="store_true", help="do not open the page in a browser")
     return parser
 
 
@@ -64,6 +70,11 @@ def main(argv: list[str] | None = None) -> int:
         for source in sources:
             outdir = listen_source(source, ears, config, args.out, keep=args.keep)
             print(outdir / "sheet.md")
+        return 0
+    if args.command == "serve":
+        from .serve import serve
+
+        serve(args.port, str(args.out), str(args.inbox), open_browser=not args.no_open)
         return 0
     if args.command == "sheet":
         sheet_dir = args.path if args.path.is_dir() else args.out / args.path.stem

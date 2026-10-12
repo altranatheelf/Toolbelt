@@ -52,6 +52,7 @@
 - silence: the model's own no-speech gate (no_speech_threshold 0.6, log_prob_threshold off) decides; no VAD; no placeholder text in an empty sheet
 - test fixtures: only recordings the owner made; nothing commercial anywhere; tests/fixtures/standin.wav is a labelled synthetic stand-in (tools/make_standin.py) until a real 20-second recording replaces it
 - ffmpeg/ffprobe come from Homebrew; if missing the tool prints `brew install ffmpeg` and exits 2
+- also a Toolbelt module (modules/mishear.html, on the launcher) whose work runs in `mishear serve` (127.0.0.1:8766 only, uploads in ./inbox, sheets in ./sheets); the page renders sheet.md into DOM nodes, never innerHTML; the module page and mishear/ui.html are the same file: edit modules/mishear.html and copy it over
 - things that went wrong (append here):
   - faster-whisper 1.2.1 with PyAV 19 fails on `av.open(..., metadata_errors=...)`; mishear never hands faster-whisper a file: ffmpeg renders every condition to 16 kHz mono PCM and the samples go in as a numpy array
   - tiny hears " You" in digital silence (no_speech_prob 0.80, avg_logprob -0.93): the default whisper gate keeps it because the logprob override wins, so the gate runs on no_speech_prob alone
