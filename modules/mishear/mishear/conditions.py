@@ -38,9 +38,15 @@ def wall(probe: Probe, settings: Settings) -> str | None:
     return chain("lowpass=f=800")
 
 
+def radio(probe: Probe, settings: Settings) -> str | None:
+    """A telephone band, 300-3400 Hz, squashed by a compressor."""
+    return chain("highpass=f=300,lowpass=f=3400,acompressor")
+
+
 CONDITIONS: dict[str, Condition] = {
     "clean": clean,
     "wall": wall,
+    "radio": radio,
 }
 
 

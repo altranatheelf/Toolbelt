@@ -31,3 +31,6 @@ def test_every_condition_produces_a_file(standin, tmp_path):
 
 def test_wall():
     assert CONDITIONS["wall"](STEREO, Settings()) == "[0:a:0]lowpass=f=800[out]"
+
+def test_radio():
+    assert CONDITIONS["radio"](STEREO, Settings()) == "[0:a:0]highpass=f=300,lowpass=f=3400,acompressor[out]"
