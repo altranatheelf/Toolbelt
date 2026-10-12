@@ -81,7 +81,7 @@ Grids:
 - default: every condition × {base, small} × en, plus clean and wall × small ×
   each forced language (both tasks)
 - `--quick`: clean, wall, sideways × base × en
-- `--all`: everything
+- `--all`: everything: every condition × {tiny, base, small} × every language and task
 - `--deep`: adds medium to whichever grid is running
 
 ## Output

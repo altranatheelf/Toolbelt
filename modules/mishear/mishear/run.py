@@ -37,11 +37,8 @@ def grid(config: Config, mode: str = "default", deep: bool = False) -> list[Ear]
             for model in models:
                 ears.append(Ear(condition, model, ENGLISH))
         return ears
-    models = list(config.models_default) + (list(config.models_deep) if deep else [])
-    if mode == "all":
-        for model in dict.fromkeys(list(config.models_quick) + models):
-            if model not in models:
-                models.append(model)
+    sizes = config.models_all if mode == "all" else config.models_default
+    models = list(dict.fromkeys(list(sizes) + (list(config.models_deep) if deep else [])))
     for condition in conditions:
         for model in models:
             ears.append(Ear(condition, model, ENGLISH))
@@ -49,7 +46,8 @@ def grid(config: Config, mode: str = "default", deep: bool = False) -> list[Ear]
         forced_conditions, forced_models = conditions, models
     else:
         forced_conditions = [c for c in ("clean", "wall") if c in conditions]
-        forced_models = [m for m in models if m not in config.models_default[:-1]] if config.models_default else []
+        # the largest default model (the last listed) plus any deep model
+        forced_models = [m for m in models if m not in config.models_default[:-1]]
     for condition in forced_conditions:
         for model in forced_models:
             for language in forced:

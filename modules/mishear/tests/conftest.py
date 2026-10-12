@@ -13,6 +13,7 @@ languages = ["el"]
 [models]
 default = ["tiny"]
 quick = ["tiny"]
+all = ["tiny"]
 deep = []
 
 [decode]

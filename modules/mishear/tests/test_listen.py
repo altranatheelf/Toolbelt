@@ -38,6 +38,7 @@ def test_config_created_with_defaults(tmp_path, monkeypatch):
     assert path.exists()
     assert config.languages == ("el", "ro")
     assert config.models_default == ("base", "small")
+    assert config.models_all == ("tiny", "base", "small") and config.models_deep == ("medium",)
     assert config.conditions["clean"] is True
 
 

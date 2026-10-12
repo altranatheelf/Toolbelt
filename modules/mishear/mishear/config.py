@@ -15,9 +15,10 @@ DEFAULT_TOML = """\
 languages = ["el", "ro"]
 
 [models]
-default = ["base", "small"]   # the default grid
-quick = ["base"]              # --quick
-deep = ["medium"]             # added by --deep
+default = ["base", "small"]       # the default grid
+quick = ["base"]                  # --quick
+all = ["tiny", "base", "small"]   # --all
+deep = ["medium"]                 # added by --deep
 
 # Switch conditions off here to leave them out of every grid.
 [conditions]
@@ -48,6 +49,7 @@ class Config:
     languages: tuple[str, ...]
     models_default: tuple[str, ...]
     models_quick: tuple[str, ...]
+    models_all: tuple[str, ...]
     models_deep: tuple[str, ...]
     conditions: dict[str, bool]
     noise_db: float
@@ -81,6 +83,7 @@ def load_config(path: Path | None = None) -> Config:
         languages=tuple(raw.get("languages", defaults["languages"])),
         models_default=tuple(models["default"]),
         models_quick=tuple(models["quick"]),
+        models_all=tuple(models["all"]),
         models_deep=tuple(models["deep"]),
         conditions={str(k): bool(v) for k, v in conditions.items()},
         noise_db=float(noise["level_db"]),

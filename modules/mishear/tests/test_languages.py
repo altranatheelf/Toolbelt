@@ -26,7 +26,8 @@ def test_quick_grid_is_english_only_and_all_grid_is_everything():
     assert [e.condition for e in quick] == ["clean", "wall", "sideways"]
     assert all(e.language == "en" for e in quick)
     everything = grid(config, "all")
-    assert len(everything) == len(config.conditions) * (1 + 2 * len(config.languages))
+    assert len(everything) == len(config.conditions) * len(config.models_all) * (1 + 2 * len(config.languages))
+    assert {e.model for e in everything} == set(config.models_all)
 
 
 def test_forced_language_ears_hear_native_script_and_translate_to_english(standin, tmp_path):
