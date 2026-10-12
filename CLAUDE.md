@@ -39,3 +39,19 @@
 - YouTube refuses data-centre IPs: live tests use Creative Commons items on the Internet Archive; YouTube specifics are verified on the person's machine with --cookies-from-browser
 - no commercial music URLs in the repo; tests use synthetic audio and CC items
 
+
+# mishear
+- a local command-line mondegreen generator (modules/mishear, Python 3.12, AGPL-3.0): audio goes to speech models under bad listening conditions and what they heard is kept; it composes nothing, every line was produced by a speech model hearing audio; no LLM calls, no network at runtime (models download once into ~/.cache, offline after)
+- library: faster-whisper (CTranslate2) on CPU, int8; chosen over whisper.cpp because its Python API gives word timestamps with per-word probability directly and the whole decode is reproducible from parameters; whisper.cpp is faster on Apple Silicon (Metal/CoreML) but that only buys speed, and the Python bindings don't expose word probabilities (see modules/mishear/README.md)
+- never paraphrase, clean up or fix model output: nonsense stays nonsense, empty stays empty; the only text edit is stripping Whisper's leading space when a line is printed in the sheet
+- deterministic: beam search (beam 5) at temperature 0, no fallback temperatures, condition_on_previous_text off, fixed noise seed, fixed cpu_threads; same input, same sheet; every parameter is recorded in sidecar.json (source path and sha256, duration, model repo + snapshot hash + library versions, exact ffmpeg argv and filter graph, language, task, seed, tool version, timestamp)
+- an ear is (condition, model, language, task); one pure function per condition returns the ffmpeg filter graph, one function runs one ear, the sheet writer takes a list of hearings
+- source audio is never modified; degraded versions are 16 kHz mono temp files, deleted unless --keep
+- silence: the model's own no-speech gate (no_speech_threshold 0.6, log_prob_threshold off) decides; no VAD; no placeholder text in an empty sheet
+- test fixtures: only recordings the owner made; nothing commercial anywhere; tests/fixtures/standin.wav is a labelled synthetic stand-in (tools/make_standin.py) until a real 20-second recording replaces it
+- ffmpeg/ffprobe come from Homebrew; if missing the tool prints `brew install ffmpeg` and exits 2
+- things that went wrong (append here):
+  - faster-whisper 1.2.1 with PyAV 19 fails on `av.open(..., metadata_errors=...)`; mishear never hands faster-whisper a file: ffmpeg renders every condition to 16 kHz mono PCM and the samples go in as a numpy array
+  - tiny hears " You" in digital silence (no_speech_prob 0.80, avg_logprob -0.93): the default whisper gate keeps it because the logprob override wins, so the gate runs on no_speech_prob alone
+  - ffmpeg `pan=mono|c0=0.5*c0-0.5*c1` on a mono file silently ignores c1 and outputs the mono at half level, not a side channel; sideways on mono must be handled explicitly
+  - the CLI must record the resolved source path: a relative path in the ffmpeg argv is not reproducible from another directory

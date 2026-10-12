@@ -1,0 +1,1 @@
+standin.wav is a STAND-IN, not a recording: synthetic voice (espeak-ng (en-us)) over a sine sweep, 20 s, 16 kHz mono, made by tools/make_standin.py. Replace with a real 20-second recording owned by the maintainer as sample.wav (+ sample.txt lyrics).

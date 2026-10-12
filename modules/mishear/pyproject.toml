@@ -1,0 +1,24 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "toolbelt-mishear"
+version = "0.1.0"
+description = "A mondegreen generator: feeds audio to speech-recognition models under bad listening conditions and keeps what they heard. Composes nothing."
+readme = "README.md"
+license = { text = "AGPL-3.0-or-later" }
+requires-python = ">=3.12"
+dependencies = ["faster-whisper>=1.1"]
+
+[project.optional-dependencies]
+dev = ["pytest>=8"]
+
+[project.scripts]
+mishear = "mishear.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["mishear*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
