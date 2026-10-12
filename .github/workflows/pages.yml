@@ -26,6 +26,7 @@ jobs:
       - uses: actions/checkout@v4
       - uses: actions/setup-node@v4
         with: { node-version: 22 }
+      - run: node tools/build-mishear-web.mjs   # fetches transformers.js (pinned sha256) and writes modules/mishear.html
       - run: node tools/stamp-sw.mjs
       - run: mkdir -p site && cp -r index.html manifest.webmanifest sw.js icons modules site/
       - uses: actions/configure-pages@v5

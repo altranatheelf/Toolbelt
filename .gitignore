@@ -2,3 +2,5 @@ node_modules/
 # photos stay on the machine: fixtures are local-only
 tests/fixtures/
 tools/.ai-cache/
+modules/mishear-web/vendor/
+modules/mishear.html

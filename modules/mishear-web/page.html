@@ -1,0 +1,96 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<title>Mishear</title>
+<!-- Toolbelt module, built by tools/build-mishear-web.mjs from modules/mishear-web/. Everything runs on this device: the
+     listening conditions, Whisper through transformers.js, the Dissent table and the Pile. Models download once. -->
+<!-- toolbelt:begin -->
+<link rel="manifest" href="../manifest.webmanifest">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black">
+<link rel="apple-touch-icon" href="../icons/icon-180.png">
+<!-- toolbelt:end -->
+<style>
+  :root { --bg: #e8e8e8; --panel: #f4f4f4; --raise: #fff; --line: #cdcdcd; --well: #d6d6d6; --text: #181818; --muted: #525252; --faint: #7c7c7c;
+    --flag: #8a4f00; --keep: #1f7a45; --bad: #b3261e; --on: #181818; --onText: #fff; --mono: ui-monospace, "SF Mono", Menlo, Consolas, monospace; color-scheme: light; }
+  @media (prefers-color-scheme: dark) { :root { --bg: #1b1b1b; --panel: #232323; --raise: #2b2b2b; --line: #393939; --well: #141414; --text: #e6e6e6; --muted: #a0a0a0; --faint: #707070;
+    --flag: #e8a948; --keep: #62c98b; --bad: #e0685a; --on: #e6e6e6; --onText: #111; color-scheme: dark; } }
+  * { box-sizing: border-box; }
+  [hidden] { display: none !important; }
+  html, body { margin: 0; background: var(--bg); color: var(--text); font: 15px/1.45 system-ui, -apple-system, "Segoe UI", Roboto, sans-serif; }
+  body { padding: env(safe-area-inset-top, 0px) 16px calc(24px + env(safe-area-inset-bottom, 0px)); max-width: 1100px; margin: 0 auto; }
+  header { padding-block: 12px 8px; display: flex; align-items: center; gap: 10px; flex-wrap: wrap; }
+  header b { font-size: 13px; letter-spacing: .08em; text-transform: uppercase; color: var(--muted); }
+  header a { color: var(--muted); text-decoration: none; }
+  .spacer { flex: 1; }
+  .pill { border: 1px solid var(--line); border-radius: 999px; padding: 3px 10px; font-size: 13px; color: var(--muted); }
+  .pill.on { border-color: var(--keep); color: var(--keep); } .pill.off { border-color: var(--bad); color: var(--bad); }
+  button, input, select { font: inherit; color: inherit; }
+  button { background: var(--raise); border: 1px solid var(--line); border-radius: 8px; padding: 7px 12px; min-height: 44px; cursor: pointer; }
+  button.primary { background: var(--on); color: var(--onText); border-color: var(--on); } button:disabled { opacity: .4; }
+  select, input[type=file], input[type=text] { background: var(--raise); border: 1px solid var(--line); border-radius: 8px; padding: 7px 10px; min-height: 44px; min-width: 0; max-width: 100%; }
+  .row { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; }
+  .card { background: var(--panel); border: 1px solid var(--line); border-radius: 12px; padding: 14px; margin-top: 12px; display: flex; flex-direction: column; gap: 10px; }
+  .card h2 { margin: 0; font-size: 15px; } .muted { color: var(--muted); } .faint { color: var(--faint); font-size: 13px; }
+  .warn { color: var(--flag); } .bad { color: var(--bad); } .good { color: var(--keep); }
+  .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
+  label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  .bar { height: 6px; background: var(--well); border-radius: 3px; overflow: hidden; } .bar div { height: 100%; width: 0; background: var(--keep); transition: width .3s; }
+  pre { background: var(--well); border-radius: 8px; padding: 10px; font: 12px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 30vh; overflow: auto; }
+  code { font: 13px var(--mono); background: var(--well); padding: 1px 5px; border-radius: 4px; }
+  .sheet h2 { font-size: 20px; margin: 8px 0 4px; } .sheet h3 { font-size: 15px; margin: 18px 0 4px; letter-spacing: .06em; text-transform: uppercase; color: var(--muted); }
+  .sheet h4 { font-size: 15px; margin: 14px 0 2px; } .sheet p { margin: 4px 0; } .sheet ul { margin: 4px 0; padding-left: 20px; } .sheet li { margin: 2px 0; overflow-wrap: anywhere; }
+  .sheet .tbl { overflow-x: auto; -webkit-overflow-scrolling: touch; margin: 6px 0; border: 1px solid var(--line); border-radius: 8px; }
+  .sheet table { border-collapse: collapse; font-size: 13px; min-width: 100%; }
+  .sheet th, .sheet td { text-align: left; padding: 5px 8px; border-bottom: 1px solid var(--line); vertical-align: top; max-width: 320px; overflow-wrap: anywhere; }
+  .sheet th { color: var(--faint); font-weight: 600; font-size: 12px; white-space: nowrap; position: sticky; top: 0; background: var(--panel); }
+  .sheet td.t { font-family: var(--mono); white-space: nowrap; } .sheet td.ne { color: var(--flag); } .sheet td.real { font-weight: 600; min-width: 160px; }
+  .past { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
+  .past .t { font-weight: 600; overflow-wrap: anywhere; }
+  details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
+</style>
+</head>
+<body>
+<header><a href="../index.html">‹ Toolbelt</a><b>Mishear</b><span class="spacer"></span><span id="device" class="pill">checking this device…</span></header>
+
+<section class="card" id="listen">
+  <h2>Listen</h2>
+  <p class="muted" style="margin:0">Pick a recording. It is played to a speech-recognition model through nine listening conditions, and every line the model hears is kept, with how sure it was of each word. All of it runs here on this device; the model downloads once.</p>
+  <div class="opts">
+    <label class="f">Audio (one or more files)<input id="audio" type="file" multiple accept=".wav,.mp3,.m4a,.aac,.flac,.aiff,.aif,.ogg,.opus,.caf,.mp4,.mov,.m4v,.webm,audio/*"></label>
+    <label class="f">Real lines, optional (a .txt named like the audio)<input id="lyrics" type="file" multiple accept=".txt,text/plain"></label>
+    <label class="f">Grid<select id="mode"><option value="quick">quick · clean, wall, sideways</option><option value="default">default · all nine conditions, plus clean & wall in the forced languages</option><option value="all">all · every condition in every language</option></select></label>
+    <label class="f">Model<select id="model"><option value="tiny">tiny · fastest, rough (152 MB once)</option><option value="base">base · recommended (77–291 MB once)</option><option value="small">small · best, slow on a phone (249–485 MB once)</option></select></label>
+    <label class="f">Forced languages<input id="langs" type="text" value="el, ro" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
+  </div>
+  <div id="earsPreview" class="faint"></div>
+  <div class="row"><button id="go" class="primary">Listen</button><button id="cancel" hidden>Stop</button><span id="state" class="muted"></span></div>
+  <div class="bar"><div id="progress"></div></div>
+  <pre id="log" hidden></pre>
+</section>
+
+<section class="card" id="result" hidden>
+  <div class="row"><h2 id="resultTitle">Sheet</h2><span class="spacer"></span><button id="save">Save (.zip)</button><button id="copy">Copy sheet.md</button></div>
+  <div id="sheet" class="sheet"></div>
+</section>
+
+<section class="card" id="past">
+  <h2>Sheets on this device</h2>
+  <div id="sheets" class="faint">—</div>
+</section>
+
+<section class="card">
+  <details><summary>How it works, and the Mac engine</summary>
+    <p class="muted">Each condition is an ffmpeg filter ported to JavaScript (lowpass 800 Hz for <i>wall</i>, a telephone band with a compressor for <i>radio</i>, tape and helium speed changes, ffmpeg's own seeded pink noise for <i>rain</i>, the side channel for <i>sideways</i>, <i>backwards</i>, a 6-bit crusher). Whisper runs through transformers.js on the GPU when the browser offers it, otherwise on the CPU, decoding greedily at temperature 0. The Dissent table aligns words across ears by time and marks hearings that differ from the real line when you give one. The sheet, the sidecar with every parameter, and the ear files are saved together as one .zip.</p>
+    <p class="muted">The same tool runs as a Python command with faster-whisper on a Mac (<code>modules/mishear</code>): beam search, the <i>medium</i> model, and the sheet written straight to a folder. The two share the conditions and the sheet format.</p>
+  </details>
+</section>
+
+<script type="text/plain" id="vendor-transformers">{{VENDOR}}</script>
+<script type="module">
+{{APP}}
+</script>
+</body>
+</html>
