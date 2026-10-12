@@ -38,3 +38,6 @@ def test_radio():
 def test_tape_runs_slow_at_the_source_rate():
     assert CONDITIONS["tape"](STEREO, Settings()) == "[0:a:0]asetrate=41013,aresample=44100[out]"
     assert CONDITIONS["tape"](MONO16K, Settings()) == "[0:a:0]asetrate=14880,aresample=16000[out]"
+
+def test_helium_runs_fast_at_the_source_rate():
+    assert CONDITIONS["helium"](STEREO, Settings()) == "[0:a:0]asetrate=49392,aresample=44100[out]"

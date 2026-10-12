@@ -48,11 +48,17 @@ def tape(probe: Probe, settings: Settings) -> str | None:
     return chain(f"asetrate={round(probe.sample_rate * 0.93)},aresample={probe.sample_rate}")
 
 
+def helium(probe: Probe, settings: Settings) -> str | None:
+    """Helium: 12 % higher and shorter, resampled back to the source rate."""
+    return chain(f"asetrate={round(probe.sample_rate * 1.12)},aresample={probe.sample_rate}")
+
+
 CONDITIONS: dict[str, Condition] = {
     "clean": clean,
     "wall": wall,
     "radio": radio,
     "tape": tape,
+    "helium": helium,
 }
 
 
