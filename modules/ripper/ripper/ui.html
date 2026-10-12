@@ -99,7 +99,16 @@
 
 <script>
 (function () {
-  var API = 'http://127.0.0.1:8765';
+  var DEFAULT_API = 'http://127.0.0.1:8765';
+  var API = DEFAULT_API;  // when this page is served by the engine itself (any port), findEngine() switches to that origin
+  async function findEngine() {
+    var local = location.protocol === 'http:' && (location.hostname === '127.0.0.1' || location.hostname === 'localhost');
+    var candidates = local && location.origin !== DEFAULT_API ? [location.origin, DEFAULT_API] : [DEFAULT_API];
+    for (var i = 0; i < candidates.length; i++) {
+      try { var r = await fetch(candidates[i] + '/api/health'); var j = await r.json(); if (r.ok && j && j.ripper) { API = candidates[i]; return j; } } catch (e) {}
+    }
+    throw new Error('engine not found');
+  }
   var $ = function (s) { return document.querySelector(s); };
   var state = { ok: false, last: null };
   function h(tag, attrs) {
@@ -117,7 +126,7 @@
   async function health() {
     var pill = $('#engine');
     try {
-      var hh = await api('/api/health');
+      var hh = await findEngine();
       state.ok = true;
       pill.textContent = 'engine running · yt-dlp ' + hh.yt_dlp; pill.className = 'pill on';
       $('#setup').hidden = true; $('#look').hidden = false;

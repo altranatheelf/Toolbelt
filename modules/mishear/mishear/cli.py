@@ -50,6 +50,7 @@ def build_parser() -> argparse.ArgumentParser:
     serve.add_argument("--out", type=Path, default=Path("sheets"), help="sheets root (default ./sheets)")
     serve.add_argument("--inbox", type=Path, default=Path("inbox"), help="where uploaded files land (default ./inbox)")
     serve.add_argument("--no-open", action="store_true", help="do not open the page in a browser")
+    serve.add_argument("--origin", action="append", default=[], help="another page origin allowed to use the engine (repeatable)")
     return parser
 
 
@@ -80,7 +81,7 @@ def main(argv: list[str] | None = None) -> int:
     if args.command == "serve":
         from .serve import serve
 
-        serve(args.port, str(args.out), str(args.inbox), open_browser=not args.no_open)
+        serve(args.port, str(args.out), str(args.inbox), open_browser=not args.no_open, origins=args.origin)
         return 0
     if args.command == "sheet":
         sheet_dir = args.path if args.path.is_dir() else args.out / args.path.stem

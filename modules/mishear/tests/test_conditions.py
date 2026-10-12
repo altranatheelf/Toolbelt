@@ -17,9 +17,12 @@ def test_every_condition_produces_a_file(standin, tmp_path):
     outdir = run(standin, tmp_path / "sheets", "--keep")
     sheet = (outdir / "sheet.md").read_text(encoding="utf-8")
     sidecar = json.loads((outdir / "sidecar.json").read_text(encoding="utf-8"))
+    from mishear.audio import load_mono16k
     for name in CONDITIONS:
         assert (outdir / "degraded" / f"{name}.wav").exists(), name
-        assert (outdir / "ears" / f"{name}.tiny.en.transcribe.txt").exists(), name
+        assert len(load_mono16k(outdir / "degraded" / f"{name}.wav")) > 16000 * 15, f"{name} render is too short"
+        ear_text = (outdir / "ears" / f"{name}.tiny.en.transcribe.txt").read_text(encoding="utf-8")
+        assert ear_text.startswith(f"# {name} · tiny · en\n# filter: "), name
         assert f"### {name} · tiny · en" in sheet, name
         ear = [e for e in sidecar["ears"] if e["condition"] == name and e["language"] == "en"][0]
         expected = CONDITIONS[name](probe(standin), Settings())

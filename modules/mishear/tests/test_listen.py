@@ -56,7 +56,8 @@ def test_clean_ear_end_to_end(standin, tmp_path):
     assert "### clean · tiny · en" in sheet
     assert sheet_lines(sheet), "the clean ear heard nothing on the stand-in"
     assert (outdir / "ears" / "clean.tiny.en.transcribe.txt").exists()
-    assert "stand" in sheet.lower()  # it is a stand-in reading the words "stand in"
+    clean_block = sheet.split("### clean · tiny · en")[1].split("###")[0]
+    assert "stand" in clean_block.lower()  # the clean ear itself hears the words "stand in"
 
     sidecar = json.loads((outdir / "sidecar.json").read_text(encoding="utf-8"))
     assert SIDECAR_FIELDS <= set(sidecar)
@@ -69,6 +70,8 @@ def test_clean_ear_end_to_end(standin, tmp_path):
     assert clean["ffmpeg"][0] == "ffmpeg"
     assert clean["decode"]["temperature"] == 0.0 and clean["decode"]["beam_size"] == 5
     assert clean["model_info"]["size"] == "tiny" and clean["model_info"]["faster_whisper"]
+    assert clean["model_info"]["repo"] == "Systran/faster-whisper-tiny"
+    assert len(clean["model_info"]["snapshot"] or "") == 40  # the Hugging Face commit hash is the model version
     assert clean["language"] == "en" and clean["task"] == "transcribe"
 
     record = json.loads((outdir / "ears" / "clean.tiny.en.transcribe.json").read_text(encoding="utf-8"))
@@ -77,8 +80,8 @@ def test_clean_ear_end_to_end(standin, tmp_path):
 
 
 def test_two_runs_identical_sheet_and_ears(standin, tmp_path):
-    first = run(standin, tmp_path / "a", "--quick")
-    second = run(standin, tmp_path / "b", "--quick")
+    first = run(standin, tmp_path / "a")  # the default grid: rain's seed, tape/helium/backwards maps, forced languages
+    second = run(standin, tmp_path / "b")
     assert (first / "sheet.md").read_bytes() == (second / "sheet.md").read_bytes()
     for ear in sorted(p.name for p in (first / "ears").iterdir()):
         assert (first / "ears" / ear).read_bytes() == (second / "ears" / ear).read_bytes(), ear
@@ -100,8 +103,11 @@ def test_silence_gives_empty_sheet(tmp_path):
     outdir = run(silent, tmp_path / "sheets")
     sheet = (outdir / "sheet.md").read_text(encoding="utf-8")
     assert sheet_lines(sheet) == []
-    for placeholder in ("nothing", "silence", "no speech", "(empty)", "n/a"):
-        assert placeholder not in sheet.lower().replace("silence.wav", "")
+    after_ears = sheet.split("## Ears", 1)[1]
+    for line in after_ears.splitlines():  # only ear headings, the mono side-channel note and the section headings remain
+        assert line == "" or line.startswith("### ") or line.startswith("## ") or line.startswith("_mono source"), line
     for ear_file in (outdir / "ears").glob("*.txt"):
         body = [l for l in ear_file.read_text(encoding="utf-8").splitlines() if not l.startswith("#")]
         assert body == []
+    for record in (outdir / "ears").glob("*.json"):
+        assert json.loads(record.read_text(encoding="utf-8"))["lines"] == []

@@ -26,23 +26,31 @@ SLACK = 0.3   # seconds a window may sit outside a lyric line's span and still b
 
 @dataclass(frozen=True)
 class Placed:
-    """One heard word on the source timeline."""
+    """One heard word on the source timeline. `order` is its place in what the ear heard."""
 
     ear: Ear
     start: float
     text: str
     probability: float
+    order: int = 0
 
 
 @dataclass
 class Cell:
     ear: Ear
-    text: str
-    probabilities: list[float] = field(default_factory=list)
+    words: list[Placed] = field(default_factory=list)
+
+    @property
+    def text(self) -> str:
+        """The words as the ear heard them, in heard order (a backwards ear hears backwards)."""
+        out = ""
+        for word in sorted(self.words, key=lambda w: w.order):
+            out = join_words(out, word.text)
+        return out
 
     @property
     def probability(self) -> float:
-        return sum(self.probabilities) / len(self.probabilities) if self.probabilities else 0.0
+        return sum(w.probability for w in self.words) / len(self.words) if self.words else 0.0
 
 
 @dataclass
@@ -67,10 +75,12 @@ def place_words(hearings: list[Hearing], probe: Probe) -> list[Placed]:
     placed: list[Placed] = []
     for hearing in hearings:
         to_source = time_map(hearing.ear.condition, probe)
+        order = 0
         for line in hearing.lines:
             for word in line.words:
                 start, _end = to_source(word.start, word.end)
-                placed.append(Placed(hearing.ear, round(start, 3), word.text, word.probability))
+                placed.append(Placed(hearing.ear, round(start, 3), word.text, word.probability, order))
+                order += 1
     placed.sort(key=lambda p: p.start)  # stable: ties keep ear order
     return placed
 
@@ -87,12 +97,7 @@ def windows(placed: list[Placed]) -> list[Window]:
         if current is None or word.start > current.start + WINDOW:
             current = Window(word.start)
             result.append(current)
-        cell = current.cells.get(word.ear)
-        if cell is None:
-            current.cells[word.ear] = Cell(word.ear, word.text, [word.probability])
-        else:
-            cell.text = join_words(cell.text, word.text)
-            cell.probabilities.append(word.probability)
+        current.cells.setdefault(word.ear, Cell(word.ear)).words.append(word)
     return result
 
 
@@ -135,9 +140,9 @@ def lyric_spans(reference: Hearing | None, lyrics: list[str], probe: Probe) -> l
     times: dict[int, list[float]] = {}
     if reference is not None:
         to_source = time_map(reference.ear.condition, probe)
-        ref_words = [
-            (to_source(w.start, w.end)[0], normalize(w.text))
-            for line in reference.lines for w in line.words
+        ref_words = [  # a word that normalizes to several tokens ("It's" -> it, s) gives one entry per token
+            (to_source(w.start, w.end)[0], token)
+            for line in reference.lines for w in line.words for token in normalize(w.text).split()
         ]
         lyric_words = [(i, token) for i, line in enumerate(lyrics) for token in normalize(line).split()]
         matcher = SequenceMatcher(None, [w for _, w in lyric_words], [w for _, w in ref_words], autojunk=False)

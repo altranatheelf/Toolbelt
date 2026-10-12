@@ -20,6 +20,8 @@ from . import __version__
 JOBS: dict[str, dict] = {}
 CAPTURES = Path("captures")
 UI = Path(__file__).with_name("ui.html")
+SITE = "https://altranatheelf.github.io"  # the Toolbelt app
+ORIGINS: set[str] = set()  # pages allowed to talk to this engine; filled by serve()
 
 
 def _formats(req: dict) -> dict:
@@ -85,30 +87,41 @@ class Handler(BaseHTTPRequestHandler):
         host = (self.headers.get("Host") or "").split(":")[0]
         return self.client_address[0] in ("127.0.0.1", "::1") and host in ("127.0.0.1", "localhost", "[::1]", "")
 
+    def _origin_ok(self) -> bool:
+        """No Origin (curl, same-origin page) or an allowed one. Any other website's tab is refused."""
+        origin = self.headers.get("Origin")
+        return origin is None or origin in ORIGINS
+
+    def _cors(self) -> None:
+        origin = self.headers.get("Origin")
+        if origin in ORIGINS:  # only the Toolbelt app and the engine's own page may read answers
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Private-Network", "true")
+
     def _json(self, code: int, obj) -> None:
         body = json.dumps(obj).encode()
         self.send_response(code)
         self.send_header("Content-Type", "application/json")
-        self.send_header("Access-Control-Allow-Origin", "*")   # the Toolbelt page may be served from its own origin
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Access-Control-Allow-Private-Network", "true")
+        self._cors()
         self.send_header("Content-Length", str(len(body)))
         self.end_headers()
         self.wfile.write(body)
 
     def do_OPTIONS(self):  # noqa: N802
-        if not self._local():
+        if not self._local() or not self._origin_ok():
             return self._json(403, {"error": "local only"})
         self.send_response(204)
-        self.send_header("Access-Control-Allow-Origin", "*")
+        self._cors()
         self.send_header("Access-Control-Allow-Methods", "GET, POST, OPTIONS")
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Access-Control-Allow-Private-Network", "true")
         self.end_headers()
 
     def do_GET(self):  # noqa: N802
         if not self._local():
             return self._json(403, {"error": "ripper serve answers 127.0.0.1 only"})
+        if not self._origin_ok():
+            return self._json(403, {"error": "this page is not allowed to use the engine"})
         path = urlparse(self.path).path
         if path == "/api/health":
             import yt_dlp
@@ -140,6 +153,8 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         if not self._local():
             return self._json(403, {"error": "ripper serve answers 127.0.0.1 only"})
+        if not self._origin_ok():
+            return self._json(403, {"error": "this page is not allowed to use the engine"})
         n = int(self.headers.get("Content-Length") or 0)
         try:
             req = json.loads(self.rfile.read(n) or b"{}")
@@ -163,11 +178,13 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
-def serve(port: int = 8765, captures: str = "captures", open_browser: bool = True) -> None:
+def serve(port: int = 8765, captures: str = "captures", open_browser: bool = True, origins: list[str] | None = None) -> None:
     global CAPTURES
     CAPTURES = Path(captures).expanduser()
     CAPTURES.mkdir(parents=True, exist_ok=True)
     srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    ORIGINS.clear()
+    ORIGINS.update({SITE, f"http://127.0.0.1:{port}", f"http://localhost:{port}", *(origins or [])})
     url = f"http://127.0.0.1:{port}/"
     print(f"ripper serve · {url} · captures in {CAPTURES.resolve()} · local only · Ctrl-C to stop")
     if open_browser:

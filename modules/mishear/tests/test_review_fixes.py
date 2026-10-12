@@ -151,3 +151,15 @@ def test_symlinked_source_keeps_its_own_name(standin, tmp_path):
     assert main(["listen", str(link), "--out", str(out), "--quick"]) == 0
     assert (out / "linked" / "sheet.md").exists()
     assert json.loads((out / "linked" / "sidecar.json").read_text())["source"]["name"] == "linked.wav"
+
+
+def test_backwards_cell_keeps_heard_order():
+    back = hearing("backwards", [(2.0, "my", 0.9), (2.3, "own", 0.9), (2.6, "business", 0.9)])  # heard in this order
+    w = windows(place_words([back], PROBE))
+    assert len(w) == 1 and w[0].cells[back.ear].text.strip() == "my own business"
+
+
+def test_contractions_match_lyric_tokens():
+    from mishear.dissent import lyric_spans
+    clean = hearing("clean", [(1.0, "It's", 0.9), (1.4, "in", 0.9), (1.6, "a", 0.9), (1.8, "stand", 0.9)])
+    assert lyric_spans(clean, ["it's in a stand"], PROBE) == [(1.0, 1.8)]

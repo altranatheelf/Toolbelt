@@ -35,7 +35,8 @@ def post_json(url, body):
 
 
 def upload(base, path: Path):
-    req = urllib.request.Request(f"{base}/api/upload?name={path.name}", data=path.read_bytes(), headers={"Content-Type": "application/octet-stream"}, method="POST")
+    from urllib.parse import quote
+    req = urllib.request.Request(f"{base}/api/upload?name={quote(path.name)}", data=path.read_bytes(), headers={"Content-Type": "application/octet-stream"}, method="POST")
     with urllib.request.urlopen(req, timeout=120) as resp:
         return json.loads(resp.read())
 
@@ -106,3 +107,40 @@ def test_listen_needs_an_uploaded_audio_file(server):
     with pytest.raises(urllib.error.HTTPError) as exc:
         post_json(server + "/api/listen", {"names": ["nothing.wav"], "mode": "quick"})
     assert exc.value.code == 400
+
+
+def test_other_websites_are_refused(server):
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        get(server + "/api/sheets", headers={"Origin": "https://evil.example"})
+    assert exc.value.code == 403
+    status, kind, body = get(server + "/api/health", headers={"Origin": engine.SITE})
+    assert status == 200
+    req = urllib.request.Request(server + "/api/health", headers={"Origin": engine.SITE})
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        assert resp.headers.get("Access-Control-Allow-Origin") == engine.SITE
+    req = urllib.request.Request(server + "/api/health")
+    with urllib.request.urlopen(req, timeout=10) as resp:
+        assert resp.headers.get("Access-Control-Allow-Origin") is None  # no Origin, no grant
+    req = urllib.request.Request(server + "/api/upload?name=planted.txt", data=b"x", headers={"Origin": "https://evil.example", "Content-Type": "text/plain"}, method="POST")
+    with pytest.raises(urllib.error.HTTPError) as exc:
+        urllib.request.urlopen(req, timeout=10)
+    assert exc.value.code == 403
+
+
+def test_sheet_names_with_spaces_and_unicode(server, standin, tmp_path):
+    import shutil
+    from urllib.parse import quote
+    named = tmp_path / "Τραγούδι one.wav"
+    shutil.copy(standin, named)
+    upload(server, named)
+    _, job = post_json(server + "/api/listen", {"names": [named.name], "mode": "quick"})
+    deadline = time.time() + 180
+    while True:
+        _, _, body = get(f"{server}/api/jobs/{job['job']}")
+        state = json.loads(body)
+        if state["status"] != "running" or time.time() > deadline:
+            break
+        time.sleep(1)
+    assert state["status"] == "done", state["log"]
+    _, kind, md = get(server + "/api/sheets/" + quote("Τραγούδι one") + "/sheet.md")
+    assert kind.startswith("text/markdown") and "Τραγούδι one.wav" in md.decode("utf-8")

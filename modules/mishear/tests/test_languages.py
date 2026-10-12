@@ -20,6 +20,17 @@ def test_default_grid_hears_forced_languages_on_clean_and_wall_only():
     assert {e.condition for e in english} == set(config.conditions) and all(e.task == "transcribe" for e in english)
 
 
+def test_forced_languages_use_the_largest_default_model(tmp_path, monkeypatch):
+    path = tmp_path / "config.toml"
+    path.write_text('languages = ["el"]\n[models]\ndefault = ["base", "small"]\n')
+    monkeypatch.setenv("MISHEAR_CONFIG", str(path))
+    ears = grid(load_config(), "default")
+    assert {e.model for e in ears if e.language != "en"} == {"small"}
+    assert {e.model for e in ears if e.language == "en"} == {"base", "small"}
+    deep = grid(load_config(), "default", deep=True)
+    assert {e.model for e in deep if e.language != "en"} == {"small", "medium"}
+
+
 def test_quick_grid_is_english_only_and_all_grid_is_everything():
     config = load_config()
     quick = grid(config, "quick")

@@ -31,5 +31,5 @@ def test_config(tmp_path_factory, monkeypatch):
 
 @pytest.fixture
 def standin() -> Path:
-    assert STANDIN.exists(), "run tools/make_standin.py first"
+    assert STANDIN.exists(), "tests/fixtures/standin.wav is committed; restore it with git"
     return STANDIN

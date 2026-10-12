@@ -31,7 +31,7 @@
 - fixtures: radar station set, expected flags in tests/expected.json
 
 # ripper
-- a Toolbelt module (modules/ripper.html, on the launcher) whose work runs in a local engine, `ripper serve` (modules/ripper, Python, AGPL-3.0), bound to 127.0.0.1 only; the page is the controls, nothing is hosted, nothing leaves the machine
+- a Toolbelt module (modules/ripper.html, on the launcher) whose work runs in a local engine, `ripper serve` (modules/ripper, Python, AGPL-3.0), bound to 127.0.0.1 only and answering only the Toolbelt site origin and its own page (never `Access-Control-Allow-Origin: *`: any open website could otherwise read captures or start jobs); the page is the controls, nothing is hosted, nothing leaves the machine
 - the module page and ripper/ui.html are the same file: edit modules/ripper.html and copy it over
 - goals in order: the highest-fidelity stream that exists (audio-only over muxed; never DRC unless it is all there is, and say so; original track over auto-dubs; Opus over AAC at comparable bitrate; highest bitrate within a codec; original/lossless uploads win outright), then provenance (sidecar json+txt per output file, thumbnail, sha256, license shown prominently, verify)
 - native = the chosen stream's bytes, container fixed only if needed; wav/flac = float32 at the source rate, 24-bit warns on overs, 16-bit TPDF dither noted, resample only on request with soxr precision 28; sections cut on decoded samples with handles; never normalise or limit
@@ -52,11 +52,12 @@
 - silence: the model's own no-speech gate (no_speech_threshold 0.6, log_prob_threshold off) decides; no VAD; no placeholder text in an empty sheet
 - test fixtures: only recordings the owner made; nothing commercial anywhere; tests/fixtures/standin.wav is a labelled synthetic stand-in (tools/make_standin.py) until a real 20-second recording replaces it
 - ffmpeg/ffprobe come from Homebrew; if missing the tool prints `brew install ffmpeg` and exits 2
-- also a Toolbelt module (modules/mishear.html, on the launcher) whose work runs in `mishear serve` (127.0.0.1:8766 only, uploads in ./inbox, sheets in ./sheets); the page renders sheet.md into DOM nodes, never innerHTML; the module page and mishear/ui.html are the same file: edit modules/mishear.html and copy it over
+- also a Toolbelt module (modules/mishear.html, on the launcher) whose work runs in `mishear serve` (127.0.0.1:8766 only, answering only the Toolbelt site origin and its own page, `--origin` adds one; uploads in ./inbox, sheets in ./sheets); the page renders sheet.md into DOM nodes, never innerHTML; the module page and mishear/ui.html are the same file: edit modules/mishear.html and copy it over
 - things that went wrong (append here):
   - faster-whisper 1.2.1 with PyAV 19 fails on `av.open(..., metadata_errors=...)`; mishear never hands faster-whisper a file: ffmpeg renders every condition to 16 kHz mono PCM and the samples go in as a numpy array
   - tiny hears " You" in digital silence (no_speech_prob 0.80, avg_logprob -0.93): the default whisper gate keeps it because the logprob override wins, so the gate runs on no_speech_prob alone
   - ffmpeg `pan=mono|c0=0.5*c0-0.5*c1` on a mono file silently ignores c1 and outputs the mono at half level, not a side channel; sideways on mono must be handled explicitly
   - the CLI must record the resolved source path: a relative path in the ffmpeg argv is not reproducible from another directory
+  - both engines answered `Access-Control-Allow-Origin: *` on 127.0.0.1, so any website open in a browser could list sheets, read them and plant uploads; engines now echo only an allowed Origin and refuse the rest, and the pages find the engine by probing `/api/health` instead of assuming a port
   - `acrusher=bits=6:mix=1` was a no-op: in acrusher's bit reduction mix=1 keeps the dry input and mix=0 is fully crushed (af_acrusher.c: `k += (in - k) * mix`); the crushed ear heard exactly what clean heard until a byte comparison of the renders showed it; a condition's render must be checked against clean, not just that ffmpeg accepted the filter
   - a second `license` line was added to pyproject.toml without reading it and pushed on the strength of a stale editable install; run `pip install -e .` and read the file before committing packaging changes

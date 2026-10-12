@@ -18,7 +18,7 @@ import traceback
 import uuid
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
-from urllib.parse import parse_qs, urlparse
+from urllib.parse import parse_qs, unquote, urlparse
 
 from . import __version__
 from .audio import BREW_COMMAND, sha256
@@ -29,6 +29,8 @@ JOBS: dict[str, dict] = {}
 LISTENING = threading.Lock()  # one job at a time: the models are big
 OUT = Path("sheets")
 INBOX = Path("inbox")
+SITE = "https://altranatheelf.github.io"  # the Toolbelt app
+ORIGINS: set[str] = set()  # pages allowed to talk to this engine; filled by make_server
 UI = Path(__file__).with_name("ui.html")
 CHUNK = 1 << 20
 
@@ -130,10 +132,18 @@ class Handler(BaseHTTPRequestHandler):
         host = (self.headers.get("Host") or "").split(":")[0]
         return self.client_address[0] in ("127.0.0.1", "::1") and host in ("127.0.0.1", "localhost", "[::1]", "")
 
+    def _origin_ok(self) -> bool:
+        """No Origin (curl, same-origin page) or an allowed one. Any other website's tab is refused."""
+        origin = self.headers.get("Origin")
+        return origin is None or origin in ORIGINS
+
     def _cors(self) -> None:
-        self.send_header("Access-Control-Allow-Origin", "*")  # the Toolbelt page is served from its own origin
-        self.send_header("Access-Control-Allow-Headers", "Content-Type")
-        self.send_header("Access-Control-Allow-Private-Network", "true")
+        origin = self.headers.get("Origin")
+        if origin in ORIGINS:  # only the Toolbelt app and the engine's own page may read answers
+            self.send_header("Access-Control-Allow-Origin", origin)
+            self.send_header("Vary", "Origin")
+            self.send_header("Access-Control-Allow-Headers", "Content-Type")
+            self.send_header("Access-Control-Allow-Private-Network", "true")
 
     def _json(self, code: int, obj) -> None:
         body = json.dumps(obj, ensure_ascii=False).encode("utf-8")
@@ -153,7 +163,7 @@ class Handler(BaseHTTPRequestHandler):
         self.wfile.write(body)
 
     def do_OPTIONS(self):  # noqa: N802
-        if not self._local():
+        if not self._local() or not self._origin_ok():
             return self._json(403, {"error": "local only"})
         self.send_response(204)
         self._cors()
@@ -163,8 +173,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_GET(self):  # noqa: N802
         if not self._local():
             return self._json(403, {"error": "mishear serve answers 127.0.0.1 only"})
+        if not self._origin_ok():
+            return self._json(403, {"error": "this page is not allowed to use the engine"})
         url = urlparse(self.path)
-        path = url.path
+        path = unquote(url.path)
         if path == "/api/health":
             return self._json(200, health())
         if path == "/api/ears":
@@ -194,8 +206,10 @@ class Handler(BaseHTTPRequestHandler):
     def do_POST(self):  # noqa: N802
         if not self._local():
             return self._json(403, {"error": "mishear serve answers 127.0.0.1 only"})
+        if not self._origin_ok():
+            return self._json(403, {"error": "this page is not allowed to use the engine"})
         url = urlparse(self.path)
-        path = url.path
+        path = unquote(url.path)
         length = int(self.headers.get("Content-Length") or 0)
         if path == "/api/upload":
             name = safe_name((parse_qs(url.query).get("name") or [""])[0])
@@ -236,17 +250,21 @@ class Handler(BaseHTTPRequestHandler):
         pass
 
 
-def make_server(port: int, out: Path, inbox: Path) -> ThreadingHTTPServer:
+def make_server(port: int, out: Path, inbox: Path, origins: list[str] | None = None) -> ThreadingHTTPServer:
     global OUT, INBOX
     OUT = Path(out).expanduser()
     INBOX = Path(inbox).expanduser()
     OUT.mkdir(parents=True, exist_ok=True)
     INBOX.mkdir(parents=True, exist_ok=True)
-    return ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    srv = ThreadingHTTPServer(("127.0.0.1", port), Handler)
+    bound = srv.server_address[1]
+    ORIGINS.clear()
+    ORIGINS.update({SITE, f"http://127.0.0.1:{bound}", f"http://localhost:{bound}", *(origins or [])})
+    return srv
 
 
-def serve(port: int = 8766, out: str = "sheets", inbox: str = "inbox", open_browser: bool = True) -> None:
-    srv = make_server(port, Path(out), Path(inbox))
+def serve(port: int = 8766, out: str = "sheets", inbox: str = "inbox", open_browser: bool = True, origins: list[str] | None = None) -> None:
+    srv = make_server(port, Path(out), Path(inbox), origins)
     url = f"http://127.0.0.1:{port}/"
     print(f"mishear serve · {url} · sheets in {OUT.resolve()} · uploads in {INBOX.resolve()} · local only · Ctrl-C to stop")
     if open_browser:
