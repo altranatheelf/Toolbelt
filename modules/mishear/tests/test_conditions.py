@@ -34,3 +34,7 @@ def test_wall():
 
 def test_radio():
     assert CONDITIONS["radio"](STEREO, Settings()) == "[0:a:0]highpass=f=300,lowpass=f=3400,acompressor[out]"
+
+def test_tape_runs_slow_at_the_source_rate():
+    assert CONDITIONS["tape"](STEREO, Settings()) == "[0:a:0]asetrate=41013,aresample=44100[out]"
+    assert CONDITIONS["tape"](MONO16K, Settings()) == "[0:a:0]asetrate=14880,aresample=16000[out]"

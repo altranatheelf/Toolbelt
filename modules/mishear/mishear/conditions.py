@@ -43,10 +43,16 @@ def radio(probe: Probe, settings: Settings) -> str | None:
     return chain("highpass=f=300,lowpass=f=3400,acompressor")
 
 
+def tape(probe: Probe, settings: Settings) -> str | None:
+    """Tape running slow: 7 % lower and longer, resampled back to the source rate."""
+    return chain(f"asetrate={round(probe.sample_rate * 0.93)},aresample={probe.sample_rate}")
+
+
 CONDITIONS: dict[str, Condition] = {
     "clean": clean,
     "wall": wall,
     "radio": radio,
+    "tape": tape,
 }
 
 
