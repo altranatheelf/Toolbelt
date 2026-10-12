@@ -33,8 +33,14 @@ def clean(probe: Probe, settings: Settings) -> str | None:
     return None
 
 
+def wall(probe: Probe, settings: Settings) -> str | None:
+    """Through a wall: nothing above 800 Hz gets through."""
+    return chain("lowpass=f=800")
+
+
 CONDITIONS: dict[str, Condition] = {
     "clean": clean,
+    "wall": wall,
 }
 
 
