@@ -70,7 +70,7 @@ filter applied to the source before the model hears it:
 | rain | pink noise mixed in at −12 dB (`anoisesrc` + `amix`) |
 | sideways | side channel only, `pan=mono\|c0=0.5*c0-0.5*c1` |
 | backwards | `areverse` |
-| crushed | `acrusher=bits=6:mix=1` |
+| crushed | `acrusher=bits=6:mix=0` (mix=0 is the fully crushed side of acrusher's bit reduction) |
 
 Models: tiny, base, small by default; medium behind `--deep`. Languages:
 English, plus the forced languages in the config (default `el`, `ro`), each

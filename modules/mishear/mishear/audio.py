@@ -41,7 +41,7 @@ def probe(path: Path) -> Probe:
     out = subprocess.run(
         [
             "ffprobe", "-v", "error", "-select_streams", "a:0",
-            "-show_entries", "stream=sample_rate,channels,codec_name:format=duration",
+            "-show_entries", "stream=sample_rate,channels,codec_name,duration:format=duration",
             "-of", "json", str(path),
         ],
         capture_output=True, text=True, check=True,
@@ -51,8 +51,21 @@ def probe(path: Path) -> Probe:
     if not streams:
         raise ValueError(f"no audio stream in {path}")
     stream = streams[0]
-    duration = float(data.get("format", {}).get("duration") or 0.0)
+    duration = float(data.get("format", {}).get("duration") or stream.get("duration") or 0.0)
+    if duration <= 0:
+        duration = decoded_duration(path)
     return Probe(int(stream["sample_rate"]), int(stream["channels"]), duration, stream.get("codec_name", ""))
+
+
+def decoded_duration(path: Path) -> float:
+    """Duration by decoding, for containers whose headers carry none."""
+    proc = subprocess.run(
+        ["ffmpeg", "-nostdin", "-v", "error", "-i", str(path), "-map", "0:a:0", "-f", "s16le", "-ac", "1", "-ar", str(MODEL_RATE), "-"],
+        capture_output=True,
+    )
+    if proc.returncode != 0:
+        return 0.0
+    return len(proc.stdout) / 2 / MODEL_RATE
 
 
 def sha256(path: Path) -> str:
@@ -76,6 +89,8 @@ def ffmpeg_args(source: Path, filter_graph: str | None, out: Path) -> list[str]:
 
 def render(source: Path, filter_graph: str | None, out: Path) -> list[str]:
     """Render source through filter_graph into out; returns the argv that ran."""
+    if out.resolve() == source.resolve():
+        raise RuntimeError(f"refusing to render onto the source itself: {source}")
     args = ffmpeg_args(source, filter_graph, out)
     proc = subprocess.run(args, capture_output=True, text=True)
     if proc.returncode != 0:

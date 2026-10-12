@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import json
+import os
 import sys
 import tempfile
 from datetime import datetime, timezone
@@ -58,16 +59,50 @@ def grid(config: Config, mode: str = "default", deep: bool = False) -> list[Ear]
 
 def collect_sources(path: Path) -> list[Path]:
     if path.is_dir():
-        return sorted(p for p in path.iterdir() if p.suffix.lower() in AUDIO_SUFFIXES and p.is_file())
+        return sorted(
+            p for p in path.iterdir()
+            if p.suffix.lower() in AUDIO_SUFFIXES and p.is_file() and not p.name.startswith(".")
+        )
     return [path]
+
+
+def read_lyrics(path: Path | None) -> tuple[Path | None, list[str] | None]:
+    if path is None or not path.is_file():
+        return None, None
+    text = path.read_text(encoding="utf-8", errors="replace")
+    lines = [line.strip() for line in text.splitlines() if line.strip()]
+    return (path, lines) if lines else (None, None)
 
 
 def lyrics_for(source: Path) -> tuple[Path | None, list[str] | None]:
     candidate = source.with_suffix(".txt")
-    if candidate.exists() and candidate != source:
-        text = candidate.read_text(encoding="utf-8", errors="replace")
-        return candidate, [line.strip() for line in text.splitlines() if line.strip()]
-    return None, None
+    return read_lyrics(candidate if candidate != source else None)
+
+
+def sheet_dir(out_root: Path, source: Path) -> Path:
+    """sheets/<stem>, or sheets/<name> when <stem> already holds another source's sheet."""
+    outdir = out_root / source.stem
+    sidecar = outdir / "sidecar.json"
+    if sidecar.exists():
+        try:
+            other = json.loads(sidecar.read_text(encoding="utf-8")).get("source", {}).get("name")
+        except Exception:  # noqa: BLE001
+            other = None
+        if other and other != source.name:
+            return out_root / source.name
+    return outdir
+
+
+def clear_outputs(outdir: Path) -> None:
+    """Drop ear and degraded files from an earlier run so the folder matches its sidecar."""
+    for sub, pattern in (("ears", "*.txt"), ("ears", "*.json"), ("degraded", "*.wav")):
+        for stale in (outdir / sub).glob(pattern):
+            stale.unlink()
+
+
+def recorded_args(args: list[str], out: Path, name: str) -> list[str]:
+    """The ffmpeg argv with the temp output path replaced by its stable place under the sheet folder."""
+    return [f"degraded/{name}.wav" if a == str(out) else a for a in args]
 
 
 def ear_text(hearing: Hearing) -> str:
@@ -91,12 +126,14 @@ def listen_source(
     log: Callable[[str], None] = lambda message: print(message, file=sys.stderr),
 ) -> Path:
     """Render each condition once, run every ear, write sheet.md, sidecar.json and ears/."""
-    source = source.resolve()
+    source = Path(os.path.abspath(source))  # absolute, but a symlink keeps its own name
+    out_root = Path(os.path.abspath(out_root))
     info = probe(source)
     digest = sha256(source)
-    outdir = out_root / source.stem
+    outdir = sheet_dir(out_root, source)
     ears_dir = outdir / "ears"
     ears_dir.mkdir(parents=True, exist_ok=True)
+    clear_outputs(outdir)
     settings = Settings(noise_db=config.noise_db, seed=config.seed)
     conditions = list(dict.fromkeys(ear.condition for ear in ears))
     models = list(dict.fromkeys(ear.model for ear in ears))
@@ -111,7 +148,7 @@ def listen_source(
             path = degraded_dir / f"{name}.wav"
             log(f"rendering {name}")
             args = render(source, graph, path)
-            rendered[name] = (graph, args, path)
+            rendered[name] = (graph, recorded_args(args, path, name), path)
 
         audio_cache: dict[str, object] = {}
         for size in models:
@@ -139,13 +176,13 @@ def listen_source(
     for hearing in hearings:
         (ears_dir / f"{hearing.ear.name}.txt").write_text(ear_text(hearing), encoding="utf-8")
         (ears_dir / f"{hearing.ear.name}.json").write_text(
-            json.dumps(hearing_json(hearing), indent=2, ensure_ascii=False) + "\n", encoding="utf-8",
+            json.dumps(hearing_json(hearing), indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8",
         )
     lyrics_path, lyrics = lyrics_for(source)
     timestamp = datetime.now(timezone.utc).isoformat(timespec="seconds")
     sidecar = build_sidecar(source, info, digest, hearings, config, lyrics_path, timestamp)
     (outdir / "sidecar.json").write_text(
-        json.dumps(sidecar, indent=2, ensure_ascii=False) + "\n", encoding="utf-8",
+        json.dumps(sidecar, indent=2, ensure_ascii=False, default=str) + "\n", encoding="utf-8",
     )
     sheet = render_sheet(source.name, info, digest, hearings, lyrics, lyrics_path.name if lyrics_path else None)
     (outdir / "sheet.md").write_text(sheet, encoding="utf-8")
@@ -178,6 +215,8 @@ def rebuild_sheet(sheet_dir: Path) -> Path:
     hearings = [by_name[record["ear"]] for record in sidecar["ears"] if record["ear"] in by_name]
     source = Path(src["path"])
     lyrics_path, lyrics = lyrics_for(source) if source.exists() else (None, None)
+    if lyrics is None and sidecar.get("lyrics"):
+        lyrics_path, lyrics = read_lyrics(Path(sidecar["lyrics"]))  # the source moved; the sidecar remembers
     sheet = render_sheet(src["name"], info, src["sha256"], hearings, lyrics, lyrics_path.name if lyrics_path else None)
     (sheet_dir / "sheet.md").write_text(sheet, encoding="utf-8")
     return sheet_dir / "sheet.md"

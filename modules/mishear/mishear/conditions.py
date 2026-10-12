@@ -80,8 +80,9 @@ def backwards(probe: Probe, settings: Settings) -> str | None:
 
 
 def crushed(probe: Probe, settings: Settings) -> str | None:
-    """6-bit bit crusher, fully wet."""
-    return chain("acrusher=bits=6:mix=1")
+    """6-bit bit crusher. In acrusher's bit reduction mix=0 is fully crushed and mix=1 is
+    the dry input (libavfilter/af_acrusher.c: k += (in - k) * mix), so mix=0 here."""
+    return chain("acrusher=bits=6:mix=0")
 
 
 CONDITIONS: dict[str, Condition] = {

@@ -33,7 +33,7 @@ backwards = true
 crushed = true
 
 [noise]
-level_db = -12.0   # pink noise level for "rain", dBFS
+level_db = -12.0   # gain on the "rain" pink noise generator (amplitude 1, about -14 dBFS RMS before this gain)
 seed = 0           # noise generator seed (fixed: same input, same sheet)
 
 [decode]
@@ -80,7 +80,7 @@ def load_config(path: Path | None = None) -> Config:
     conditions = {**defaults["conditions"], **raw.get("conditions", {})}
     return Config(
         path=path,
-        languages=tuple(raw.get("languages", defaults["languages"])),
+        languages=tuple(dict.fromkeys(str(lang) for lang in raw.get("languages", defaults["languages"]))),
         models_default=tuple(models["default"]),
         models_quick=tuple(models["quick"]),
         models_all=tuple(models["all"]),

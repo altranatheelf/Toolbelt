@@ -26,7 +26,7 @@ DECODE: dict = {
     "vad_filter": False,
     "no_speech_threshold": 0.6,
     "log_prob_threshold": None,
-    "compression_ratio_threshold": 2.4,
+    "compression_ratio_threshold": None,
 }
 
 
@@ -39,7 +39,8 @@ class Ear:
 
     @property
     def name(self) -> str:
-        return f"{self.condition}.{self.model}.{self.language}.{self.task}"
+        """File-safe: a model given as a Hugging Face repo id has a slash."""
+        return f"{self.condition}.{self.model.replace('/', '_')}.{self.language}.{self.task}"
 
     @property
     def label(self) -> str:
@@ -116,6 +117,9 @@ def decode_params(ear: Ear, config: Config) -> dict:
 
 def listen(model, audio: np.ndarray, ear: Ear, config: Config) -> list[Line]:
     """Run one ear over 16 kHz mono float32 audio. Output is kept exactly as heard."""
+    import ctranslate2
+
+    ctranslate2.set_random_seed(config.seed)  # nothing samples at temperature 0; set anyway and recorded
     params = decode_params(ear, config)
     segments, _info = model.transcribe(audio, **params)
     lines: list[Line] = []

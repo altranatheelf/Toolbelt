@@ -76,10 +76,12 @@ def test_clean_ear_end_to_end(standin, tmp_path):
     assert words and all(0.0 <= w["probability"] <= 1.0 for w in words)
 
 
-def test_two_runs_identical_sheet(standin, tmp_path):
-    first = (run(standin, tmp_path / "a", "--quick") / "sheet.md").read_bytes()
-    second = (run(standin, tmp_path / "b", "--quick") / "sheet.md").read_bytes()
-    assert first == second
+def test_two_runs_identical_sheet_and_ears(standin, tmp_path):
+    first = run(standin, tmp_path / "a", "--quick")
+    second = run(standin, tmp_path / "b", "--quick")
+    assert (first / "sheet.md").read_bytes() == (second / "sheet.md").read_bytes()
+    for ear in sorted(p.name for p in (first / "ears").iterdir()):
+        assert (first / "ears" / ear).read_bytes() == (second / "ears" / ear).read_bytes(), ear
 
 
 def test_source_untouched(standin, tmp_path):

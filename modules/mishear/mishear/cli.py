@@ -67,10 +67,16 @@ def main(argv: list[str] | None = None) -> int:
         if not sources:
             print(f"no audio files in {args.path}", file=sys.stderr)
             return 1
+        failed = 0
         for source in sources:
-            outdir = listen_source(source, ears, config, args.out, keep=args.keep)
+            try:
+                outdir = listen_source(source, ears, config, args.out, keep=args.keep)
+            except Exception as err:  # noqa: BLE001 - one bad file must not stop the folder
+                failed += 1
+                print(f"{source}: {err}", file=sys.stderr)
+                continue
             print(outdir / "sheet.md")
-        return 0
+        return 1 if failed else 0
     if args.command == "serve":
         from .serve import serve
 

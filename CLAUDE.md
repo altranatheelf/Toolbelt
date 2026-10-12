@@ -58,4 +58,5 @@
   - tiny hears " You" in digital silence (no_speech_prob 0.80, avg_logprob -0.93): the default whisper gate keeps it because the logprob override wins, so the gate runs on no_speech_prob alone
   - ffmpeg `pan=mono|c0=0.5*c0-0.5*c1` on a mono file silently ignores c1 and outputs the mono at half level, not a side channel; sideways on mono must be handled explicitly
   - the CLI must record the resolved source path: a relative path in the ffmpeg argv is not reproducible from another directory
+  - `acrusher=bits=6:mix=1` was a no-op: in acrusher's bit reduction mix=1 keeps the dry input and mix=0 is fully crushed (af_acrusher.c: `k += (in - k) * mix`); the crushed ear heard exactly what clean heard until a byte comparison of the renders showed it; a condition's render must be checked against clean, not just that ffmpeg accepted the filter
   - a second `license` line was added to pyproject.toml without reading it and pushed on the strength of a stale editable install; run `pip install -e .` and read the file before committing packaging changes

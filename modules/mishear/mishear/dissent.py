@@ -96,14 +96,19 @@ def windows(placed: list[Placed]) -> list[Window]:
     return result
 
 
+def hearing_key(text: str) -> str:
+    """What two hearings are compared by: normalized words, or the raw symbol when there are none."""
+    return normalize(text) or text.strip()
+
+
 def judge(window: Window) -> tuple[bool, float]:
     """Do the English-output ears disagree here, and how sure is the surest dissenter?
 
     The most common hearing is the reference when something is heard more than
     once; every other hearing dissents. When all hearings differ, every one dissents.
     """
-    cells = [c for c in window.cells.values() if english_output(c.ear) and normalize(c.text)]
-    texts = [normalize(c.text) for c in cells]
+    cells = [c for c in window.cells.values() if english_output(c.ear) and c.text.strip()]
+    texts = [hearing_key(c.text) for c in cells]
     if len(set(texts)) < 2:
         return False, 0.0
     top, count = Counter(texts).most_common(1)[0]
@@ -113,11 +118,13 @@ def judge(window: Window) -> tuple[bool, float]:
 
 
 def reference_ear(hearings: list[Hearing]) -> Hearing | None:
-    """The English ear that heard the most words, clean first."""
+    """The English ear that heard the most words: clean before degraded, en transcribe before translate."""
     candidates = [h for h in hearings if english_output(h.ear) and any(line.words for line in h.lines)]
     if not candidates:
         return None
-    return max(candidates, key=lambda h: (h.ear.condition == "clean", sum(len(l.words) for l in h.lines)))
+    return max(candidates, key=lambda h: (
+        h.ear.condition == "clean", h.ear.language == "en" and h.ear.task == "transcribe", sum(len(l.words) for l in h.lines),
+    ))
 
 
 def lyric_spans(reference: Hearing | None, lyrics: list[str], probe: Probe) -> list[tuple[float, float]]:
@@ -169,10 +176,14 @@ def real_line_at(spans: list[tuple[float, float]], lyrics: list[str], at: float)
 
 
 def differs_from(real: str | None, text: str) -> bool:
-    """Marks a hearing whose words are not in the real line. Only meaningful for English output."""
+    """A hearing differs when its words are not a run of whole words in the real line."""
     if real is None:
         return False
-    return normalize(text) not in normalize(real)
+    heard = normalize(text).split()
+    words = normalize(real).split()
+    if not heard:
+        return bool(text.strip())
+    return not any(words[i:i + len(heard)] == heard for i in range(len(words) - len(heard) + 1))
 
 
 def dissent(hearings: list[Hearing], probe: Probe, lyrics: list[str] | None) -> list[Window]:

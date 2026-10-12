@@ -8,8 +8,9 @@ from .ears import Ear, Hearing
 
 
 def fmt_time(seconds: float) -> str:
-    minutes, rest = divmod(max(seconds, 0.0), 60)
-    return f"{int(minutes)}:{rest:05.2f}"
+    centis = round(max(seconds, 0.0) * 100)
+    minutes, rest = divmod(centis, 6000)
+    return f"{minutes}:{rest / 100:05.2f}"
 
 
 def column_key(hearing: Hearing) -> tuple[str, str, str]:
@@ -110,7 +111,7 @@ def render_pile(lines: list[str]) -> str:
     parts = ["## Pile"]
     if lines:
         parts.append("")
-        parts += [f"- {cell_text(line)}" for line in lines]
+        parts += [f"- {line}" for line in lines]  # as heard: no escaping outside a table
     return "\n".join(parts)
 
 
