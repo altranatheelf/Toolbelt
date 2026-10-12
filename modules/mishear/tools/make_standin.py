@@ -47,7 +47,9 @@ def main() -> None:
             "[0:a]apad=whole_dur=20,atrim=0:20,aformat=sample_rates=16000:channel_layouts=mono[v];"
             "[v][sw]amix=inputs=2:duration=first:normalize=0[a]",
             "-map", "[a]", "-ar", "16000", "-ac", "1", "-c:a", "pcm_s16le", "-t", "20", str(out)], check=True)
-    (out.with_suffix(".txt")).write_text(TEXT + "\n")
+    # the lyrics file: one line per sentence, as a real lyrics file has one line per line
+    lines = [part.strip() for part in TEXT.replace(". ", ".\n").splitlines() if part.strip()]
+    (out.with_suffix(".txt")).write_text("\n".join(lines) + "\n")
     (out.parent / "STANDIN.md").write_text(
         f"standin.wav is a STAND-IN, not a recording: synthetic voice ({engine}) over a sine sweep, 20 s, 16 kHz mono, "
         "made by tools/make_standin.py. Replace with a real 20-second recording owned by the maintainer as sample.wav (+ sample.txt lyrics).\n")

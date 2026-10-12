@@ -88,7 +88,10 @@ def load_model(size: str, config: Config):
         repo = _MODELS.get(size, size)
     except ImportError:  # pragma: no cover
         repo = size
-    path = Path(download_model(size))
+    try:
+        path = Path(download_model(size, local_files_only=True))  # cached: no network
+    except Exception:
+        path = Path(download_model(size))  # first run: download once into the Hugging Face cache
     snapshot = path.name if path.parent.name == "snapshots" else None
     model = WhisperModel(
         str(path), device="cpu", compute_type=config.compute_type, cpu_threads=config.cpu_threads,
