@@ -57,7 +57,8 @@ const sources = ['dsp.mjs', 'sheet.mjs', 'ears.mjs', 'app.mjs'].map((name) => {
 }).join('\n');
 
 const template = readFileSync(join(web, 'page.html'), 'utf8');
-const page = template.replace('{{VENDOR}}', () => escape(vendor)).replace('{{APP}}', () => escape(sources));
+const build = new Date().toISOString().slice(0, 16).replace('T', ' ') + 'Z';
+const page = template.replace('{{VENDOR}}', () => escape(vendor)).replace('{{APP}}', () => escape(sources.replace('{{BUILD}}', build)));
 const out = join(root, 'modules', 'mishear.html');
 writeFileSync(out, page);
 console.log('wrote', out, (page.length / 1e6).toFixed(2), 'MB');

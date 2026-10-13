@@ -50,11 +50,14 @@
   .sheet td.t { font-family: var(--mono); white-space: nowrap; } .sheet td.ne { color: var(--flag); } .sheet td.real { font-weight: 600; min-width: 160px; }
   .past { display: grid; grid-template-columns: minmax(0, 1fr) auto; gap: 6px 10px; align-items: center; padding: 8px 0; border-bottom: 1px solid var(--line); }
   .past .t { font-weight: 600; overflow-wrap: anywhere; }
+  #lastRun pre { margin-top: 6px; max-height: 20vh; } #lastRun button { align-self: flex-start; }
   details summary { cursor: pointer; color: var(--muted); font-size: 13px; }
 </style>
 </head>
 <body>
 <header><a href="../index.html">‹ Toolbelt</a><b>Mishear</b><span class="spacer"></span><span id="device" class="pill">checking this device…</span></header>
+
+<section class="card warn" id="lastRun" hidden></section>
 
 <section class="card" id="listen">
   <h2>Listen</h2>
@@ -84,7 +87,7 @@
 </section>
 
 <section class="card">
-  <details><summary>How it works, and the Mac engine</summary>
+  <details><summary>How it works, and the Mac engine <span id="build" class="faint"></span></summary>
     <p class="muted">Each condition is an ffmpeg filter ported to JavaScript (lowpass 800 Hz for <i>wall</i>, a telephone band with a compressor for <i>radio</i>, tape and helium speed changes, ffmpeg's own seeded pink noise for <i>rain</i>, the side channel for <i>sideways</i>, <i>backwards</i>, a 6-bit crusher). Whisper runs through transformers.js on the GPU when the browser offers it, otherwise on the CPU, decoding greedily at temperature 0. The Dissent table aligns words across ears by time and marks hearings that differ from the real line when you give one. The sheet, the sidecar with every parameter, and the ear files are saved together as one .zip.</p>
     <p class="muted">The same tool runs as a Python command with faster-whisper on a Mac (<code>modules/mishear</code>): beam search, the <i>medium</i> model, and the sheet written straight to a folder. The two share the conditions and the sheet format.</p>
   </details>

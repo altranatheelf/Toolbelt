@@ -2,6 +2,7 @@
 // and the sheet (sheet.mjs). Nothing here touches the network except the one-time model download.
 
 const TOOL_VERSION = '0.1.0';
+const BUILD = '{{BUILD}}';
 const AUDIO_SUFFIXES = /\.(wav|mp3|m4a|aac|flac|aiff?|ogg|opus|caf|mp4|mov|m4v|webm)$/i;
 
 function mainApp() {
@@ -46,6 +47,29 @@ function mainApp() {
     }
     return Tp;
   }
+  // Model files are fetched one at a time and streamed straight into the cache transformers.js reads
+  // from, so the download never holds a whole model in memory (WebKit kills a tab that does).
+  async function predownload(size, device, onProgress) {
+    if (typeof caches === 'undefined') return;
+    const cache = await caches.open('transformers-cache');
+    const urls = modelFiles(size, device);
+    for (let i = 0; i < urls.length; i++) {
+      const url = urls[i];
+      if (await cache.match(url)) continue;
+      const name = url.split('/').pop();
+      const res = await fetch(url);
+      if (!res.ok || !res.body) throw new Error(`${name}: HTTP ${res.status}`);
+      const total = Number(res.headers.get('content-length')) || 0;
+      let done = 0;
+      const counted = res.body.pipeThrough(new TransformStream({
+        transform(chunk, controller) { done += chunk.byteLength; onProgress(name, total ? done / total : 0, done); controller.enqueue(chunk); },
+      }));
+      const headers = new Headers(res.headers);
+      headers.delete('content-encoding'); headers.delete('content-length');
+      await cache.put(url, new Response(counted, { status: 200, headers }));
+      onProgress(name, 1, done);
+    }
+  }
   const models = new Map(); // size -> bundle
   async function deviceName() {
     if (!navigator.gpu) return 'wasm';
@@ -65,6 +89,8 @@ function mainApp() {
     if (!models.has(key)) {
       const T = await transformers();
       try {
+        await predownload(size, device, (file, fraction, bytes) => progress(fraction, `downloading ${size} · ${file} ${Math.round(fraction * 100)}% (${(bytes / 1e6).toFixed(0)} MB)`));
+        progress(0, `loading ${size} into memory…`);
         models.set(key, await loadModel(T, size, { device, progress: onProgress }));
       } catch (err) {
         if (device === 'webgpu') { log(`WebGPU failed (${err.message}); using WebAssembly`); return model(size, 'wasm', onProgress); }
@@ -123,8 +149,23 @@ function mainApp() {
 
   // ---------- one source, start to sheet
   let cancelled = false;
-  function log(message) { const el = $('#log'); el.hidden = false; el.textContent += message + '\n'; el.scrollTop = el.scrollHeight; }
-  function progress(fraction, text) { $('#progress').style.width = Math.round(Math.max(0, Math.min(1, fraction)) * 100) + '%'; if (text != null) $('#state').textContent = text; }
+  // Every step is written to localStorage as it happens: if iOS kills and reloads the page, the next
+  // load shows where it died instead of pretending nothing happened.
+  function remember(phase) { try { localStorage.setItem('mishear.lastRun', JSON.stringify({ phase, state: $('#state').textContent, log: $('#log').textContent.split('\n').slice(-6).join('\n'), at: new Date().toISOString(), build: BUILD })); } catch (e) {} }
+  function forget() { try { localStorage.removeItem('mishear.lastRun'); } catch (e) {} }
+  function log(message) { const el = $('#log'); el.hidden = false; el.textContent += message + '\n'; el.scrollTop = el.scrollHeight; remember('running'); }
+  function progress(fraction, text) { $('#progress').style.width = Math.round(Math.max(0, Math.min(1, fraction)) * 100) + '%'; if (text != null) { $('#state').textContent = text; remember('running'); } }
+  (function showLastRun() {
+    let last = null;
+    try { last = JSON.parse(localStorage.getItem('mishear.lastRun') || 'null'); } catch (e) { last = null; }
+    if (!last || last.phase !== 'running') return;
+    const box = $('#lastRun'); box.hidden = false;
+    box.textContent = '';
+    box.appendChild(h('b', { text: 'The page was reloaded during the last run. ' }));
+    box.appendChild(document.createTextNode(`It had got to: "${last.state}" (${last.at.slice(0, 16).replace('T', ' ')}, build ${last.build}). On a phone that usually means the browser ran out of memory; try the tiny model, or close other tabs and apps.`));
+    if (last.log) box.appendChild(h('pre', { text: last.log }));
+    box.appendChild(h('button', { text: 'Dismiss', onclick: () => { forget(); box.hidden = true; } }));
+  })();
 
   async function listenToFile(file, lyricsFile, opts) {
     const started = Date.now();
@@ -161,7 +202,7 @@ function mainApp() {
     const markdown = renderSheet(file.name, probe, decoded.digest, hearings, lyrics, lyricsFile ? lyricsFile.name : null);
     const timestamp = new Date().toISOString().replace(/\.\d{3}Z$/, '+00:00');
     const sidecar = {
-      tool: { name: 'mishear-web', version: TOOL_VERSION, engine: 'browser', user_agent: navigator.userAgent },
+      tool: { name: 'mishear-web', version: TOOL_VERSION, build: BUILD, engine: 'browser', user_agent: navigator.userAgent },
       timestamp,
       source: { name: file.name, sha256: decoded.digest, bytes: decoded.bytes, duration: probe.duration, decoded_sample_rate: RATE, channels: decoded.originalChannels },
       lyrics: lyricsFile ? lyricsFile.name : null,
@@ -206,6 +247,7 @@ function mainApp() {
   }
   $('#gpu').addEventListener('change', () => { currentOpts('wasm'); showDevice(); });
   showDevice();
+  $('#build').textContent = 'build ' + BUILD;
 
   $('#cancel').onclick = () => { cancelled = true; $('#cancel').disabled = true; };
   $('#go').onclick = async () => {
@@ -222,12 +264,12 @@ function mainApp() {
         const lyricsFile = txts.find((t) => t.name.replace(/\.[^.]+$/, '') === stem) || null;
         last = await listenToFile(file, lyricsFile, opts);
       }
-      progress(1, 'done'); $('#state').className = 'good';
+      progress(1, 'done'); $('#state').className = 'good'; forget();
       if (last) showSheet(last);
       loadSheets();
     } catch (err) {
       $('#state').textContent = err.message === 'stopped' ? 'stopped' : String(err.message || err); $('#state').className = err.message === 'stopped' ? 'muted' : 'bad';
-      log(String(err.stack || err));
+      log(String(err.stack || err)); remember('failed');
     } finally { $('#go').disabled = false; $('#cancel').hidden = true; }
   };
 

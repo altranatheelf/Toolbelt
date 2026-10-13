@@ -15,6 +15,17 @@ export const MODELS = {
   small: { repo: 'onnx-community/whisper-small_timestamped', dtype: { webgpu: 'fp16', wasm: 'q8' }, mb: { fp16: 485, q8: 249 } },
 };
 
+const DTYPE_SUFFIX = { fp32: '', fp16: '_fp16', q8: '_quantized', int8: '_int8', q4: '_q4', q4f16: '_q4f16' };
+
+/** The files from_pretrained will ask for, small ones first, as Hugging Face URLs. */
+export function modelFiles(size, device) {
+  const spec = MODELS[size];
+  const suffix = DTYPE_SUFFIX[spec.dtype[device] || 'q8'] ?? '';
+  const base = `https://huggingface.co/${spec.repo}/resolve/main/`;
+  return ['config.json', 'generation_config.json', 'preprocessor_config.json', 'tokenizer_config.json', 'tokenizer.json',
+    `onnx/encoder_model${suffix}.onnx`, `onnx/decoder_model_merged${suffix}.onnx`].map((f) => base + f);
+}
+
 export function makeRecorder(T) {
   // Softmax probability of the token the greedy sampler will pick, at every decode step.
   return new (class extends T.LogitsProcessor {
