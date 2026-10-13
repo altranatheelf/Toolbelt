@@ -37,6 +37,7 @@
   .warn { color: var(--flag); } .bad { color: var(--bad); } .good { color: var(--keep); }
   .opts { display: grid; grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); gap: 8px; }
   label.f { display: flex; flex-direction: column; gap: 4px; font-size: 13px; color: var(--muted); }
+  label.c { display: flex; align-items: center; gap: 8px; font-size: 13px; color: var(--muted); }
   .bar { height: 6px; background: var(--well); border-radius: 3px; overflow: hidden; } .bar div { height: 100%; width: 0; background: var(--keep); transition: width .3s; }
   pre { background: var(--well); border-radius: 8px; padding: 10px; font: 12px/1.45 var(--mono); white-space: pre-wrap; overflow-wrap: anywhere; margin: 0; max-height: 30vh; overflow: auto; }
   code { font: 13px var(--mono); background: var(--well); padding: 1px 5px; border-radius: 4px; }
@@ -62,9 +63,10 @@
     <label class="f">Audio (one or more files)<input id="audio" type="file" multiple accept=".wav,.mp3,.m4a,.aac,.flac,.aiff,.aif,.ogg,.opus,.caf,.mp4,.mov,.m4v,.webm,audio/*"></label>
     <label class="f">Real lines, optional (a .txt named like the audio)<input id="lyrics" type="file" multiple accept=".txt,text/plain"></label>
     <label class="f">Grid<select id="mode"><option value="quick">quick · clean, wall, sideways</option><option value="default">default · all nine conditions, plus clean & wall in the forced languages</option><option value="all">all · every condition in every language</option></select></label>
-    <label class="f">Model<select id="model"><option value="tiny">tiny · fastest, rough (152 MB once)</option><option value="base">base · recommended (77–291 MB once)</option><option value="small">small · best, slow on a phone (249–485 MB once)</option></select></label>
+    <label class="f">Model<select id="model"><option value="tiny">tiny</option><option value="base">base</option><option value="small">small</option></select></label>
     <label class="f">Forced languages<input id="langs" type="text" value="el, ro" autocapitalize="off" autocomplete="off" spellcheck="false"></label>
   </div>
+  <label class="c" id="gpuRow" hidden><input id="gpu" type="checkbox"> use the GPU (experimental on a phone: faster, but the page may be killed for memory)</label>
   <div id="earsPreview" class="faint"></div>
   <div class="row"><button id="go" class="primary">Listen</button><button id="cancel" hidden>Stop</button><span id="state" class="muted"></span></div>
   <div class="bar"><div id="progress"></div></div>

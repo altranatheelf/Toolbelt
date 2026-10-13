@@ -14,7 +14,9 @@ function mainApp() {
   }
 
   // ---------- settings (per device)
-  const DEFAULTS = { mode: 'quick', model: 'base', languages: 'el, ro', noiseDb: -12, seed: 0 };
+  const DEFAULTS = { mode: 'quick', model: 'base', languages: 'el, ro', noiseDb: -12, seed: 0, gpu: false };
+  // iPhones and iPads report as touch Macs since iPadOS 13; WebKit's per-tab memory is far below a laptop's
+  const PHONE = /iPhone|iPad|iPod|Android/i.test(navigator.userAgent) || (navigator.platform === 'MacIntel' && navigator.maxTouchPoints > 1);
   function settings() {
     let saved = {};
     try { saved = JSON.parse(localStorage.getItem('mishear.settings') || '{}'); } catch (e) { saved = {}; }
@@ -47,7 +49,16 @@ function mainApp() {
   const models = new Map(); // size -> bundle
   async function deviceName() {
     if (!navigator.gpu) return 'wasm';
+    if (PHONE && !$('#gpu').checked) return 'wasm'; // the GPU runtime plus a full-precision model is what kills the tab on a phone
     try { const adapter = await navigator.gpu.requestAdapter(); return adapter ? 'webgpu' : 'wasm'; } catch (e) { return 'wasm'; }
+  }
+  function modelLabels(device) {
+    for (const option of $('#model').options) {
+      const spec = MODELS[option.value];
+      const dtype = spec.dtype[device] || 'q8';
+      const note = { tiny: 'fastest, rough', base: 'recommended', small: PHONE ? 'best, slow and may crash a phone' : 'best, slow' }[option.value];
+      option.textContent = `${option.value} · ${note} · ${spec.mb[dtype]} MB once`;
+    }
   }
   async function model(size, device, onProgress) {
     const key = `${size}:${device}`;
@@ -174,9 +185,10 @@ function mainApp() {
 
   // ---------- page
   const s0 = settings();
-  $('#mode').value = s0.mode; $('#model').value = s0.model; $('#langs').value = s0.languages;
+  $('#mode').value = s0.mode; $('#model').value = s0.model; $('#langs').value = s0.languages; $('#gpu').checked = Boolean(s0.gpu);
+  $('#gpuRow').hidden = !navigator.gpu || !PHONE;
   function currentOpts(device) {
-    const s = { mode: $('#mode').value, model: $('#model').value, languages: $('#langs').value, noiseDb: s0.noiseDb, seed: s0.seed };
+    const s = { mode: $('#mode').value, model: $('#model').value, languages: $('#langs').value, noiseDb: s0.noiseDb, seed: s0.seed, gpu: $('#gpu').checked };
     saveSettings(s);
     return { ...s, forced: forcedLanguages(s.languages), device };
   }
@@ -187,7 +199,13 @@ function mainApp() {
   }
   ['#mode', '#model', '#langs'].forEach((sel) => { $(sel).addEventListener('change', earsPreview); });
   earsPreview();
-  deviceName().then((d) => { $('#device').textContent = d === 'webgpu' ? 'on this device · GPU' : 'on this device · CPU'; $('#device').className = 'pill on'; });
+  async function showDevice() {
+    const d = await deviceName();
+    $('#device').textContent = d === 'webgpu' ? 'on this device · GPU' : 'on this device · CPU'; $('#device').className = 'pill on';
+    modelLabels(d);
+  }
+  $('#gpu').addEventListener('change', () => { currentOpts('wasm'); showDevice(); });
+  showDevice();
 
   $('#cancel').onclick = () => { cancelled = true; $('#cancel').disabled = true; };
   $('#go').onclick = async () => {

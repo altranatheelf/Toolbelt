@@ -8,8 +8,9 @@ import { RATE } from './dsp.mjs';
 export const WINDOW_SECONDS = 30;
 export const NO_SPEECH_THRESHOLD = 0.6;
 
+// dtype per device. Phones always get the 8-bit files: WebKit kills a tab that holds a 291 MB model.
 export const MODELS = {
-  tiny: { repo: 'onnx-community/whisper-tiny_timestamped', dtype: { webgpu: 'fp32', wasm: 'fp32' }, mb: { fp32: 152, q8: 41 } },
+  tiny: { repo: 'onnx-community/whisper-tiny_timestamped', dtype: { webgpu: 'fp32', wasm: 'q8' }, mb: { fp32: 152, q8: 41 } },
   base: { repo: 'onnx-community/whisper-base_timestamped', dtype: { webgpu: 'fp32', wasm: 'q8' }, mb: { fp32: 291, q8: 77 } },
   small: { repo: 'onnx-community/whisper-small_timestamped', dtype: { webgpu: 'fp16', wasm: 'q8' }, mb: { fp16: 485, q8: 249 } },
 };
